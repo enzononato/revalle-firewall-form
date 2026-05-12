@@ -169,6 +169,9 @@
     const cargo = document.getElementById('cargo').value.trim();
     if (!cargo) { setFieldError('cargo', 'Informe o cargo.'); errors.push('Cargo'); }
 
+    const setor = document.getElementById('setor').value.trim();
+    if (!setor) { setFieldError('setor', 'Selecione o setor.'); errors.push('Setor'); }
+
     const funcao = document.getElementById('funcao').value.trim();
     if (!funcao) { setFieldError('funcao', 'Informe a funcao.'); errors.push('Funcao'); }
 
@@ -186,16 +189,10 @@
     }
 
     const justificativa = document.getElementById('justificativa').value.trim();
-    if (!justificativa) {
-      setFieldError('justificativa', 'Informe a justificativa.'); errors.push('Justificativa');
-    } else if (justificativa.length < 10) {
-      setFieldError('justificativa', 'Justificativa muito curta (min. 10 caracteres).');
-      errors.push('Justificativa');
-    }
 
     return {
       valid: errors.length === 0,
-      payload: { unidade, nome_completo: nome, cpf: cpfDigits, cargo, funcao, urls, justificativa },
+      payload: { unidade, nome_completo: nome, cpf: cpfDigits, cargo, setor, funcao, urls, justificativa },
     };
   }
 

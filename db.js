@@ -22,18 +22,23 @@ pool.on('error', (err) => {
 
 const CREATE_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS firewall_requests (
-    id           SERIAL PRIMARY KEY,
-    unidade      VARCHAR(50)  NOT NULL,
+    id            SERIAL PRIMARY KEY,
+    unidade       VARCHAR(50)  NOT NULL,
     nome_completo VARCHAR(200) NOT NULL,
-    cpf          VARCHAR(11)  NOT NULL,
-    cargo        VARCHAR(150) NOT NULL,
-    funcao       VARCHAR(150) NOT NULL,
-    urls         TEXT[]       NOT NULL,
-    justificativa TEXT        NOT NULL,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    cpf           VARCHAR(11)  NOT NULL,
+    cargo         VARCHAR(150) NOT NULL,
+    setor         VARCHAR(50)  NOT NULL DEFAULT '',
+    funcao        VARCHAR(150) NOT NULL,
+    urls          TEXT[]       NOT NULL,
+    justificativa TEXT         NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS idx_firewall_requests_created_at
     ON firewall_requests (created_at DESC);
+  ALTER TABLE firewall_requests
+    ADD COLUMN IF NOT EXISTS setor VARCHAR(50) NOT NULL DEFAULT '';
+  ALTER TABLE firewall_requests
+    ALTER COLUMN justificativa SET DEFAULT '';
 `;
 
 async function initDb() {
@@ -49,8 +54,8 @@ async function initDb() {
 async function insertRequest(data) {
   const sql = `
     INSERT INTO firewall_requests
-      (unidade, nome_completo, cpf, cargo, funcao, urls, justificativa)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (unidade, nome_completo, cpf, cargo, setor, funcao, urls, justificativa)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING id, created_at
   `;
   const params = [
@@ -58,6 +63,7 @@ async function insertRequest(data) {
     data.nome_completo,
     data.cpf,
     data.cargo,
+    data.setor,
     data.funcao,
     data.urls,
     data.justificativa,

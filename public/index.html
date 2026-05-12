@@ -69,7 +69,24 @@
             <small class="error" data-error-for="cargo"></small>
           </div>
 
-          <div class="field full">
+          <div class="field">
+            <label for="setor">Setor <span class="req">*</span></label>
+            <select id="setor" name="setor" required>
+              <option value="" disabled selected>Selecione o setor</option>
+              <option value="101 - Puxada">101 - Puxada</option>
+              <option value="201 - Armazem">201 - Armazem</option>
+              <option value="301 - ADM">301 - ADM</option>
+              <option value="401 - Vendas">401 - Vendas</option>
+              <option value="501 - Entrega">501 - Entrega</option>
+              <option value="701 - Jovem Aprendiz">701 - Jovem Aprendiz</option>
+              <option value="801 - ADM - CSC">801 - ADM - CSC</option>
+              <option value="802 - Vendas - CSC">802 - Vendas - CSC</option>
+              <option value="803 - Entrega - CSC">803 - Entrega - CSC</option>
+            </select>
+            <small class="error" data-error-for="setor"></small>
+          </div>
+
+          <div class="field">
             <label for="funcao">Funcao <span class="req">*</span></label>
             <input type="text" id="funcao" name="funcao" maxlength="150" required />
             <small class="error" data-error-for="funcao"></small>
@@ -87,9 +104,9 @@
             <small class="error" data-error-for="urls"></small>
           </div>
 
-          <div class="field full">
-            <label for="justificativa">Justificativa <span class="req">*</span></label>
-            <textarea id="justificativa" name="justificativa" rows="4" maxlength="2000" placeholder="Explique por que esses sites precisam ser desbloqueados." required></textarea>
+          <div class="field full" hidden>
+            <label for="justificativa">Justificativa</label>
+            <textarea id="justificativa" name="justificativa" rows="4" maxlength="2000" placeholder="Explique por que esses sites precisam ser desbloqueados."></textarea>
             <small class="error" data-error-for="justificativa"></small>
           </div>
         </div>

@@ -15,6 +15,18 @@ const UNIDADES_VALIDAS = [
   'Revalle Bonfim',
 ];
 
+const SETORES_VALIDOS = [
+  '101 - Puxada',
+  '201 - Armazem',
+  '301 - ADM',
+  '401 - Vendas',
+  '501 - Entrega',
+  '701 - Jovem Aprendiz',
+  '801 - ADM - CSC',
+  '802 - Vendas - CSC',
+  '803 - Entrega - CSC',
+];
+
 const MAX_URLS = 20;
 
 app.disable('x-powered-by');
@@ -90,6 +102,10 @@ function validatePayload(body) {
   const cargo = trimStr(body.cargo, 150);
   if (!cargo) errors.push('Cargo e obrigatorio.');
 
+  const setor = trimStr(body.setor, 50);
+  if (!setor) errors.push('Setor e obrigatorio.');
+  else if (!SETORES_VALIDOS.includes(setor)) errors.push('Setor invalido.');
+
   const funcao = trimStr(body.funcao, 150);
   if (!funcao) errors.push('Funcao e obrigatoria.');
 
@@ -103,9 +119,7 @@ function validatePayload(body) {
   }
   const normalizedUrls = urls.map(normalizeUrl);
 
-  const justificativa = trimStr(body.justificativa, 2000);
-  if (!justificativa) errors.push('Justificativa e obrigatoria.');
-  else if (justificativa.length < 10) errors.push('Justificativa muito curta (minimo 10 caracteres).');
+  const justificativa = trimStr(body.justificativa || '', 2000);
 
   return {
     errors,
@@ -114,6 +128,7 @@ function validatePayload(body) {
       nome_completo,
       cpf: cpfDigits,
       cargo,
+      setor,
       funcao,
       urls: normalizedUrls,
       justificativa,
