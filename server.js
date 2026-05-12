@@ -151,8 +151,8 @@ app.use((_req, res) => res.status(404).json({ ok: false, errors: ['Rota nao enco
 (async () => {
   try {
     await initDb();
-    app.listen(PORT, () => {
-      console.log(`[server] rodando em http://localhost:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[server] rodando em 0.0.0.0:${PORT}`);
     });
   } catch (err) {
     console.error('[server] falha ao iniciar:', err);
