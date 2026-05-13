@@ -263,4 +263,23 @@
       if (errEl) errEl.textContent = '';
     }
   });
+
+  /* ---------- Modal ---------- */
+  const infoModal = document.getElementById('infoModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+
+  if (infoModal && closeModalBtn) {
+    if (!sessionStorage.getItem('revalle_modal_seen')) {
+      setTimeout(() => {
+        infoModal.classList.add('is-active');
+        infoModal.removeAttribute('aria-hidden');
+      }, 300); // pequeno delay para animação de entrada
+    }
+
+    closeModalBtn.addEventListener('click', () => {
+      infoModal.classList.remove('is-active');
+      infoModal.setAttribute('aria-hidden', 'true');
+      sessionStorage.setItem('revalle_modal_seen', 'true');
+    });
+  }
 })();

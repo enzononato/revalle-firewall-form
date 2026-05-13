@@ -19,6 +19,41 @@
     <div class="blob blob-3"></div>
   </div>
 
+  <!-- Info Modal -->
+  <div class="modal-overlay" id="infoModal" aria-hidden="true">
+    <div class="modal-content glass-panel">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        </div>
+        <h2>Orientações Importantes</h2>
+      </div>
+      <div class="modal-body">
+        <p>Preencha o formulário para solicitar a liberação de sites necessários para suas atividades profissionais. As informações enviadas serão analisadas pela equipe de TI.</p>
+        
+        <div class="modal-highlight">
+          <strong>💡 Dica:</strong> Informe todos os sites que você utiliza regularmente de uma só vez para agilizar o processo de validação.
+        </div>
+        
+        <ul class="modal-list">
+          <li>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>Informe o endereço completo do site (ex: <i>https://www.site.com.br</i>).</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <span>Evite solicitações de sites pessoais ou não relacionados às atividades da empresa.</span>
+          </li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="closeModalBtn">
+          Estou ciente e quero continuar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
