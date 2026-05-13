@@ -175,6 +175,12 @@
     const funcao = document.getElementById('funcao').value.trim();
     if (!funcao) { setFieldError('funcao', 'Informe a funcao.'); errors.push('Funcao'); }
 
+    const email = document.getElementById('email').value.trim();
+    if (!email) { setFieldError('email', 'Informe o e-mail.'); errors.push('Email'); }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFieldError('email', 'E-mail invalido.'); errors.push('Email');
+    }
+
     const urlInputs = Array.from(urlsList.querySelectorAll('input'));
     const urls = urlInputs.map((i) => i.value.trim()).filter(Boolean);
     if (urls.length === 0) {
@@ -192,7 +198,7 @@
 
     return {
       valid: errors.length === 0,
-      payload: { unidade, nome_completo: nome, cpf: cpfDigits, cargo, setor, funcao, urls, justificativa },
+      payload: { unidade, nome_completo: nome, cpf: cpfDigits, cargo, setor, funcao, email, urls, justificativa },
     };
   }
 
