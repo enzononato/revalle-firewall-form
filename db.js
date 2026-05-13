@@ -20,41 +20,43 @@ pool.on('error', (err) => {
   console.error('[db] erro inesperado no pool do Postgres:', err);
 });
 
-const CREATE_TABLE_SQL = `
-  CREATE TABLE IF NOT EXISTS firewall_requests (
-    id                SERIAL PRIMARY KEY,
-    unidade           VARCHAR(50)  NOT NULL,
-    nome_completo     VARCHAR(200) NOT NULL,
-    cpf               VARCHAR(11)  NOT NULL,
-    cargo             VARCHAR(150) NOT NULL,
-    setor             VARCHAR(50)  NOT NULL DEFAULT '',
-    funcao            VARCHAR(150) NOT NULL,
-    email             VARCHAR(200) NOT NULL DEFAULT '',
-    urls              TEXT[]       NOT NULL,
-    justificativa     TEXT         NOT NULL DEFAULT '',
-    status            VARCHAR(20)  NOT NULL DEFAULT 'pending',
-    token             VARCHAR(64)  NOT NULL DEFAULT '',
-    motivo_reprovacao TEXT         DEFAULT NULL,
-    resolved_at       TIMESTAMPTZ  DEFAULT NULL,
-    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_firewall_requests_created_at
-    ON firewall_requests (created_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_firewall_requests_token
-    ON firewall_requests (token) WHERE token <> '';
-  ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS setor             VARCHAR(50)  NOT NULL DEFAULT '';
-  ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS email             VARCHAR(200) NOT NULL DEFAULT '';
-  ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS status            VARCHAR(20)  NOT NULL DEFAULT 'pending';
-  ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS token             VARCHAR(64)  NOT NULL DEFAULT '';
-  ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS motivo_reprovacao TEXT         DEFAULT NULL;
-  ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS resolved_at       TIMESTAMPTZ  DEFAULT NULL;
-  ALTER TABLE firewall_requests ALTER COLUMN justificativa SET DEFAULT '';
-`;
-
 async function initDb() {
   const client = await pool.connect();
   try {
-    await client.query(CREATE_TABLE_SQL);
+    // 1. Cria a tabela se nao existir (instalacao nova)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS firewall_requests (
+        id                SERIAL PRIMARY KEY,
+        unidade           VARCHAR(50)  NOT NULL,
+        nome_completo     VARCHAR(200) NOT NULL,
+        cpf               VARCHAR(11)  NOT NULL,
+        cargo             VARCHAR(150) NOT NULL,
+        setor             VARCHAR(50)  NOT NULL DEFAULT '',
+        funcao            VARCHAR(150) NOT NULL,
+        email             VARCHAR(200) NOT NULL DEFAULT '',
+        urls              TEXT[]       NOT NULL,
+        justificativa     TEXT         NOT NULL DEFAULT '',
+        status            VARCHAR(20)  NOT NULL DEFAULT 'pending',
+        token             VARCHAR(64)  NOT NULL DEFAULT '',
+        motivo_reprovacao TEXT         DEFAULT NULL,
+        resolved_at       TIMESTAMPTZ  DEFAULT NULL,
+        created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // 2. Adiciona colunas que podem nao existir em tabelas antigas
+    await client.query(`ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS setor             VARCHAR(50)  NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS email             VARCHAR(200) NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS status            VARCHAR(20)  NOT NULL DEFAULT 'pending'`);
+    await client.query(`ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS token             VARCHAR(64)  NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS motivo_reprovacao TEXT         DEFAULT NULL`);
+    await client.query(`ALTER TABLE firewall_requests ADD COLUMN IF NOT EXISTS resolved_at       TIMESTAMPTZ  DEFAULT NULL`);
+    await client.query(`ALTER TABLE firewall_requests ALTER COLUMN justificativa SET DEFAULT ''`);
+
+    // 3. Cria indices apos garantir que as colunas existem
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_firewall_requests_created_at ON firewall_requests (created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_firewall_requests_token ON firewall_requests (token) WHERE token <> ''`);
+
     console.log('[db] tabela firewall_requests pronta');
   } finally {
     client.release();
