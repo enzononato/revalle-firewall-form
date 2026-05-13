@@ -17,15 +17,23 @@ const UNIDADES_VALIDAS = [
 ];
 
 const SETORES_VALIDOS = [
-  '101 - Puxada',
-  '201 - Armazem',
-  '301 - ADM',
-  '401 - Vendas',
-  '501 - Entrega',
-  '701 - Jovem Aprendiz',
-  '801 - ADM - CSC',
-  '802 - Vendas - CSC',
-  '803 - Entrega - CSC',
+  'DIRETORIA',
+  'FINANCEIRO',
+  'CONTROLADORIA',
+  'CONTABILIDADE',
+  'DP',
+  'RH',
+  'TST',
+  'CULTURA',
+  'COMPRAS',
+  'VENDAS',
+  'MARKETING',
+  'LOGISTICA',
+  'DISTRIBUICAO',
+  'ARMAZEM',
+  'PUXADA',
+  'PROCESSOS',
+  'TI',
 ];
 
 const MAX_URLS = 20;
