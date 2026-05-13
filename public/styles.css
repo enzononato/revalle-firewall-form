@@ -101,7 +101,7 @@ body {
 }
 
 .brand-logo {
-  height: 48px;
+  height: 80px;
   width: auto;
   object-fit: contain;
 }
@@ -525,6 +525,7 @@ input:focus, select:focus, textarea:focus {
   .glass-panel { padding: 28px 20px; border-radius: 20px; }
   .card-head h1 { font-size: 26px; }
   .brand-name { font-size: 28px; }
+  .brand-logo { height: 56px; }
   .url-remove { width: 44px; }
   .protocol-wrapper { padding: 20px; width: 100%; }
   .protocol-number { font-size: 28px; }
