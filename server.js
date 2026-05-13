@@ -1,6 +1,7 @@
 const path = require('path');
 const express = require('express');
 const { initDb, insertRequest } = require('./db');
+const { sendRequestEmail } = require('./mailer');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -151,6 +152,10 @@ app.post('/api/submit', async (req, res) => {
   }
   try {
     const saved = await insertRequest(data);
+
+    sendRequestEmail({ id: saved.id, created_at: saved.created_at, data })
+      .catch((err) => console.error('[mailer] falha ao enviar e-mail:', err));
+
     return res.status(201).json({ ok: true, id: saved.id, created_at: saved.created_at });
   } catch (err) {
     console.error('[submit] erro ao salvar solicitacao:', err);
