@@ -583,8 +583,26 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-muted);
   font-size: 16px;
   line-height: 1.6;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   text-align: center;
+}
+
+.modal-highlight {
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  color: #0f766e;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  margin: 28px 0;
+  line-height: 1.5;
+}
+
+.modal-highlight strong {
+  color: #115e59;
+  display: block;
+  margin-bottom: 4px;
+  font-size: 16px;
 }
 
 .modal-list {
@@ -659,5 +677,6 @@ input:focus, select:focus, textarea:focus {
   .modal-icon { width: 48px; height: 48px; margin-bottom: 12px; }
   .modal-header h2 { font-size: 22px; }
   .modal-body p { font-size: 14.5px; }
+  .modal-highlight { padding: 14px; margin: 20px 0; font-size: 14px; }
   .modal-list li { font-size: 14px; gap: 10px; margin-bottom: 12px; }
 }
