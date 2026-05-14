@@ -479,16 +479,20 @@ input:focus, select:focus, textarea:focus {
 .protocol-wrapper {
   background: rgba(255, 255, 255, 0.8);
   border: 1px dashed #cbd5e1;
-  padding: 24px 40px;
+  padding: 32px 40px;
   border-radius: var(--radius-lg);
-  margin-bottom: 40px;
+  margin-bottom: 0;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .protocol-label {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -501,6 +505,18 @@ input:focus, select:focus, textarea:focus {
   font-weight: 700;
   color: var(--brand-blue);
   letter-spacing: 2px;
+}
+
+.protocol-divider {
+  width: 100%;
+  height: 1px;
+  background: #cbd5e1;
+  margin: 24px 0;
+  opacity: 0.5;
+}
+
+.protocol-wrapper .btn {
+  width: 100%;
 }
 
 /* Modal */
@@ -567,26 +583,8 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-muted);
   font-size: 16px;
   line-height: 1.6;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
   text-align: center;
-}
-
-.modal-highlight {
-  background: #f0fdfa;
-  border: 1px solid #ccfbf1;
-  color: #0f766e;
-  padding: 16px 20px;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  margin: 28px 0;
-  line-height: 1.5;
-}
-
-.modal-highlight strong {
-  color: #115e59;
-  display: block;
-  margin-bottom: 4px;
-  font-size: 16px;
 }
 
 .modal-list {
@@ -661,6 +659,5 @@ input:focus, select:focus, textarea:focus {
   .modal-icon { width: 48px; height: 48px; margin-bottom: 12px; }
   .modal-header h2 { font-size: 22px; }
   .modal-body p { font-size: 14.5px; }
-  .modal-highlight { padding: 14px; margin: 20px 0; font-size: 14px; }
   .modal-list li { font-size: 14px; gap: 10px; margin-bottom: 12px; }
 }
