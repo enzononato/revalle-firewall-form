@@ -41,10 +41,15 @@ const SETORES_VALIDOS = [
 
 const MAX_URLS = 20;
 
+const REVENDAS_CONTRATOS_VALIDAS = [
+  ...UNIDADES_VALIDAS,
+  'Grupo',
+];
+
 const SETORES_CONTRATOS_VALIDOS = [
   'DIRETORIA', 'FINANCEIRO', 'CONTROLADORIA', 'CONTABILIDADE', 'DP', 'RH', 'TST',
   'CULTURA', 'COMPRAS', 'VENDAS', 'MARKETING', 'LOGISTICA', 'DISTRIBUICAO',
-  'ARMAZEM', 'PUXADA', 'PROCESSOS', 'TI', 'GRUPO',
+  'ARMAZEM', 'PUXADA', 'PROCESSOS', 'TI',
 ];
 
 const upload = multer({
@@ -131,7 +136,7 @@ function validateContractPayload(body, file) {
 
   const revenda = trimStr(body.revenda, 50);
   if (!revenda) errors.push('Revenda e obrigatoria.');
-  else if (!UNIDADES_VALIDAS.includes(revenda)) errors.push('Revenda invalida.');
+  else if (!REVENDAS_CONTRATOS_VALIDAS.includes(revenda)) errors.push('Revenda invalida.');
 
   const razao_social = trimStr(body.razao_social, 200);
   if (!razao_social) errors.push('Razao social e obrigatoria.');
