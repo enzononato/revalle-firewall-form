@@ -61,6 +61,10 @@ app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/contratos', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'contratos.html'));
+});
+
 function onlyDigits(s) {
   return String(s || '').replace(/\D+/g, '');
 }
@@ -148,10 +152,9 @@ function validateContractPayload(body, file) {
   else if (!/^\d{4}-\d{2}-\d{2}$/.test(vigencia_inicio)) errors.push('Data inicial invalida.');
 
   const vigencia_fim = trimStr(body.vigencia_fim || '', 10);
-  if (vigencia_fim) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(vigencia_fim)) errors.push('Data final invalida.');
-    else if (vigencia_fim < vigencia_inicio) errors.push('Data final deve ser igual ou posterior a data inicial.');
-  }
+  if (!vigencia_fim) errors.push('Data final da vigencia e obrigatoria.');
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(vigencia_fim)) errors.push('Data final invalida.');
+  else if (vigencia_fim < vigencia_inicio) errors.push('Data final deve ser igual ou posterior a data inicial.');
 
   const dono_servico = trimStr(body.dono_servico, 200);
   if (!dono_servico) errors.push('Dono do servico e obrigatorio.');
@@ -167,7 +170,7 @@ function validateContractPayload(body, file) {
     errors,
     data: {
       revenda, razao_social, cnpj: cnpjDigits, pessoa_contato,
-      telefone: telefoneDigits, vigencia_inicio, vigencia_fim: vigencia_fim || null,
+      telefone: telefoneDigits, vigencia_inicio, vigencia_fim,
       dono_servico, setor,
       arquivo_nome: file ? file.originalname : '',
       arquivo_dados: file ? file.buffer : null,

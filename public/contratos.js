@@ -172,7 +172,8 @@
     if (!vigencia_inicio) { setFieldError('vigencia_inicio', 'Informe a data inicial.'); errors.push('Vigencia Inicio'); }
 
     const vigencia_fim = document.getElementById('vigencia_fim').value;
-    if (vigencia_fim && vigencia_inicio && vigencia_fim < vigencia_inicio) {
+    if (!vigencia_fim) { setFieldError('vigencia_fim', 'Informe a data final.'); errors.push('Vigencia Fim'); }
+    else if (vigencia_inicio && vigencia_fim < vigencia_inicio) {
       setFieldError('vigencia_fim', 'Data final deve ser igual ou posterior a data inicial.');
       errors.push('Vigencia Fim');
     }
