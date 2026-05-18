@@ -238,6 +238,7 @@ label {
 
 input[type="text"],
 input[type="email"],
+input[type="date"],
 select,
 textarea {
   width: 100%;
@@ -250,6 +251,22 @@ textarea {
   color: var(--text-main);
   transition: var(--transition);
   outline: none;
+}
+
+/* Date Picker modern styling */
+input[type="date"] {
+  appearance: none;
+  -webkit-appearance: none;
+  color: var(--text-main);
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: var(--transition);
+  padding: 4px;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 
 input.has-icon {
