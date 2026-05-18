@@ -58,6 +58,30 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_firewall_requests_token ON firewall_requests (token) WHERE token <> ''`);
 
     console.log('[db] tabela firewall_requests pronta');
+
+    // ── contract_requests ──────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS contract_requests (
+        id              SERIAL PRIMARY KEY,
+        revenda         VARCHAR(50)  NOT NULL,
+        razao_social    VARCHAR(200) NOT NULL,
+        cnpj            VARCHAR(14)  NOT NULL,
+        pessoa_contato  VARCHAR(200) NOT NULL,
+        telefone        VARCHAR(11)  NOT NULL,
+        vigencia_inicio DATE         NOT NULL,
+        vigencia_fim    DATE         DEFAULT NULL,
+        dono_servico    VARCHAR(200) NOT NULL,
+        setor           VARCHAR(50)  NOT NULL,
+        arquivo_nome    VARCHAR(255) NOT NULL,
+        arquivo_dados   BYTEA        NOT NULL,
+        arquivo_token   VARCHAR(64)  NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contract_requests_created_at ON contract_requests (created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contract_requests_arquivo_token ON contract_requests (arquivo_token) WHERE arquivo_token <> ''`);
+
+    console.log('[db] tabela contract_requests pronta');
   } finally {
     client.release();
   }
@@ -112,4 +136,30 @@ async function rejectRequest(id, motivo) {
   );
 }
 
-module.exports = { pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest };
+async function insertContract(data) {
+  const sql = `
+    INSERT INTO contract_requests
+      (revenda, razao_social, cnpj, pessoa_contato, telefone,
+       vigencia_inicio, vigencia_fim, dono_servico, setor,
+       arquivo_nome, arquivo_dados, arquivo_token)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    RETURNING id, created_at
+  `;
+  const params = [
+    data.revenda, data.razao_social, data.cnpj, data.pessoa_contato, data.telefone,
+    data.vigencia_inicio, data.vigencia_fim || null, data.dono_servico, data.setor,
+    data.arquivo_nome, data.arquivo_dados, data.arquivo_token,
+  ];
+  const { rows } = await pool.query(sql, params);
+  return rows[0];
+}
+
+async function findContractByIdAndToken(id, token) {
+  const { rows } = await pool.query(
+    'SELECT * FROM contract_requests WHERE id = $1 AND arquivo_token = $2 LIMIT 1',
+    [id, token]
+  );
+  return rows[0] || null;
+}
+
+module.exports = { pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest, insertContract, findContractByIdAndToken };

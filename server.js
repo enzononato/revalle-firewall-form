@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
-const { initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest } = require('./db');
-const { sendRequestEmail, sendApprovedEmail, sendRejectedEmail } = require('./mailer');
+const multer = require('multer');
+const { initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest, insertContract, findContractByIdAndToken } = require('./db');
+const { sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail } = require('./mailer');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -39,6 +40,21 @@ const SETORES_VALIDOS = [
 ];
 
 const MAX_URLS = 20;
+
+const SETORES_CONTRATOS_VALIDOS = [
+  'DIRETORIA', 'FINANCEIRO', 'CONTROLADORIA', 'CONTABILIDADE', 'DP', 'RH', 'TST',
+  'CULTURA', 'COMPRAS', 'VENDAS', 'MARKETING', 'LOGISTICA', 'DISTRIBUICAO',
+  'ARMAZEM', 'PUXADA', 'PROCESSOS', 'TI', 'GRUPO',
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(Object.assign(new Error('Apenas arquivos PDF sao aceitos.'), { code: 'INVALID_TYPE' }));
+  },
+});
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
@@ -89,6 +105,74 @@ function trimStr(v, max) {
 
 function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+}
+
+function isValidCnpj(cnpj) {
+  const d = String(cnpj || '').replace(/\D/g, '');
+  if (d.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(d)) return false;
+  const calc = (str, weights) => {
+    let sum = 0;
+    for (let i = 0; i < weights.length; i++) sum += Number(str[i]) * weights[i];
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  if (calc(d, [5,4,3,2,9,8,7,6,5,4,3,2]) !== Number(d[12])) return false;
+  if (calc(d, [6,5,4,3,2,9,8,7,6,5,4,3,2]) !== Number(d[13])) return false;
+  return true;
+}
+
+function validateContractPayload(body, file) {
+  const errors = [];
+
+  const revenda = trimStr(body.revenda, 50);
+  if (!revenda) errors.push('Revenda e obrigatoria.');
+  else if (!UNIDADES_VALIDAS.includes(revenda)) errors.push('Revenda invalida.');
+
+  const razao_social = trimStr(body.razao_social, 200);
+  if (!razao_social) errors.push('Razao social e obrigatoria.');
+
+  const cnpjDigits = onlyDigits(body.cnpj);
+  if (!cnpjDigits) errors.push('CNPJ e obrigatorio.');
+  else if (!isValidCnpj(cnpjDigits)) errors.push('CNPJ invalido.');
+
+  const pessoa_contato = trimStr(body.pessoa_contato, 200);
+  if (!pessoa_contato) errors.push('Pessoa de contato e obrigatoria.');
+
+  const telefoneDigits = onlyDigits(body.telefone);
+  if (!telefoneDigits) errors.push('Telefone e obrigatorio.');
+  else if (telefoneDigits.length !== 11) errors.push('Telefone invalido (informe DDD + 9 digitos).');
+
+  const vigencia_inicio = trimStr(body.vigencia_inicio, 10);
+  if (!vigencia_inicio) errors.push('Data inicial da vigencia e obrigatoria.');
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(vigencia_inicio)) errors.push('Data inicial invalida.');
+
+  const vigencia_fim = trimStr(body.vigencia_fim || '', 10);
+  if (vigencia_fim) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(vigencia_fim)) errors.push('Data final invalida.');
+    else if (vigencia_fim < vigencia_inicio) errors.push('Data final deve ser igual ou posterior a data inicial.');
+  }
+
+  const dono_servico = trimStr(body.dono_servico, 200);
+  if (!dono_servico) errors.push('Dono do servico e obrigatorio.');
+  else if (!dono_servico.includes(' ')) errors.push('Informe nome e sobrenome do dono do servico.');
+
+  const setor = trimStr(body.setor, 50);
+  if (!setor) errors.push('Setor e obrigatorio.');
+  else if (!SETORES_CONTRATOS_VALIDOS.includes(setor)) errors.push('Setor invalido.');
+
+  if (!file) errors.push('Envie o contrato em PDF.');
+
+  return {
+    errors,
+    data: {
+      revenda, razao_social, cnpj: cnpjDigits, pessoa_contato,
+      telefone: telefoneDigits, vigencia_inicio, vigencia_fim: vigencia_fim || null,
+      dono_servico, setor,
+      arquivo_nome: file ? file.originalname : '',
+      arquivo_dados: file ? file.buffer : null,
+    },
+  };
 }
 
 function validatePayload(body) {
@@ -343,6 +427,57 @@ app.post('/api/reject/:token', async (req, res) => {
     console.error('[reject] erro:', err);
     return res.status(500).send(pageShell('Erro', `<div class="card center"><h2>Erro interno</h2><p>Tente novamente em instantes.</p></div>`));
   }
+});
+
+/* ── Contratos ── */
+
+app.post('/api/contratos/submit', (req, res, next) => {
+  upload.single('arquivo')(req, res, (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Arquivo muito grande. Limite de 10MB.'
+        : err.code === 'INVALID_TYPE'
+          ? 'Apenas arquivos PDF sao aceitos.'
+          : 'Erro no upload do arquivo.';
+      return res.status(400).json({ ok: false, errors: [msg] });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const { errors, data } = validateContractPayload(req.body || {}, req.file || null);
+  if (errors.length) return res.status(400).json({ ok: false, errors });
+
+  try {
+    const arquivo_token = crypto.randomBytes(32).toString('hex');
+    const saved = await insertContract({ ...data, arquivo_token });
+
+    sendContractEmail({ id: saved.id, created_at: saved.created_at, data, arquivo_token, appUrl: APP_URL })
+      .catch((err) => console.error('[mailer] falha ao enviar e-mail de contrato:', err));
+
+    return res.status(201).json({ ok: true, id: saved.id });
+  } catch (err) {
+    console.error('[contratos/submit] erro:', err);
+    return res.status(500).json({ ok: false, errors: ['Erro interno ao salvar o contrato. Tente novamente.'] });
+  }
+});
+
+app.get('/api/contratos/:id/pdf', async (req, res) => {
+  const id = Number(req.params.id);
+  const token = String(req.query.token || '');
+
+  if (!id || !token) return res.status(400).send('Parametros invalidos.');
+
+  const contract = await findContractByIdAndToken(id, token).catch(() => null);
+  if (!contract) return res.status(403).send(pageShell('Acesso negado', `
+    <div class="card center">
+      <div class="icon icon-err"><svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+      <h2>Acesso negado</h2><p>Link invalido ou expirado.</p>
+    </div>`));
+
+  const filename = encodeURIComponent(contract.arquivo_nome || `contrato-${id}.pdf`);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+  res.send(contract.arquivo_dados);
 });
 
 app.use((_req, res) => res.status(404).json({ ok: false, errors: ['Rota nao encontrada.'] }));

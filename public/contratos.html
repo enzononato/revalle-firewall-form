@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0033A0" />
+  <title>Revalle - Envio de Contratos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .file-zone {
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--white);
+    }
+    .file-zone:hover, .file-zone.drag-over {
+      border-color: var(--blue);
+      background: var(--blue-50);
+    }
+    .file-zone.has-file {
+      border-color: #1f8a4c;
+      background: #f0faf4;
+    }
+    .file-zone input[type="file"] { display: none; }
+    .file-icon { font-size: 32px; margin-bottom: 8px; line-height: 1; }
+    .file-label { font-size: 14px; font-weight: 600; color: var(--text); }
+    .file-hint  { font-size: 12.5px; color: var(--text-soft); margin-top: 4px; }
+    .file-name  { font-size: 13px; font-weight: 600; color: #1f8a4c; margin-top: 6px; word-break: break-all; }
+    .field.has-error .file-zone { border-color: var(--error); background: var(--error-bg); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">R</div>
+        <div class="brand-text">
+          <span class="brand-name">revalle</span>
+          <span class="brand-tag">Revenda e Distribuicao Ambev</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card" id="formCard">
+      <div class="card-head">
+        <h1>Envio de Contratos</h1>
+        <p class="lead">
+          Preencha os dados do contrato e anexe o PDF assinado com todas as assinaturas devidas.
+        </p>
+      </div>
+
+      <form id="contractForm" novalidate>
+        <div class="grid">
+
+          <div class="field">
+            <label for="revenda">Revenda <span class="req">*</span></label>
+            <select id="revenda" name="revenda" required>
+              <option value="" disabled selected>Selecione a revenda</option>
+              <option value="Revalle Juazeiro">Revalle Juazeiro</option>
+              <option value="Revalle Petrolina">Revalle Petrolina</option>
+              <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
+              <option value="Revalle Serrinha">Revalle Serrinha</option>
+              <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
+              <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
+              <option value="Revalle Bonfim">Revalle Bonfim</option>
+            </select>
+            <small class="error" data-error-for="revenda"></small>
+          </div>
+
+          <div class="field">
+            <label for="setor">Setor <span class="req">*</span></label>
+            <select id="setor" name="setor" required>
+              <option value="" disabled selected>Selecione o setor</option>
+              <option>DIRETORIA</option>
+              <option>FINANCEIRO</option>
+              <option>CONTROLADORIA</option>
+              <option>CONTABILIDADE</option>
+              <option>DP</option>
+              <option>RH</option>
+              <option>TST</option>
+              <option>CULTURA</option>
+              <option>COMPRAS</option>
+              <option>VENDAS</option>
+              <option>MARKETING</option>
+              <option>LOGISTICA</option>
+              <option>DISTRIBUICAO</option>
+              <option>ARMAZEM</option>
+              <option>PUXADA</option>
+              <option>PROCESSOS</option>
+              <option>TI</option>
+              <option>GRUPO</option>
+            </select>
+            <small class="error" data-error-for="setor"></small>
+          </div>
+
+          <div class="field full">
+            <label for="razao_social">Razao Social (Fornecedor) <span class="req">*</span></label>
+            <input type="text" id="razao_social" name="razao_social" maxlength="200" required />
+            <small class="error" data-error-for="razao_social"></small>
+          </div>
+
+          <div class="field">
+            <label for="cnpj">CNPJ (Fornecedor) <span class="req">*</span></label>
+            <input type="text" id="cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" maxlength="18" required />
+            <small class="error" data-error-for="cnpj"></small>
+          </div>
+
+          <div class="field">
+            <label for="telefone">Telefone do Fornecedor <span class="req">*</span></label>
+            <input type="text" id="telefone" name="telefone" inputmode="numeric" placeholder="(00) 00000-0000" maxlength="15" required />
+            <small class="error" data-error-for="telefone"></small>
+          </div>
+
+          <div class="field full">
+            <label for="pessoa_contato">Pessoa de Contato <span class="req">*</span></label>
+            <input type="text" id="pessoa_contato" name="pessoa_contato" maxlength="200" required />
+            <small class="error" data-error-for="pessoa_contato"></small>
+          </div>
+
+          <div class="field full">
+            <label for="dono_servico">Dono do Servico (Gestor) <span class="req">*</span></label>
+            <input type="text" id="dono_servico" name="dono_servico" maxlength="200"
+                   placeholder="Nome e Sobrenome" required />
+            <small class="error" data-error-for="dono_servico"></small>
+          </div>
+
+          <div class="field">
+            <label for="vigencia_inicio">Vigencia — Data Inicial <span class="req">*</span></label>
+            <input type="date" id="vigencia_inicio" name="vigencia_inicio" required />
+            <small class="error" data-error-for="vigencia_inicio"></small>
+          </div>
+
+          <div class="field">
+            <label for="vigencia_fim">Vigencia — Data Final <span style="color:var(--text-soft);font-weight:400">(opcional)</span></label>
+            <input type="date" id="vigencia_fim" name="vigencia_fim" />
+            <small class="error" data-error-for="vigencia_fim"></small>
+          </div>
+
+          <div class="field full">
+            <label>Contrato (PDF assinado) <span class="req">*</span></label>
+            <div class="file-zone" id="fileZone">
+              <input type="file" id="arquivo" name="arquivo" accept="application/pdf" />
+              <div class="file-icon">📄</div>
+              <div class="file-label" id="fileLabel">Clique ou arraste o PDF aqui</div>
+              <div class="file-hint">Apenas PDF &bull; Maximo 10 MB</div>
+              <div class="file-name" id="fileName" hidden></div>
+            </div>
+            <small class="error" data-error-for="arquivo"></small>
+          </div>
+
+        </div>
+
+        <div id="globalError" class="global-error" hidden></div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <span class="btn-label">Enviar contrato</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card card-success" id="successCard" hidden>
+      <div class="success-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="56" height="56"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+      </div>
+      <h2>Contrato enviado!</h2>
+      <p>O contrato foi recebido e encaminhado ao time responsavel.</p>
+      <p class="protocol">Protocolo: <strong id="protocolNumber">-</strong></p>
+      <button type="button" class="btn btn-secondary" id="newRequestBtn">Enviar outro contrato</button>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; <span id="year"></span> Revalle - Revenda e Distribuicao Ambev</p>
+  </footer>
+
+  <script src="/contratos.js"></script>
+</body>
+</html>

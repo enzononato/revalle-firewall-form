@@ -4,7 +4,8 @@ const SMTP_HOST = process.env.SMTP_HOST || 'mail.revalle.com.br';
 const SMTP_PORT = Number(process.env.SMTP_PORT) || 465;
 const SMTP_USER = process.env.SMTP_USER || 'projetos.ti@revalle.com.br';
 const SMTP_PASS = process.env.SMTP_PASS || '';
-const SMTP_TO   = process.env.SMTP_TO   || SMTP_USER;
+const SMTP_TO           = process.env.SMTP_TO            || SMTP_USER;
+const SMTP_TO_CONTRATOS = process.env.SMTP_TO_CONTRATOS  || SMTP_USER;
 
 let transporter = null;
 
@@ -301,4 +302,100 @@ async function sendRejectedEmail({ id, data, motivo }) {
   console.log(`[mailer] e-mail reprovacao enviado: ${info.messageId}`);
 }
 
-module.exports = { sendRequestEmail, sendApprovedEmail, sendRejectedEmail };
+/* ── E-mail para contratos@revalle.com.br ── */
+
+function formatCnpj(digits) {
+  return String(digits || '').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+}
+
+function formatPhone(digits) {
+  return String(digits || '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+}
+
+function formatDateBr(isoDate) {
+  if (!isoDate) return '—';
+  const [y, m, d] = String(isoDate).split('T')[0].split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function buildContractHtml({ id, created_at, data, arquivo_token, appUrl }) {
+  const proto = '#' + String(id).padStart(5, '0');
+  const date  = formatDate(new Date(created_at));
+  const pdfUrl = `${appUrl}/api/contratos/${id}/pdf?token=${arquivo_token}`;
+
+  const vigencia = data.vigencia_fim
+    ? `${formatDateBr(data.vigencia_inicio)} ate ${formatDateBr(data.vigencia_fim)}`
+    : `A partir de ${formatDateBr(data.vigencia_inicio)} (sem data final)`;
+
+  const fornecedorFields = [
+    ['Razao Social',      esc(data.razao_social)],
+    ['CNPJ',              esc(formatCnpj(data.cnpj))],
+    ['Pessoa de Contato', esc(data.pessoa_contato)],
+    ['Telefone',          esc(formatPhone(data.telefone))],
+  ];
+  const contratoFields = [
+    ['Revenda',       esc(data.revenda)],
+    ['Setor',         esc(data.setor)],
+    ['Vigencia',      esc(vigencia)],
+    ['Dono do Servico', esc(data.dono_servico)],
+  ];
+
+  const buildRows = (fields) => fields.map(([label, value]) => `
+    <tr>
+      <td style="padding:10px 14px;width:38%;background:#f8f9fc;border-bottom:1px solid #eaecf3;
+                 font-size:13px;font-weight:600;color:#5b6478;white-space:nowrap;">${label}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eaecf3;font-size:14px;color:#1a1f36;">${value}</td>
+    </tr>`).join('');
+
+  const section = (title, rows) => `
+    <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#0033A0;letter-spacing:.8px;text-transform:uppercase;">${title}</p>
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="border:1px solid #eaecf3;border-radius:8px;overflow:hidden;border-collapse:collapse;margin-bottom:24px;">
+      ${rows}
+    </table>`;
+
+  return emailShell(`[Contratos] Novo contrato ${proto} — ${data.razao_social}`, `
+    ${headerBlock(`Novo Contrato Recebido &nbsp;&bull;&nbsp; ${esc(proto)}`)}
+    <tr><td style="background:#fff;padding:28px;border-radius:0 0 12px 12px;
+                   box-shadow:0 8px 24px rgba(16,24,40,.08);">
+      <p style="margin:0 0 20px;font-size:13px;color:#5b6478;">
+        Recebido em <strong style="color:#1a1f36;">${date}</strong>
+      </p>
+      ${section('Fornecedor', buildRows(fornecedorFields))}
+      ${section('Contrato', buildRows(contratoFields))}
+      <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#0033A0;letter-spacing:.8px;text-transform:uppercase;">
+        Documento
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+        <tr>
+          <td>
+            <a href="${esc(pdfUrl)}"
+               style="display:block;text-align:center;padding:14px;background:#0033A0;color:#fff;
+                      text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">
+              Abrir contrato em PDF
+            </a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:10px 0 0;font-size:12px;color:#b0b7c8;text-align:center;">
+        Arquivo: ${esc(data.arquivo_nome)}
+      </p>
+    </td></tr>`);
+}
+
+async function sendContractEmail({ id, created_at, data, arquivo_token, appUrl }) {
+  if (!SMTP_PASS) {
+    console.warn('[mailer] SMTP_PASS nao configurada — e-mail de contrato nao enviado.');
+    return;
+  }
+  const proto = '#' + String(id).padStart(5, '0');
+  const info = await getTransporter().sendMail({
+    from: `"Revalle TI" <${SMTP_USER}>`,
+    to: SMTP_TO_CONTRATOS,
+    subject: `[Contratos] Novo contrato ${proto} — ${data.razao_social} (${data.revenda})`,
+    html: buildContractHtml({ id, created_at, data, arquivo_token, appUrl }),
+  });
+  console.log(`[mailer] e-mail contrato enviado: ${info.messageId}`);
+}
+
+module.exports = { sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail };
