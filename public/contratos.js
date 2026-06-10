@@ -12,7 +12,9 @@
   const fileZone    = document.getElementById('fileZone');
   const fileInput   = document.getElementById('arquivo');
   const fileLabel   = document.getElementById('fileLabel');
-  const fileName    = document.getElementById('fileName');
+  const fileListEl  = document.getElementById('fileList');
+
+  let selectedFiles = [];
 
   yearEl.textContent = new Date().getFullYear();
 
@@ -66,36 +68,186 @@
     return true;
   }
 
-  /* ---------- File zone ---------- */
-  function setFile(file) {
-    if (!file) return;
-    if (file.type !== 'application/pdf') {
+  /* ---------- File zone (Multiple Files) ---------- */
+  function updateFilesUI() {
+    fileListEl.innerHTML = '';
+    
+    if (selectedFiles.length === 0) {
+      fileLabel.textContent = 'Clique ou arraste o(s) PDF(s) aqui';
+      fileZone.classList.remove('has-file');
+      fileInput.value = '';
+    } else {
+      fileLabel.textContent = 'Adicionar mais PDF(s)...';
+      fileZone.classList.add('has-file');
+      
+      // Sync with fileInput using DataTransfer
+      const dt = new DataTransfer();
+      selectedFiles.forEach((file) => dt.items.add(file));
+      fileInput.files = dt.files;
+      
+      // Render list
+      selectedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        
+        const info = document.createElement('div');
+        info.className = 'file-item-info';
+        
+        const icon = document.createElement('span');
+        icon.className = 'file-item-icon';
+        icon.textContent = '📄';
+        
+        const name = document.createElement('span');
+        name.className = 'file-item-name';
+        name.textContent = file.name;
+        
+        const size = document.createElement('span');
+        size.className = 'file-item-size';
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        size.textContent = `(${sizeMb} MB)`;
+        
+        info.appendChild(icon);
+        info.appendChild(name);
+        info.appendChild(size);
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'file-item-remove';
+        removeBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        `;
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectedFiles.splice(index, 1);
+          updateFilesUI();
+        });
+        
+        item.appendChild(info);
+        item.appendChild(removeBtn);
+        fileListEl.appendChild(item);
+      });
+    }
+  }
+
+  function handleFilesSelection(files) {
+    if (!files) return;
+    
+    let hasInvalid = false;
+    let hasTooLarge = false;
+    
+    Array.from(files).forEach((file) => {
+      if (file.type !== 'application/pdf') {
+        hasInvalid = true;
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        hasTooLarge = true;
+        return;
+      }
+      // Avoid duplicates
+      const exists = selectedFiles.some((f) => f.name === file.name && f.size === file.size);
+      if (!exists) {
+        selectedFiles.push(file);
+      }
+    });
+    
+    if (hasInvalid) {
       setFieldError('arquivo', 'Apenas arquivos PDF sao aceitos.');
-      return;
+    } else if (hasTooLarge) {
+      setFieldError('arquivo', 'Um ou mais arquivos excedem o limite de 10 MB.');
+    } else {
+      clearFieldError('arquivo');
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setFieldError('arquivo', 'Arquivo muito grande. Limite de 10 MB.');
-      return;
-    }
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
-    fileLabel.textContent = 'Arquivo selecionado:';
-    fileName.textContent = file.name;
-    fileName.hidden = false;
-    fileZone.classList.add('has-file');
-    clearFieldError('arquivo');
+    
+    updateFilesUI();
   }
 
   fileZone.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+  fileInput.addEventListener('change', () => {
+    handleFilesSelection(fileInput.files);
+  });
 
   fileZone.addEventListener('dragover', (e) => { e.preventDefault(); fileZone.classList.add('drag-over'); });
   fileZone.addEventListener('dragleave', () => fileZone.classList.remove('drag-over'));
   fileZone.addEventListener('drop', (e) => {
     e.preventDefault();
     fileZone.classList.remove('drag-over');
-    setFile(e.dataTransfer.files[0]);
+    handleFilesSelection(e.dataTransfer.files);
+  });
+
+  /* ---------- Custom Multiselect ---------- */
+  const multiselect = document.getElementById('revendaMultiselect');
+  const selectBox = multiselect.querySelector('.multiselect-select');
+  const checkboxes = multiselect.querySelectorAll('.multiselect-option input[type="checkbox"]');
+  const placeholder = multiselect.querySelector('.multiselect-placeholder');
+  const hiddenRevendaInput = document.getElementById('revenda');
+
+  selectBox.addEventListener('click', (e) => {
+    e.stopPropagation();
+    multiselect.classList.toggle('is-open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!multiselect.contains(e.target)) {
+      multiselect.classList.remove('is-open');
+    }
+  });
+
+  function updateMultiselect() {
+    const selected = [];
+    checkboxes.forEach((cb) => {
+      if (cb.checked) selected.push(cb.value);
+    });
+
+    let tagsContainer = selectBox.querySelector('.multiselect-tags');
+    if (!tagsContainer) {
+      tagsContainer = document.createElement('div');
+      tagsContainer.className = 'multiselect-tags';
+      selectBox.insertBefore(tagsContainer, selectBox.querySelector('.multiselect-arrow'));
+    }
+    tagsContainer.innerHTML = '';
+
+    if (selected.length === 0) {
+      placeholder.style.display = 'block';
+      tagsContainer.remove();
+      selectBox.classList.remove('has-value');
+      hiddenRevendaInput.value = '';
+    } else {
+      placeholder.style.display = 'none';
+      selected.forEach((val) => {
+        const tag = document.createElement('span');
+        tag.className = 'multiselect-tag';
+        tag.textContent = val;
+
+        const removeBtn = document.createElement('span');
+        removeBtn.className = 'multiselect-tag-remove';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cb = Array.from(checkboxes).find(c => c.value === val);
+          if (cb) {
+            cb.checked = false;
+            updateMultiselect();
+          }
+        });
+
+        tag.appendChild(removeBtn);
+        tagsContainer.appendChild(tag);
+      });
+      selectBox.classList.add('has-value');
+      hiddenRevendaInput.value = selected.join(', ');
+    }
+
+    if (selected.length > 0) {
+      clearFieldError('revenda');
+    }
+  }
+
+  checkboxes.forEach((cb) => {
+    cb.addEventListener('change', updateMultiselect);
   });
 
   /* ---------- Erros ---------- */
@@ -144,7 +296,7 @@
     const errors = [];
 
     const revenda = document.getElementById('revenda').value.trim();
-    if (!revenda) { setFieldError('revenda', 'Selecione a revenda.'); errors.push('Revenda'); }
+    if (!revenda) { setFieldError('revenda', 'Selecione pelo menos uma revenda.'); errors.push('Revenda'); }
 
     const setor = document.getElementById('setor').value.trim();
     if (!setor) { setFieldError('setor', 'Selecione o setor.'); errors.push('Setor'); }
@@ -178,8 +330,8 @@
       errors.push('Vigencia Fim');
     }
 
-    if (!fileInput.files || !fileInput.files[0]) {
-      setFieldError('arquivo', 'Anexe o contrato em PDF.');
+    if (selectedFiles.length === 0) {
+      setFieldError('arquivo', 'Anexe pelo menos um contrato em PDF.');
       errors.push('Arquivo');
     }
 
@@ -195,7 +347,7 @@
     e.preventDefault();
     const { valid, fields } = collectAndValidate();
     if (!valid) {
-      const firstErr = form.querySelector('.has-error input, .has-error select');
+      const firstErr = form.querySelector('.has-error input:not([type="hidden"]), .has-error select, .has-error textarea, .has-error [tabindex="0"]');
       if (firstErr) firstErr.focus({ preventScroll: false });
       return;
     }
@@ -206,7 +358,9 @@
     try {
       const fd = new FormData();
       Object.entries(fields).forEach(([k, v]) => { if (v) fd.append(k, v); });
-      fd.append('arquivo', fileInput.files[0]);
+      selectedFiles.forEach((file) => {
+        fd.append('arquivo', file);
+      });
 
       const res = await fetch('/api/contratos/submit', { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
@@ -233,11 +387,10 @@
 
   newReqBtn.addEventListener('click', () => {
     form.reset();
-    fileInput.value = '';
-    fileLabel.textContent = 'Clique ou arraste o PDF aqui';
-    fileName.textContent = '';
-    fileName.hidden = true;
-    fileZone.classList.remove('has-file');
+    selectedFiles = [];
+    updateFilesUI();
+    checkboxes.forEach((cb) => cb.checked = false);
+    updateMultiselect();
     clearErrors();
     successCard.hidden = true;
     formCard.hidden = false;

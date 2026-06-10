@@ -131,12 +131,22 @@ function isValidCnpj(cnpj) {
   return true;
 }
 
-function validateContractPayload(body, file) {
+function validateContractPayload(body, files) {
   const errors = [];
 
-  const revenda = trimStr(body.revenda, 50);
-  if (!revenda) errors.push('Revenda e obrigatoria.');
-  else if (!REVENDAS_CONTRATOS_VALIDAS.includes(revenda)) errors.push('Revenda invalida.');
+  const revendaRaw = typeof body.revenda === 'string' ? body.revenda : '';
+  const revendaList = revendaRaw.split(',').map((r) => r.trim()).filter(Boolean);
+  
+  if (revendaList.length === 0) {
+    errors.push('Revenda e obrigatoria.');
+  } else {
+    const invalidRevendas = revendaList.filter(r => !REVENDAS_CONTRATOS_VALIDAS.includes(r));
+    if (invalidRevendas.length > 0) {
+      errors.push('Uma ou mais revendas selecionadas sao invalidas.');
+    }
+  }
+  
+  const revenda = trimStr(revendaList.join(', '), 500);
 
   const razao_social = trimStr(body.razao_social, 200);
   if (!razao_social) errors.push('Razao social e obrigatoria.');
@@ -169,7 +179,9 @@ function validateContractPayload(body, file) {
   if (!setor) errors.push('Setor e obrigatorio.');
   else if (!SETORES_CONTRATOS_VALIDOS.includes(setor)) errors.push('Setor invalido.');
 
-  if (!file) errors.push('Envie o contrato em PDF.');
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    errors.push('Envie pelo menos um contrato em PDF.');
+  }
 
   return {
     errors,
@@ -177,8 +189,10 @@ function validateContractPayload(body, file) {
       revenda, razao_social, cnpj: cnpjDigits, pessoa_contato,
       telefone: telefoneDigits, vigencia_inicio, vigencia_fim,
       dono_servico, setor,
-      arquivo_nome: file ? file.originalname : '',
-      arquivo_dados: file ? file.buffer : null,
+      arquivos: (files || []).map((file) => ({
+        nome: file.originalname,
+        dados: file.buffer,
+      })),
     },
   };
 }
@@ -440,26 +454,28 @@ app.post('/api/reject/:token', async (req, res) => {
 /* ── Contratos ── */
 
 app.post('/api/contratos/submit', (req, res, next) => {
-  upload.single('arquivo')(req, res, (err) => {
+  upload.array('arquivo', 10)(req, res, (err) => {
     if (err) {
       const msg = err.code === 'LIMIT_FILE_SIZE'
-        ? 'Arquivo muito grande. Limite de 10MB.'
-        : err.code === 'INVALID_TYPE'
-          ? 'Apenas arquivos PDF sao aceitos.'
-          : 'Erro no upload do arquivo.';
+        ? 'Um ou mais arquivos sao muito grandes. Limite de 10MB por arquivo.'
+        : err.code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Voce pode enviar no maximo 10 arquivos.'
+          : err.code === 'INVALID_TYPE'
+            ? 'Apenas arquivos PDF sao aceitos.'
+            : 'Erro no upload do arquivo.';
       return res.status(400).json({ ok: false, errors: [msg] });
     }
     next();
   });
 }, async (req, res) => {
-  const { errors, data } = validateContractPayload(req.body || {}, req.file || null);
+  const { errors, data } = validateContractPayload(req.body || {}, req.files || []);
   if (errors.length) return res.status(400).json({ ok: false, errors });
 
   try {
-    const arquivo_token = crypto.randomBytes(32).toString('hex');
-    const saved = await insertContract({ ...data, arquivo_token });
+    const arquivos_tokens = data.arquivos.map(() => crypto.randomBytes(32).toString('hex'));
+    const saved = await insertContract({ ...data, arquivos_tokens });
 
-    sendContractEmail({ id: saved.id, created_at: saved.created_at, data, arquivo_token, appUrl: APP_URL })
+    sendContractEmail({ id: saved.id, created_at: saved.created_at, data, arquivos_tokens, appUrl: APP_URL })
       .catch((err) => console.error('[mailer] falha ao enviar e-mail de contrato:', err));
 
     return res.status(201).json({ ok: true, id: saved.id });

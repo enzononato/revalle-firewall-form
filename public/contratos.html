@@ -80,18 +80,50 @@
         <div class="grid">
 
           <div class="field">
-            <label for="revenda">Revenda <span class="req">*</span></label>
-            <select id="revenda" name="revenda" required>
-              <option value="" disabled selected>Selecione a revenda</option>
-              <option value="Revalle Juazeiro">Revalle Juazeiro</option>
-              <option value="Revalle Petrolina">Revalle Petrolina</option>
-              <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
-              <option value="Revalle Serrinha">Revalle Serrinha</option>
-              <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
-              <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
-              <option value="Revalle Bonfim">Revalle Bonfim</option>
-              <option value="Grupo">Grupo</option>
-            </select>
+            <label>Revenda <span class="req">*</span></label>
+            <div class="custom-multiselect" id="revendaMultiselect">
+              <div class="multiselect-select" tabindex="0">
+                <span class="multiselect-placeholder">Selecione a(s) revenda(s)</span>
+                <span class="multiselect-arrow"></span>
+              </div>
+              <div class="multiselect-dropdown">
+                <div class="multiselect-options">
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Juazeiro" />
+                    <span>Revalle Juazeiro</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Petrolina" />
+                    <span>Revalle Petrolina</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Paulo Afonso" />
+                    <span>Revalle Paulo Afonso</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Serrinha" />
+                    <span>Revalle Serrinha</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Alagoinhas" />
+                    <span>Revalle Alagoinhas</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Ribeira do Pombal" />
+                    <span>Revalle Ribeira do Pombal</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Revalle Bonfim" />
+                    <span>Revalle Bonfim</span>
+                  </label>
+                  <label class="multiselect-option">
+                    <input type="checkbox" value="Grupo" />
+                    <span>Grupo</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" name="revenda" id="revenda" required />
             <small class="error" data-error-for="revenda"></small>
           </div>
 
@@ -164,14 +196,14 @@
           </div>
 
           <div class="field full">
-            <label>Contrato (PDF assinado) <span class="req">*</span></label>
+            <label>Contrato(s) (PDF assinado) <span class="req">*</span></label>
             <div class="file-zone" id="fileZone">
-              <input type="file" id="arquivo" name="arquivo" accept="application/pdf" />
+              <input type="file" id="arquivo" name="arquivo" accept="application/pdf" multiple />
               <div class="file-icon">📄</div>
-              <div class="file-label" id="fileLabel">Clique ou arraste o PDF aqui</div>
-              <div class="file-hint">Apenas PDF &bull; Maximo 10 MB</div>
-              <div class="file-name" id="fileName" hidden></div>
+              <div class="file-label" id="fileLabel">Clique ou arraste o(s) PDF(s) aqui</div>
+              <div class="file-hint">Apenas PDF &bull; Maximo 10 MB por arquivo</div>
             </div>
+            <div id="fileList" class="file-list"></div>
             <small class="error" data-error-for="arquivo"></small>
           </div>
 

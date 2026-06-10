@@ -318,10 +318,9 @@ function formatDateBr(isoDate) {
   return `${d}/${m}/${y}`;
 }
 
-function buildContractHtml({ id, created_at, data, arquivo_token, appUrl }) {
+function buildContractHtml({ id, created_at, data, arquivo_token, arquivos_tokens, appUrl }) {
   const proto = '#' + String(id).padStart(5, '0');
   const date  = formatDate(new Date(created_at));
-  const pdfUrl = `${appUrl}/api/contratos/${id}/pdf?token=${arquivo_token}`;
 
   const vigencia = data.vigencia_fim
     ? `${formatDateBr(data.vigencia_inicio)} ate ${formatDateBr(data.vigencia_fim)}`
@@ -354,6 +353,40 @@ function buildContractHtml({ id, created_at, data, arquivo_token, appUrl }) {
       ${rows}
     </table>`;
 
+  // Process files list
+  let filesList = [];
+  if (data.arquivos && Array.isArray(data.arquivos) && arquivos_tokens && Array.isArray(arquivos_tokens)) {
+    data.arquivos.forEach((file, index) => {
+      const token = arquivos_tokens[index];
+      filesList.push({
+        nome: file.nome,
+        url: `${appUrl}/api/contratos/${id}/pdf?token=${token}`
+      });
+    });
+  } else {
+    // Fallback for backward compatibility
+    const token = arquivo_token || (Array.isArray(arquivos_tokens) ? arquivos_tokens[0] : '');
+    const filename = data.arquivo_nome || (data.arquivos && data.arquivos[0] ? data.arquivos[0].nome : 'contrato.pdf');
+    filesList.push({
+      nome: filename,
+      url: `${appUrl}/api/contratos/${id}/pdf?token=${token}`
+    });
+  }
+
+  const filesHtml = filesList.map((file, index) => `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+      <tr>
+        <td>
+          <a href="${esc(file.url)}"
+             style="display:block;text-align:center;padding:14px;background:#0033A0;color:#fff;
+                    text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;word-break:break-all;">
+            Abrir PDF ${filesList.length > 1 ? (index + 1) : ''}: ${esc(file.nome)}
+          </a>
+        </td>
+      </tr>
+    </table>
+  `).join('');
+
   return emailShell(`[Contratos] Novo contrato ${proto} — ${data.razao_social}`, `
     ${headerBlock(`Novo Contrato Recebido &nbsp;&bull;&nbsp; ${esc(proto)}`)}
     <tr><td style="background:#fff;padding:28px;border-radius:0 0 12px 12px;
@@ -364,26 +397,13 @@ function buildContractHtml({ id, created_at, data, arquivo_token, appUrl }) {
       ${section('Fornecedor', buildRows(fornecedorFields))}
       ${section('Contrato', buildRows(contratoFields))}
       <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#0033A0;letter-spacing:.8px;text-transform:uppercase;">
-        Documento
+        ${filesList.length > 1 ? 'Documentos' : 'Documento'}
       </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
-        <tr>
-          <td>
-            <a href="${esc(pdfUrl)}"
-               style="display:block;text-align:center;padding:14px;background:#0033A0;color:#fff;
-                      text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">
-              Abrir contrato em PDF
-            </a>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:10px 0 0;font-size:12px;color:#b0b7c8;text-align:center;">
-        Arquivo: ${esc(data.arquivo_nome)}
-      </p>
+      ${filesHtml}
     </td></tr>`);
 }
 
-async function sendContractEmail({ id, created_at, data, arquivo_token, appUrl }) {
+async function sendContractEmail({ id, created_at, data, arquivo_token, arquivos_tokens, appUrl }) {
   if (!SMTP_PASS) {
     console.warn('[mailer] SMTP_PASS nao configurada — e-mail de contrato nao enviado.');
     return;
@@ -393,7 +413,7 @@ async function sendContractEmail({ id, created_at, data, arquivo_token, appUrl }
     from: `"Revalle TI" <${SMTP_USER}>`,
     to: SMTP_TO_CONTRATOS,
     subject: `[Contratos] Novo contrato ${proto} — ${data.razao_social} (${data.revenda})`,
-    html: buildContractHtml({ id, created_at, data, arquivo_token, appUrl }),
+    html: buildContractHtml({ id, created_at, data, arquivo_token, arquivos_tokens, appUrl }),
   });
   console.log(`[mailer] e-mail contrato enviado: ${info.messageId}`);
 }
