@@ -2,7 +2,12 @@ const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const multer = require('multer');
-const { initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest, insertContract, findContractByIdAndToken } = require('./db');
+const {
+  initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
+  insertContract, findContractByIdAndToken,
+  findRequestById, listFirewallRequests, getFirewallStats,
+  listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
+} = require('./db');
 const { sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail } = require('./mailer');
 
 const app = express();
@@ -62,6 +67,7 @@ const upload = multer({
 });
 
 app.disable('x-powered-by');
+app.set('trust proxy', true);
 app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -502,6 +508,316 @@ app.get('/api/contratos/:id/pdf', async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
   res.send(contract.arquivo_dados);
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * Dashboard de controle (/dashboard) — protegido por senha do .env
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
+const SESSION_SECRET = process.env.DASHBOARD_SESSION_SECRET
+  || crypto.createHash('sha256').update('revalle-dash::' + DASHBOARD_PASSWORD).digest('hex');
+const SESSION_COOKIE = 'revalle_dash';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 horas
+
+if (!DASHBOARD_PASSWORD) {
+  console.warn('[dashboard] DASHBOARD_PASSWORD nao definida — o painel /dashboard ficara inacessivel ate configurar.');
+}
+
+/* ── Sessao stateless assinada (HMAC) ── */
+function b64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(str) {
+  return Buffer.from(String(str).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+function signSession(expMs) {
+  const payload = b64url(JSON.stringify({ exp: expMs }));
+  const sig = b64url(crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest());
+  return `${payload}.${sig}`;
+}
+function verifySession(token) {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return false;
+  const [payload, sig] = token.split('.');
+  const expected = b64url(crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest());
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+  try {
+    const data = JSON.parse(b64urlDecode(payload).toString('utf8'));
+    return typeof data.exp === 'number' && data.exp > Date.now();
+  } catch { return false; }
+}
+
+function parseCookies(req) {
+  const out = {};
+  const header = req.headers.cookie;
+  if (!header) return out;
+  for (const pair of header.split(';')) {
+    const idx = pair.indexOf('=');
+    if (idx === -1) continue;
+    const k = pair.slice(0, idx).trim();
+    if (k) out[k] = decodeURIComponent(pair.slice(idx + 1).trim());
+  }
+  return out;
+}
+function isSecureReq(req) {
+  return req.secure || req.headers['x-forwarded-proto'] === 'https';
+}
+function setSessionCookie(req, res) {
+  const token = signSession(Date.now() + SESSION_TTL_MS);
+  const attrs = [`${SESSION_COOKIE}=${token}`, 'HttpOnly', 'SameSite=Strict', 'Path=/', `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`];
+  if (isSecureReq(req)) attrs.push('Secure');
+  res.setHeader('Set-Cookie', attrs.join('; '));
+}
+function clearSessionCookie(req, res) {
+  const attrs = [`${SESSION_COOKIE}=`, 'HttpOnly', 'SameSite=Strict', 'Path=/', 'Max-Age=0'];
+  if (isSecureReq(req)) attrs.push('Secure');
+  res.setHeader('Set-Cookie', attrs.join('; '));
+}
+function isAuthed(req) {
+  return verifySession(parseCookies(req)[SESSION_COOKIE]);
+}
+function requireAuth(req, res, next) {
+  if (isAuthed(req)) return next();
+  return res.status(401).json({ ok: false, error: 'Sessao expirada ou nao autenticada.' });
+}
+
+/* ── Senha + rate limit de login ── */
+function passwordMatches(input) {
+  if (!DASHBOARD_PASSWORD) return false;
+  const a = crypto.createHash('sha256').update(String(input || '')).digest();
+  const b = crypto.createHash('sha256').update(DASHBOARD_PASSWORD).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+const loginAttempts = new Map(); // ip -> { count, first }
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX = 10;
+function loginRateLimited(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec || Date.now() - rec.first > LOGIN_WINDOW_MS) return false;
+  return rec.count >= LOGIN_MAX;
+}
+function registerFailedLogin(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec || Date.now() - rec.first > LOGIN_WINDOW_MS) loginAttempts.set(ip, { count: 1, first: Date.now() });
+  else rec.count += 1;
+}
+
+/* ── Helpers de data / CSV ── */
+function formatDateTimeBr(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date(value));
+}
+function formatIsoDateBr(value) {
+  if (!value) return '';
+  const [y, m, d] = String(value).split('-');
+  return `${d}/${m}/${y}`;
+}
+function sendCsv(res, baseName, cols, rows) {
+  const escCell = (v) => '"' + (v === null || v === undefined ? '' : String(v)).replace(/"/g, '""') + '"';
+  const lines = [cols.map((c) => escCell(c.label)).join(';')];
+  for (const row of rows) lines.push(cols.map((c) => escCell(c.get(row))).join(';'));
+  const csv = '﻿' + lines.join('\r\n'); // BOM para acentos no Excel
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${baseName}-${stamp}.csv"`);
+  res.send(csv);
+}
+
+/* ── Paginas ── */
+app.get('/dashboard', (req, res) => {
+  if (!isAuthed(req)) return res.redirect('/dashboard/login');
+  res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
+});
+app.get('/dashboard/login', (req, res) => {
+  if (isAuthed(req)) return res.redirect('/dashboard');
+  res.sendFile(path.join(__dirname, 'views', 'login.html'));
+});
+
+/* ── Autenticacao ── */
+app.post('/api/dashboard/login', (req, res) => {
+  const ip = req.ip || 'unknown';
+  if (loginRateLimited(ip)) {
+    return res.status(429).json({ ok: false, error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+  }
+  if (!passwordMatches((req.body || {}).senha)) {
+    registerFailedLogin(ip);
+    return res.status(401).json({ ok: false, error: 'Senha incorreta.' });
+  }
+  loginAttempts.delete(ip);
+  setSessionCookie(req, res);
+  return res.json({ ok: true });
+});
+app.post('/api/dashboard/logout', (req, res) => {
+  clearSessionCookie(req, res);
+  return res.json({ ok: true });
+});
+app.get('/api/dashboard/me', (req, res) => res.json({ ok: true, authed: isAuthed(req) }));
+
+/* ── Indicadores (graficos + KPIs) ── */
+app.get('/api/dashboard/summary', requireAuth, async (_req, res) => {
+  try {
+    const [firewall, contratos] = await Promise.all([getFirewallStats(), getContractStats()]);
+    res.json({ ok: true, firewall, contratos, generated_at: new Date().toISOString() });
+  } catch (err) {
+    console.error('[dashboard/summary] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao carregar indicadores.' });
+  }
+});
+
+/* ── Solicitacoes de firewall ── */
+app.get('/api/dashboard/firewall', requireAuth, async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const { rows, total } = await listFirewallRequests({
+      status: req.query.status, unidade: req.query.unidade, setor: req.query.setor,
+      search: req.query.search, from: req.query.from, to: req.query.to,
+      limit: pageSize, offset: (page - 1) * pageSize,
+    });
+    res.json({ ok: true, rows, total, page, pageSize });
+  } catch (err) {
+    console.error('[dashboard/firewall] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar solicitacoes.' });
+  }
+});
+app.get('/api/dashboard/firewall/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
+  const row = await findRequestById(id).catch(() => null);
+  if (!row) return res.status(404).json({ ok: false, error: 'Solicitacao nao encontrada.' });
+  res.json({ ok: true, row });
+});
+app.post('/api/dashboard/firewall/:id/approve', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
+  try {
+    const request = await findRequestById(id);
+    if (!request) return res.status(404).json({ ok: false, error: 'Solicitacao nao encontrada.' });
+    if (request.status !== 'pending') return res.status(409).json({ ok: false, error: 'Solicitacao ja foi processada.' });
+    await approveRequest(id);
+    sendApprovedEmail({ id, data: request }).catch((err) => console.error('[dashboard approve] falha email:', err));
+    res.json({ ok: true, status: 'approved' });
+  } catch (err) {
+    console.error('[dashboard approve] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao aprovar a solicitacao.' });
+  }
+});
+app.post('/api/dashboard/firewall/:id/reject', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
+  const motivo = String((req.body || {}).motivo || '').trim().slice(0, 1000);
+  if (!motivo) return res.status(400).json({ ok: false, error: 'Informe o motivo da reprovacao.' });
+  try {
+    const request = await findRequestById(id);
+    if (!request) return res.status(404).json({ ok: false, error: 'Solicitacao nao encontrada.' });
+    if (request.status !== 'pending') return res.status(409).json({ ok: false, error: 'Solicitacao ja foi processada.' });
+    await rejectRequest(id, motivo);
+    sendRejectedEmail({ id, data: request, motivo }).catch((err) => console.error('[dashboard reject] falha email:', err));
+    res.json({ ok: true, status: 'rejected' });
+  } catch (err) {
+    console.error('[dashboard reject] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao reprovar a solicitacao.' });
+  }
+});
+
+/* ── Contratos ── */
+app.get('/api/dashboard/contratos', requireAuth, async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const { rows, total } = await listContracts({
+      setor: req.query.setor, revenda: req.query.revenda, vigencia: req.query.vigencia,
+      search: req.query.search, limit: pageSize, offset: (page - 1) * pageSize,
+    });
+    res.json({ ok: true, rows, total, page, pageSize });
+  } catch (err) {
+    console.error('[dashboard/contratos] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar contratos.' });
+  }
+});
+app.get('/api/dashboard/contratos/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
+  try {
+    const row = await getContractById(id);
+    if (!row) return res.status(404).json({ ok: false, error: 'Contrato nao encontrado.' });
+    const arquivos = await listContractFiles(id);
+    res.json({ ok: true, row, arquivos });
+  } catch (err) {
+    console.error('[dashboard/contrato] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao carregar o contrato.' });
+  }
+});
+app.get('/api/dashboard/contratos/file/:fileId', requireAuth, async (req, res) => {
+  const fileId = Number(req.params.fileId);
+  if (!fileId) return res.status(400).send('Parametro invalido.');
+  const file = await getContractFileById(fileId).catch(() => null);
+  if (!file) return res.status(404).send('Arquivo nao encontrado.');
+  const filename = encodeURIComponent(file.arquivo_nome || `contrato-${fileId}.pdf`);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${filename}"`);
+  res.send(file.arquivo_dados);
+});
+
+/* ── Exportacao CSV ── */
+app.get('/api/dashboard/export/firewall.csv', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await listFirewallRequests({
+      status: req.query.status, unidade: req.query.unidade, setor: req.query.setor,
+      search: req.query.search, from: req.query.from, to: req.query.to, limit: 5000, offset: 0,
+    });
+    const statusLabel = { pending: 'Pendente', approved: 'Aprovada', rejected: 'Reprovada' };
+    sendCsv(res, 'solicitacoes-firewall', [
+      { label: 'Protocolo', get: (r) => '#' + String(r.id).padStart(5, '0') },
+      { label: 'Data', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Status', get: (r) => statusLabel[r.status] || r.status },
+      { label: 'Nome', get: (r) => r.nome_completo },
+      { label: 'CPF', get: (r) => r.cpf },
+      { label: 'E-mail', get: (r) => r.email },
+      { label: 'Unidade', get: (r) => r.unidade },
+      { label: 'Setor', get: (r) => r.setor },
+      { label: 'Cargo', get: (r) => r.cargo },
+      { label: 'Funcao', get: (r) => r.funcao },
+      { label: 'URLs', get: (r) => (r.urls || []).join(' | ') },
+      { label: 'Justificativa', get: (r) => r.justificativa },
+      { label: 'Motivo reprovacao', get: (r) => r.motivo_reprovacao || '' },
+      { label: 'Resolvido em', get: (r) => formatDateTimeBr(r.resolved_at) },
+    ], rows);
+  } catch (err) {
+    console.error('[export/firewall] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
+});
+app.get('/api/dashboard/export/contratos.csv', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await listContracts({
+      setor: req.query.setor, revenda: req.query.revenda, vigencia: req.query.vigencia,
+      search: req.query.search, limit: 5000, offset: 0,
+    });
+    sendCsv(res, 'contratos', [
+      { label: 'Protocolo', get: (r) => '#' + String(r.id).padStart(5, '0') },
+      { label: 'Cadastrado em', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Revenda', get: (r) => r.revenda },
+      { label: 'Razao Social', get: (r) => r.razao_social },
+      { label: 'CNPJ', get: (r) => r.cnpj },
+      { label: 'Contato', get: (r) => r.pessoa_contato },
+      { label: 'Telefone', get: (r) => r.telefone },
+      { label: 'Setor', get: (r) => r.setor },
+      { label: 'Dono do Servico', get: (r) => r.dono_servico },
+      { label: 'Vigencia Inicio', get: (r) => formatIsoDateBr(r.vigencia_inicio) },
+      { label: 'Vigencia Fim', get: (r) => formatIsoDateBr(r.vigencia_fim) },
+      { label: 'Dias Restantes', get: (r) => (r.dias_restantes === null || r.dias_restantes === undefined ? '' : r.dias_restantes) },
+      { label: 'Arquivos', get: (r) => r.arquivos_count },
+    ], rows);
+  } catch (err) {
+    console.error('[export/contratos] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
 });
 
 app.use((_req, res) => res.status(404).json({ ok: false, errors: ['Rota nao encontrada.'] }));

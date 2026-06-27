@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Acesso ao Painel · Revalle</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --brand:#0A3296; --brand-ink:#061C5A; --brand-600:#1746C9; --brand-500:#2D63F0;
+      --accent:#00B3A4; --ink:#11182B; --muted:#5A6480; --faint:#8A93A8;
+      --line:#E7EAF1; --surface:#fff; --bg:#F4F6FB; --red:#D6453E; --red-tint:#FCEBEA;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      color:var(--ink);background:var(--bg);min-height:100vh;
+      display:grid;grid-template-columns:1.05fr 1fr;-webkit-font-smoothing:antialiased;
+    }
+    /* ── Painel da marca ── */
+    .brandside{
+      position:relative;overflow:hidden;color:#fff;padding:56px 60px;
+      display:flex;flex-direction:column;justify-content:space-between;
+      background:
+        radial-gradient(120% 90% at 85% 10%, rgba(0,179,164,.35), transparent 55%),
+        radial-gradient(120% 120% at 10% 100%, rgba(45,99,240,.45), transparent 50%),
+        linear-gradient(155deg,#0A3296 0%,#061C5A 100%);
+    }
+    .brandside::after{
+      content:"";position:absolute;inset:0;opacity:.5;mix-blend-mode:soft-light;pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    }
+    .grid-lines{position:absolute;inset:0;opacity:.08;pointer-events:none;
+      background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);
+      background-size:46px 46px;mask-image:radial-gradient(circle at 70% 30%,#000,transparent 75%)}
+    .brand-row{display:flex;align-items:center;gap:14px;position:relative;z-index:2}
+    .monogram{width:52px;height:52px;border-radius:14px;background:#fff;display:grid;place-items:center;
+      font-family:'Bricolage Grotesque';font-weight:800;font-style:italic;font-size:28px;color:var(--brand);
+      box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .brand-row .wm{font-family:'Bricolage Grotesque';font-weight:700;font-size:24px;letter-spacing:-.5px;line-height:1}
+    .brand-row .tg{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.7);margin-top:3px}
+    .pitch{position:relative;z-index:2;max-width:440px}
+    .pitch .eyebrow{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);font-weight:600}
+    .pitch h1{font-family:'Bricolage Grotesque';font-weight:700;font-size:clamp(32px,3.4vw,46px);
+      line-height:1.05;letter-spacing:-1.2px;margin:18px 0 16px}
+    .pitch p{color:rgba(255,255,255,.78);font-size:16px;line-height:1.6;max-width:400px}
+    .metrics{display:flex;gap:30px;position:relative;z-index:2}
+    .metrics .m b{font-family:'Bricolage Grotesque';font-size:30px;font-weight:700;display:block;line-height:1}
+    .metrics .m span{font-size:12.5px;color:rgba(255,255,255,.65);letter-spacing:.3px}
+    .metrics .m b .u{color:var(--accent)}
+    /* ── Lado do formulário ── */
+    .formside{display:flex;align-items:center;justify-content:center;padding:40px}
+    .login-card{width:100%;max-width:392px}
+    .login-card .kicker{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--brand-500);font-weight:600}
+    .login-card h2{font-family:'Bricolage Grotesque';font-weight:700;font-size:30px;letter-spacing:-.6px;margin:10px 0 6px}
+    .login-card .sub{color:var(--muted);font-size:14.5px;margin-bottom:30px}
+    .field{margin-bottom:18px}
+    .field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px}
+    .pw-wrap{position:relative;display:flex;align-items:center}
+    .pw-wrap svg.lead{position:absolute;left:15px;color:var(--faint)}
+    input[type=password],input[type=text]{
+      width:100%;padding:14px 46px 14px 44px;border:1.5px solid var(--line);border-radius:12px;
+      font:inherit;font-size:15px;background:#fff;color:var(--ink);outline:none;transition:.18s;
+    }
+    input:focus{border-color:var(--brand-500);box-shadow:0 0 0 4px rgba(45,99,240,.13)}
+    .toggle{position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--faint);
+      padding:8px;border-radius:8px;display:grid;place-items:center;transition:.15s}
+    .toggle:hover{color:var(--brand);background:var(--bg)}
+    .submit{
+      width:100%;margin-top:6px;padding:15px;border:none;border-radius:12px;cursor:pointer;
+      font:inherit;font-weight:600;font-size:15.5px;color:#fff;letter-spacing:.2px;
+      background:linear-gradient(135deg,var(--brand-500),var(--brand));
+      box-shadow:0 12px 26px -8px rgba(10,50,150,.6);transition:.18s;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+    }
+    .submit:hover{transform:translateY(-1px);box-shadow:0 16px 30px -8px rgba(10,50,150,.7)}
+    .submit:active{transform:translateY(0)}
+    .submit:disabled{opacity:.65;cursor:not-allowed;transform:none}
+    .submit .spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;
+      border-radius:50%;animation:spin .7s linear infinite;display:none}
+    .submit.loading .spin{display:block}.submit.loading .lbl{opacity:.7}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .error-msg{
+      display:none;align-items:center;gap:9px;margin-top:16px;padding:12px 14px;
+      background:var(--red-tint);border:1px solid #f3c9c6;border-radius:10px;
+      color:#a3322c;font-size:13.5px;font-weight:500;
+    }
+    .error-msg.show{display:flex;animation:shake .4s}
+    @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+    .foot{margin-top:34px;font-size:12.5px;color:var(--faint);display:flex;align-items:center;gap:7px}
+    .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+    @media (max-width:880px){
+      body{grid-template-columns:1fr}
+      .brandside{padding:36px 30px;min-height:auto;gap:34px}
+      .pitch h1{font-size:30px}.metrics{gap:22px}
+      .formside{padding:34px 24px 50px}
+    }
+  </style>
+</head>
+<body>
+  <aside class="brandside">
+    <div class="grid-lines"></div>
+    <div class="brand-row">
+      <div class="monogram">R</div>
+      <div><div class="wm">revalle</div><div class="tg">Painel de Controle</div></div>
+    </div>
+    <div class="pitch">
+      <span class="eyebrow">Acesso restrito · TI</span>
+      <h1>Solicitações e contratos, sob seu controle.</h1>
+      <p>Acompanhe desbloqueios de firewall, gerencie aprovações e monitore a vigência dos contratos em um só lugar.</p>
+    </div>
+    <div class="metrics">
+      <div class="m"><b>Firewall</b><span>Aprovações em tempo real</span></div>
+      <div class="m"><b>Contratos</b><span>Alertas de vencimento</span></div>
+    </div>
+  </aside>
+
+  <main class="formside">
+    <form class="login-card" id="loginForm" novalidate>
+      <span class="kicker">Bem-vindo de volta</span>
+      <h2>Entrar no painel</h2>
+      <p class="sub">Informe a senha de acesso para continuar.</p>
+
+      <div class="field">
+        <label for="senha">Senha de acesso</label>
+        <div class="pw-wrap">
+          <svg class="lead" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="senha" name="senha" autocomplete="current-password" placeholder="••••••••••" required autofocus />
+          <button type="button" class="toggle" id="toggle" aria-label="Mostrar senha">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="submit" id="submitBtn">
+        <span class="lbl">Acessar painel</span>
+        <span class="spin"></span>
+      </button>
+
+      <div class="error-msg" id="errorMsg">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span id="errorText">Senha incorreta.</span>
+      </div>
+
+      <div class="foot"><span class="dot"></span> Conexão segura · Revalle &middot; Revenda e Distribuição Ambev</div>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const btn = document.getElementById('submitBtn');
+    const errBox = document.getElementById('errorMsg');
+    const errText = document.getElementById('errorText');
+    const input = document.getElementById('senha');
+    const toggle = document.getElementById('toggle');
+
+    toggle.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.innerHTML = show
+        ? '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+      input.focus();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.classList.remove('show');
+      btn.classList.add('loading'); btn.disabled = true;
+      try {
+        const res = await fetch('/api/dashboard/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ senha: input.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) { window.location.href = '/dashboard'; return; }
+        errText.textContent = data.error || 'Não foi possível entrar.';
+        errBox.classList.add('show');
+        input.select();
+      } catch {
+        errText.textContent = 'Falha de conexão. Tente novamente.';
+        errBox.classList.add('show');
+      } finally {
+        btn.classList.remove('loading'); btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

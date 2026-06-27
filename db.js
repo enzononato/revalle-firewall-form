@@ -218,4 +218,253 @@ async function findContractByIdAndToken(id, token) {
   return rows[0] || null;
 }
 
-module.exports = { pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest, insertContract, findContractByIdAndToken };
+/* ──────────────────────────────────────────────────────────────────────────
+ * Dashboard — consultas de leitura/agregacao (nao alteram o schema)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+async function findRequestById(id) {
+  const { rows } = await pool.query(
+    'SELECT * FROM firewall_requests WHERE id = $1 LIMIT 1',
+    [id]
+  );
+  return rows[0] || null;
+}
+
+/* Monta WHERE dinamico para as solicitacoes de firewall */
+function buildFirewallWhere(filters = {}) {
+  const conds = [];
+  const params = [];
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+
+  if (filters.status && ['pending', 'approved', 'rejected'].includes(filters.status)) {
+    conds.push(`status = ${add(filters.status)}`);
+  }
+  if (filters.unidade) conds.push(`unidade = ${add(filters.unidade)}`);
+  if (filters.setor) conds.push(`setor = ${add(filters.setor)}`);
+  if (filters.from) conds.push(`created_at >= ${add(filters.from)}`);
+  if (filters.to) conds.push(`created_at < (${add(filters.to)}::date + interval '1 day')`);
+  if (filters.search) {
+    const term = `%${filters.search.toLowerCase()}%`;
+    const p = add(term);
+    conds.push(`(LOWER(nome_completo) LIKE ${p} OR LOWER(email) LIKE ${p} OR cpf LIKE ${p} OR LOWER(cargo) LIKE ${p} OR LOWER(funcao) LIKE ${p})`);
+  }
+
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return { where, params };
+}
+
+async function listFirewallRequests(filters = {}) {
+  const { where, params } = buildFirewallWhere(filters);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 200);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const dataParams = params.slice();
+  dataParams.push(limit); const limIdx = dataParams.length;
+  dataParams.push(offset); const offIdx = dataParams.length;
+
+  const dataSql = `
+    SELECT id, unidade, nome_completo, cpf, cargo, setor, funcao, email,
+           urls, justificativa, status, motivo_reprovacao, resolved_at, created_at
+    FROM firewall_requests
+    ${where}
+    ORDER BY
+      CASE WHEN status = 'pending' THEN 0 ELSE 1 END,
+      created_at DESC
+    LIMIT $${limIdx} OFFSET $${offIdx}
+  `;
+  const countSql = `SELECT COUNT(*)::int AS total FROM firewall_requests ${where}`;
+
+  const [dataRes, countRes] = await Promise.all([
+    pool.query(dataSql, dataParams),
+    pool.query(countSql, params),
+  ]);
+  return { rows: dataRes.rows, total: countRes.rows[0].total };
+}
+
+async function getFirewallStats() {
+  const [byStatus, byUnidade, bySetor, monthly, urlRows, kpis] = await Promise.all([
+    pool.query(`SELECT status, COUNT(*)::int AS total FROM firewall_requests GROUP BY status`),
+    pool.query(`SELECT unidade, COUNT(*)::int AS total FROM firewall_requests GROUP BY unidade ORDER BY total DESC`),
+    pool.query(`SELECT setor, COUNT(*)::int AS total FROM firewall_requests WHERE setor <> '' GROUP BY setor ORDER BY total DESC`),
+    pool.query(`
+      SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month, COUNT(*)::int AS total
+      FROM firewall_requests
+      WHERE created_at >= date_trunc('month', NOW()) - interval '11 months'
+      GROUP BY 1 ORDER BY 1
+    `),
+    pool.query(`SELECT unnest(urls) AS url FROM firewall_requests`),
+    pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'pending')::int  AS pending,
+        COUNT(*) FILTER (WHERE status = 'approved')::int AS approved,
+        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', NOW()))::int AS this_month
+      FROM firewall_requests
+    `),
+  ]);
+
+  // Top dominios (extrai hostname das URLs em JS)
+  const domainCount = new Map();
+  for (const r of urlRows.rows) {
+    let host = '';
+    try { host = new URL(r.url).hostname.replace(/^www\./, ''); }
+    catch { host = String(r.url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]; }
+    if (!host) continue;
+    domainCount.set(host, (domainCount.get(host) || 0) + 1);
+  }
+  const topDomains = [...domainCount.entries()]
+    .sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([domain, total]) => ({ domain, total }));
+
+  return {
+    kpis: kpis.rows[0],
+    byStatus: byStatus.rows,
+    byUnidade: byUnidade.rows,
+    bySetor: bySetor.rows,
+    monthly: monthly.rows,
+    topDomains,
+  };
+}
+
+/* Monta WHERE dinamico para contratos */
+function buildContractWhere(filters = {}) {
+  const conds = [];
+  const params = [];
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+
+  if (filters.setor) conds.push(`setor = ${add(filters.setor)}`);
+  if (filters.revenda) conds.push(`revenda ILIKE ${add('%' + filters.revenda + '%')}`);
+  if (filters.search) {
+    const term = `%${filters.search.toLowerCase()}%`;
+    const p = add(term);
+    conds.push(`(LOWER(razao_social) LIKE ${p} OR cnpj LIKE ${p} OR LOWER(pessoa_contato) LIKE ${p} OR LOWER(dono_servico) LIKE ${p})`);
+  }
+  if (filters.vigencia === 'vencidos') {
+    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim < CURRENT_DATE`);
+  } else if (filters.vigencia === 'vence_30') {
+    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 30`);
+  } else if (filters.vigencia === 'vence_90') {
+    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 90`);
+  } else if (filters.vigencia === 'vigente') {
+    conds.push(`(vigencia_fim IS NULL OR vigencia_fim >= CURRENT_DATE)`);
+  } else if (filters.vigencia === 'sem_fim') {
+    conds.push(`vigencia_fim IS NULL`);
+  }
+
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return { where, params };
+}
+
+async function listContracts(filters = {}) {
+  const { where, params } = buildContractWhere(filters);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 200);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const dataParams = params.slice();
+  dataParams.push(limit); const limIdx = dataParams.length;
+  dataParams.push(offset); const offIdx = dataParams.length;
+
+  const dataSql = `
+    SELECT r.id, r.revenda, r.razao_social, r.cnpj, r.pessoa_contato, r.telefone,
+           to_char(r.vigencia_inicio, 'YYYY-MM-DD') AS vigencia_inicio,
+           to_char(r.vigencia_fim, 'YYYY-MM-DD')    AS vigencia_fim,
+           (r.vigencia_fim - CURRENT_DATE)          AS dias_restantes,
+           r.dono_servico, r.setor, r.created_at,
+           (SELECT COUNT(*)::int FROM contract_files f WHERE f.contract_id = r.id) AS arquivos_count
+    FROM contract_requests r
+    ${where}
+    ORDER BY r.created_at DESC
+    LIMIT $${limIdx} OFFSET $${offIdx}
+  `;
+  const countSql = `SELECT COUNT(*)::int AS total FROM contract_requests r ${where}`;
+
+  const [dataRes, countRes] = await Promise.all([
+    pool.query(dataSql, dataParams),
+    pool.query(countSql, params),
+  ]);
+  return { rows: dataRes.rows, total: countRes.rows[0].total };
+}
+
+async function getContractById(id) {
+  const { rows } = await pool.query(
+    `SELECT id, revenda, razao_social, cnpj, pessoa_contato, telefone,
+            to_char(vigencia_inicio, 'YYYY-MM-DD') AS vigencia_inicio,
+            to_char(vigencia_fim, 'YYYY-MM-DD')    AS vigencia_fim,
+            (vigencia_fim - CURRENT_DATE)          AS dias_restantes,
+            dono_servico, setor, created_at
+     FROM contract_requests WHERE id = $1 LIMIT 1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+async function listContractFiles(contractId) {
+  const { rows } = await pool.query(
+    `SELECT id, arquivo_nome, created_at FROM contract_files WHERE contract_id = $1 ORDER BY id`,
+    [contractId]
+  );
+  return rows;
+}
+
+async function getContractFileById(fileId) {
+  const { rows } = await pool.query(
+    `SELECT id, contract_id, arquivo_nome, arquivo_dados FROM contract_files WHERE id = $1 LIMIT 1`,
+    [fileId]
+  );
+  return rows[0] || null;
+}
+
+async function getContractStats() {
+  const [kpis, byRevenda, bySetor, monthly, upcoming] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim < CURRENT_DATE)::int AS vencidos,
+        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 30)::int AS vence_30,
+        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim > CURRENT_DATE + 30 AND vigencia_fim <= CURRENT_DATE + 60)::int AS vence_60,
+        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim > CURRENT_DATE + 60 AND vigencia_fim <= CURRENT_DATE + 90)::int AS vence_90,
+        COUNT(*) FILTER (WHERE vigencia_fim IS NULL OR vigencia_fim > CURRENT_DATE + 90)::int AS vigente_long,
+        COUNT(*) FILTER (WHERE vigencia_fim IS NULL)::int AS sem_fim
+      FROM contract_requests
+    `),
+    pool.query(`
+      SELECT TRIM(rev) AS revenda, COUNT(*)::int AS total
+      FROM contract_requests, unnest(string_to_array(revenda, ',')) AS rev
+      WHERE TRIM(rev) <> ''
+      GROUP BY 1 ORDER BY total DESC
+    `),
+    pool.query(`SELECT setor, COUNT(*)::int AS total FROM contract_requests WHERE setor <> '' GROUP BY setor ORDER BY total DESC`),
+    pool.query(`
+      SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month, COUNT(*)::int AS total
+      FROM contract_requests
+      WHERE created_at >= date_trunc('month', NOW()) - interval '11 months'
+      GROUP BY 1 ORDER BY 1
+    `),
+    pool.query(`
+      SELECT id, revenda, razao_social,
+             to_char(vigencia_fim, 'YYYY-MM-DD') AS vigencia_fim,
+             (vigencia_fim - CURRENT_DATE)       AS dias_restantes
+      FROM contract_requests
+      WHERE vigencia_fim IS NOT NULL AND vigencia_fim <= CURRENT_DATE + 90
+      ORDER BY vigencia_fim ASC
+      LIMIT 15
+    `),
+  ]);
+
+  return {
+    kpis: kpis.rows[0],
+    byRevenda: byRevenda.rows,
+    bySetor: bySetor.rows,
+    monthly: monthly.rows,
+    upcoming: upcoming.rows,
+  };
+}
+
+module.exports = {
+  pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
+  insertContract, findContractByIdAndToken,
+  // dashboard
+  findRequestById, listFirewallRequests, getFirewallStats,
+  listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
+};

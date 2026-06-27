@@ -50,6 +50,23 @@ Na primeira inicializacao o app cria a tabela `firewall_requests` automaticament
 | `DATABASE_URL` | sim         | —       | Connection string do Postgres: `postgres://user:pass@host:5432/db` |
 | `PGSSL`        | nao         | `false` | `true` para conectar com SSL (geralmente nao precisa quando o Postgres esta na mesma rede interna do EasyPanel) |
 | `PORT`         | nao         | `3000`  | Porta interna do container |
+| `DASHBOARD_PASSWORD`       | sim (p/ painel) | — | Senha unica de acesso ao painel `/dashboard`. Sem ela o painel fica inacessivel. |
+| `DASHBOARD_SESSION_SECRET` | nao         | derivado da senha | Segredo para assinar o cookie de sessao. Defina um valor aleatorio longo para manter sessoes validas mesmo trocando a senha. |
+| `SMTP_*` / `SMTP_TO*`      | nao         | —       | Config de e-mail (veja `.env.example`). Sem `SMTP_PASS` os e-mails sao apenas logados, nao enviados. |
+
+---
+
+## Dashboard de controle (`/dashboard`)
+
+Painel administrativo protegido por senha (`DASHBOARD_PASSWORD`) para a TI acompanhar **solicitacoes de firewall** e **contratos** em um so lugar.
+
+- **Login:** `/dashboard/login` — senha unica do `.env`. A sessao usa cookie HttpOnly assinado (HMAC), valido por 8h.
+- **Visao Geral:** KPIs + graficos (volume mensal, status, por unidade/setor, sites mais pedidos, contratos por revenda) e um radar de vencimentos dos proximos 90 dias.
+- **Solicitacoes:** lista filtravel (status, unidade, setor, busca) com **aprovar/reprovar direto no painel** — dispara o mesmo e-mail ao colaborador que o fluxo dos links do e-mail.
+- **Contratos:** carteira com destaque de vigencia (vigente / a vencer / vencido), download dos PDFs anexados.
+- **Exportacao CSV** das duas listagens, respeitando os filtros aplicados.
+
+O painel usa **apenas consultas de leitura** sobre as tabelas existentes — nenhum schema e alterado.
 
 ---
 
