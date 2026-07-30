@@ -8,6 +8,7 @@ const state = {
   summary: null,
   fw: { status: '', unidade: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
+  tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   charts: {},
   drawerKind: null,
 };
@@ -73,6 +74,7 @@ const TITLES = {
   overview: ['Visão Geral', 'Indicadores consolidados de solicitações e contratos'],
   firewall: ['Solicitações', 'Desbloqueios de firewall — aprove, reprove e acompanhe'],
   contratos: ['Contratos', 'Carteira de contratos e controle de vigência'],
+  tess: ['Imersão Tess', 'Lista de inscritos e detalhes da Imersão Tess'],
 };
 function switchView(view) {
   state.view = view;
@@ -84,6 +86,7 @@ function switchView(view) {
   window.scrollTo({ top: 0 });
   if (view === 'firewall' && !$('#fwBody').children.length) loadFirewall();
   if (view === 'contratos' && !$('#ctBody').children.length) loadContratos();
+  if (view === 'tess' && !$('#tessBody').children.length) loadTess();
 }
 
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('open'); }
@@ -517,6 +520,60 @@ function emptyState(sel, title, sub) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Imersão Tess Dashboard
+   ════════════════════════════════════════════════════════════════ */
+async function loadTess() {
+  const { setor, revenda, search, page, pageSize } = state.tess;
+  const query = new URLSearchParams({ page, pageSize });
+  if (setor) query.set('setor', setor);
+  if (revenda) query.set('revenda', revenda);
+  if (search) query.set('search', search);
+
+  if ($('#tessExport')) $('#tessExport').href = `${API}/export/imersao-tess.csv?${query.toString()}`;
+  if ($('#tessBody')) $('#tessBody').innerHTML = skeletonRows(5, 7);
+  if ($('#tessEmpty')) $('#tessEmpty').hidden = true;
+
+  try {
+    const res = await api(`/imersao-tess?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.tess.total = res.total;
+    if ($('#navTessTotal')) {
+      $('#navTessTotal').textContent = res.total;
+      $('#navTessTotal').hidden = res.total === 0;
+    }
+    renderTess(res.rows, res.total);
+    renderPager('#tessPager', state.tess, res.total, loadTess);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar inscritos da Imersão Tess', err.message);
+    emptyState('#tessEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function renderTess(rows, total) {
+  const tbody = $('#tessBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    emptyState('#tessEmpty', 'Nenhum inscrito encontrado', 'Tente ajustar a busca ou filtros.');
+    return;
+  }
+  if ($('#tessEmpty')) $('#tessEmpty').hidden = true;
+  const html = rows.map((r) => `
+    <tr>
+      <td><span class="mono">${esc(proto(r.id))}</span></td>
+      <td><span class="date-tag">${esc(fmtDateShort(r.created_at))}</span></td>
+      <td><strong>${esc(r.nome)}</strong></td>
+      <td>${esc(r.email)}</td>
+      <td>${esc(fmtPhone(r.telefone))}</td>
+      <td><span class="chip">${esc(r.setor)}</span></td>
+      <td><span class="chip font-medium">${esc(r.revenda)}</span></td>
+    </tr>
+  `).join('');
+  tbody.innerHTML = html;
+}
+
+/* ════════════════════════════════════════════════════════════════
    Eventos
    ════════════════════════════════════════════════════════════════ */
 function bind() {
@@ -554,6 +611,11 @@ function bind() {
   $('#ctVigencia').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#ctVigencia .seg').forEach((x) => x.classList.toggle('active', x === s)); state.ct.vigencia = s.dataset.val; state.ct.page = 1; loadContratos(); };
   $('#ctSetor').onchange = (e) => { state.ct.setor = e.target.value; state.ct.page = 1; loadContratos(); };
   $('#ctSearch').oninput = debounce((e) => { state.ct.search = e.target.value.trim(); state.ct.page = 1; loadContratos(); });
+
+  // filtros imersão tess
+  if ($('#tessSetor')) $('#tessSetor').onchange = (e) => { state.tess.setor = e.target.value; state.tess.page = 1; loadTess(); };
+  if ($('#tessRevenda')) $('#tessRevenda').onchange = (e) => { state.tess.revenda = e.target.value; state.tess.page = 1; loadTess(); };
+  if ($('#tessSearch')) $('#tessSearch').oninput = debounce((e) => { state.tess.search = e.target.value.trim(); state.tess.page = 1; loadTess(); });
 }
 
 /* ════════ Init ════════ */

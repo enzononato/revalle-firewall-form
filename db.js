@@ -112,6 +112,22 @@ async function initDb() {
     `);
 
     console.log('[db] tabela contract_requests e contract_files prontas');
+
+    // ── imersao_tess_requests ──────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS imersao_tess_requests (
+        id          SERIAL PRIMARY KEY,
+        nome        VARCHAR(200) NOT NULL,
+        email       VARCHAR(200) NOT NULL,
+        telefone    VARCHAR(20)  NOT NULL,
+        setor       VARCHAR(100) NOT NULL,
+        revenda     VARCHAR(100) NOT NULL,
+        created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_imersao_tess_created_at ON imersao_tess_requests (created_at DESC)`);
+
+    console.log('[db] tabela imersao_tess_requests pronta');
   } finally {
     client.release();
   }
@@ -461,10 +477,93 @@ async function getContractStats() {
   };
 }
 
+async function insertImersaoTessRequest(data) {
+  const sql = `
+    INSERT INTO imersao_tess_requests (nome, email, telefone, setor, revenda)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, created_at
+  `;
+  const params = [
+    data.nome,
+    data.email,
+    data.telefone,
+    data.setor,
+    data.revenda,
+  ];
+  const { rows } = await pool.query(sql, params);
+  return rows[0];
+}
+
+async function listImersaoTessRequests(filters = {}) {
+  const conds = [];
+  const params = [];
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+
+  if (filters.setor) conds.push(`setor = ${add(filters.setor)}`);
+  if (filters.revenda) conds.push(`revenda ILIKE ${add('%' + filters.revenda + '%')}`);
+  if (filters.search) {
+    const term = `%${filters.search.toLowerCase()}%`;
+    const p = add(term);
+    conds.push(`(LOWER(nome) LIKE ${p} OR LOWER(email) LIKE ${p} OR telefone LIKE ${p})`);
+  }
+
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 500);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const dataParams = params.slice();
+  dataParams.push(limit); const limIdx = dataParams.length;
+  dataParams.push(offset); const offIdx = dataParams.length;
+
+  const dataSql = `
+    SELECT id, nome, email, telefone, setor, revenda, created_at
+    FROM imersao_tess_requests
+    ${where}
+    ORDER BY created_at DESC
+    LIMIT $${limIdx} OFFSET $${offIdx}
+  `;
+  const countSql = `SELECT COUNT(*)::int AS total FROM imersao_tess_requests ${where}`;
+
+  const [dataRes, countRes] = await Promise.all([
+    pool.query(dataSql, dataParams),
+    pool.query(countSql, params),
+  ]);
+  return { rows: dataRes.rows, total: countRes.rows[0].total };
+}
+
+async function getImersaoTessStats() {
+  const [kpis, byRevenda, bySetor, monthly] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', NOW()))::int AS this_month
+      FROM imersao_tess_requests
+    `),
+    pool.query(`SELECT revenda, COUNT(*)::int AS total FROM imersao_tess_requests WHERE revenda <> '' GROUP BY revenda ORDER BY total DESC`),
+    pool.query(`SELECT setor, COUNT(*)::int AS total FROM imersao_tess_requests WHERE setor <> '' GROUP BY setor ORDER BY total DESC`),
+    pool.query(`
+      SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month, COUNT(*)::int AS total
+      FROM imersao_tess_requests
+      WHERE created_at >= date_trunc('month', NOW()) - interval '11 months'
+      GROUP BY 1 ORDER BY 1
+    `),
+  ]);
+
+  return {
+    kpis: kpis.rows[0],
+    byRevenda: byRevenda.rows,
+    bySetor: bySetor.rows,
+    monthly: monthly.rows,
+  };
+}
+
 module.exports = {
   pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
+  // imersao tess
+  insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 };
+

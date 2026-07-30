@@ -40,6 +40,11 @@
           <span>Contratos</span>
           <em class="nav-badge amber" id="navExpiring" hidden>0</em>
         </button>
+        <button class="nav-item" data-view="tess">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Imersão Tess</span>
+          <em class="nav-badge blue" id="navTessTotal" hidden>0</em>
+        </button>
       </nav>
 
       <div class="side-foot">
@@ -190,6 +195,32 @@
           <div class="table-empty" id="ctEmpty" hidden></div>
         </div>
         <div class="pager" id="ctPager"></div>
+      </section>
+
+      <!-- ─── VIEW: Imersão Tess ─── -->
+      <section class="view" id="view-tess">
+        <div class="toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="tessSearch" placeholder="Buscar nome, e-mail, telefone…" />
+          </div>
+          <select class="select" id="tessSetor"><option value="">Todos setores</option></select>
+          <select class="select" id="tessRevenda"><option value="">Todas revendas</option></select>
+          <a class="btn-export" id="tessExport" href="/api/dashboard/export/imersao-tess.csv">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Exportar CSV
+          </a>
+        </div>
+        <div class="table-wrap card">
+          <table class="data-table" id="tessTable">
+            <thead><tr>
+              <th>Inscrição</th><th>Data</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Setor</th><th>Revenda</th>
+            </tr></thead>
+            <tbody id="tessBody"></tbody>
+          </table>
+          <div class="table-empty" id="tessEmpty" hidden>Nenhuma inscrição encontrada</div>
+        </div>
+        <div class="pager" id="tessPager"></div>
       </section>
     </div>
   </div>

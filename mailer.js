@@ -418,4 +418,150 @@ async function sendContractEmail({ id, created_at, data, arquivo_token, arquivos
   console.log(`[mailer] e-mail contrato enviado: ${info.messageId}`);
 }
 
-module.exports = { sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail };
+/* ── Imersão Tess E-mails ── */
+
+function buildImersaoTessParticipantHtml({ id, created_at, data }) {
+  const date = formatDate(created_at ? new Date(created_at) : new Date());
+  const proto = '#IM-' + String(id).padStart(5, '0');
+
+  const fields = [
+    ['Nome Completo', esc(data.nome)],
+    ['E-mail',        esc(data.email)],
+    ['Telefone / WhatsApp', esc(data.telefone)],
+    ['Setor',         esc(data.setor)],
+    ['Revenda / Unidade', esc(data.revenda)],
+    ['Data da Inscrição', date],
+  ];
+
+  const rowsHtml = fields.map(([label, val], idx) => `
+    <tr style="background:${idx % 2 === 0 ? '#f8f9fc' : '#ffffff'};">
+      <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#5b6478;width:38%;border-bottom:1px solid #eaecf3;">${label}</td>
+      <td style="padding:12px 16px;font-size:14px;color:#1a1f36;font-weight:500;border-bottom:1px solid #eaecf3;">${val}</td>
+    </tr>
+  `).join('');
+
+  return emailShell(`Confirmação de Inscrição — Imersão Tess`, `
+    <tr>
+      <td style="background:linear-gradient(135deg,#0033A0 0%,#001C55 100%);border-radius:16px 16px 0 0;padding:36px 32px;text-align:center;">
+        <div style="width:54px;height:54px;background:#ffffff;border-radius:14px;display:inline-grid;place-items:center;line-height:54px;font-size:28px;font-weight:800;color:#0033A0;font-style:italic;margin-bottom:16px;box-shadow:0 8px 20px rgba(0,0,0,0.15);">R</div>
+        <div style="font-size:12px;font-weight:700;color:#60A5FA;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Confirmação Oficial</div>
+        <h1 style="margin:0;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Inscrição Confirmada!</h1>
+        <p style="margin:8px 0 0;font-size:15px;color:rgba(255,255,255,0.85);">Você está registrado(a) na Imersão Tess</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="background:#002677;padding:12px 32px;text-align:center;">
+        <span style="font-size:13px;font-weight:700;color:#ffffff;letter-spacing:1px;">CÓDIGO DE INSCRIÇÃO: <span style="color:#60A5FA;">${esc(proto)}</span></span>
+      </td>
+    </tr>
+    <tr>
+      <td style="background:#ffffff;padding:32px;border-radius:0 0 16px 16px;box-shadow:0 12px 32px rgba(16,24,40,0.08);">
+        <p style="margin:0 0 20px;font-size:16px;color:#1a1f36;line-height:1.6;">
+          Olá, <strong style="color:#0033A0;">${esc(data.nome)}</strong>!
+        </p>
+        <p style="margin:0 0 24px;font-size:14.5px;color:#5b6478;line-height:1.6;">
+          Sua inscrição na <strong>Imersão Tess</strong> foi recebida e confirmada com sucesso. Abaixo estão os detalhes do seu cadastro:
+        </p>
+
+        <div style="margin-bottom:28px;">
+          <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#0033A0;letter-spacing:.8px;text-transform:uppercase;">Resumo do Cadastro</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eaecf3;border-radius:10px;overflow:hidden;border-collapse:collapse;">
+            ${rowsHtml}
+          </table>
+        </div>
+
+        <div style="background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 100%);border:1px solid #BFDBFE;border-radius:12px;padding:20px;margin-bottom:24px;">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="width:36px;vertical-align:top;font-size:24px;">🚀</td>
+              <td style="padding-left:12px;">
+                <h4 style="margin:0 0 4px;font-size:15px;color:#1E40AF;font-weight:700;">Próximos Passos</h4>
+                <p style="margin:0;font-size:13.5px;color:#1E3A8A;line-height:1.5;">
+                  Em breve entraremos em contato com a agenda completa, materiais e orientações exclusivas da Imersão Tess. Mantenha seu e-mail e WhatsApp atentos!
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="margin:0;font-size:13.5px;color:#8c93a8;text-align:center;line-height:1.5;">
+          Dúvidas? Entre em contato com a equipe de TI / Projetos Revalle.
+        </p>
+      </td>
+    </tr>
+  `);
+}
+
+function buildImersaoTessAdminHtml({ id, created_at, data }) {
+  const date = formatDate(created_at ? new Date(created_at) : new Date());
+  const proto = '#IM-' + String(id).padStart(5, '0');
+
+  const fields = [
+    ['Inscrito',      esc(data.nome)],
+    ['E-mail',        esc(data.email)],
+    ['Telefone',      esc(data.telefone)],
+    ['Setor',         esc(data.setor)],
+    ['Revenda',       esc(data.revenda)],
+    ['Data',          date],
+  ];
+
+  const rowsHtml = fields.map(([label, val], idx) => `
+    <tr style="background:${idx % 2 === 0 ? '#f8f9fc' : '#ffffff'};">
+      <td style="padding:10px 14px;font-size:13px;font-weight:600;color:#5b6478;width:35%;border-bottom:1px solid #eaecf3;">${label}</td>
+      <td style="padding:10px 14px;font-size:13.5px;color:#1a1f36;font-weight:500;border-bottom:1px solid #eaecf3;">${val}</td>
+    </tr>
+  `).join('');
+
+  return emailShell(`[Imersão Tess] Nova inscrição ${proto} — ${data.nome}`, `
+    ${headerBlock(`Nova Inscrição Imersão Tess &nbsp;&bull;&nbsp; ${esc(proto)}`)}
+    <tr><td style="background:#fff;padding:28px;border-radius:0 0 12px 12px;box-shadow:0 8px 24px rgba(16,24,40,.08);">
+      <p style="margin:0 0 16px;font-size:14px;color:#1a1f36;">
+        Um novo colaborador se inscreveu na <strong>Imersão Tess</strong>.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eaecf3;border-radius:8px;overflow:hidden;border-collapse:collapse;margin-bottom:20px;">
+        ${rowsHtml}
+      </table>
+    </td></tr>`);
+}
+
+async function sendImersaoTessParticipantEmail({ id, created_at, data }) {
+  if (!SMTP_PASS) {
+    console.warn('[mailer] SMTP_PASS nao configurada — e-mail de confirmacao nao enviado ao participante.');
+    return;
+  }
+  try {
+    const info = await getTransporter().sendMail({
+      from: `"Revalle - Imersão Tess" <${SMTP_USER}>`,
+      to: data.email,
+      subject: `Confirmação de Inscrição — Imersão Tess Revalle (#IM-${String(id).padStart(5, '0')})`,
+      html: buildImersaoTessParticipantHtml({ id, created_at, data }),
+    });
+    console.log(`[mailer] e-mail confirmacao Imersao Tess enviado para participante: ${info.messageId}`);
+  } catch (err) {
+    console.error('[mailer] erro ao enviar e-mail confirmacao participante:', err);
+  }
+}
+
+async function sendImersaoTessAdminEmail({ id, created_at, data }) {
+  if (!SMTP_PASS) {
+    console.warn('[mailer] SMTP_PASS nao configurada — e-mail admin nao enviado.');
+    return;
+  }
+  try {
+    const info = await getTransporter().sendMail({
+      from: `"Revalle - Imersão Tess" <${SMTP_USER}>`,
+      to: SMTP_TO,
+      subject: `[Imersão Tess] Nova inscrição #IM-${String(id).padStart(5, '0')} — ${data.nome} (${data.revenda})`,
+      html: buildImersaoTessAdminHtml({ id, created_at, data }),
+    });
+    console.log(`[mailer] e-mail admin Imersao Tess enviado: ${info.messageId}`);
+  } catch (err) {
+    console.error('[mailer] erro ao enviar e-mail admin Imersao Tess:', err);
+  }
+}
+
+module.exports = {
+  sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail,
+  sendImersaoTessParticipantEmail, sendImersaoTessAdminEmail,
+};
+

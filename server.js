@@ -5,10 +5,14 @@ const multer = require('multer');
 const {
   initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
+  insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 } = require('./db');
-const { sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail } = require('./mailer');
+const {
+  sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail,
+  sendImersaoTessParticipantEmail, sendImersaoTessAdminEmail,
+} = require('./mailer');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -74,6 +78,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/contratos', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'contratos.html'));
+});
+
+app.get('/imersao-tess-form', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'imersao-tess.html'));
 });
 
 function onlyDigits(s) {
@@ -251,6 +259,34 @@ function validatePayload(body) {
   };
 }
 
+function validateImersaoTessPayload(body) {
+  const errors = [];
+
+  const nome = trimStr(body.nome, 200);
+  if (!nome) errors.push('Nome completo e obrigatorio.');
+  else if (nome.length < 3) errors.push('Nome muito curto.');
+  else if (!nome.includes(' ')) errors.push('Informe o nome completo (nome e sobrenome).');
+
+  const email = trimStr(body.email, 200);
+  if (!email) errors.push('E-mail e obrigatorio.');
+  else if (!isValidEmail(email)) errors.push('E-mail invalido.');
+
+  const telefoneDigits = onlyDigits(body.telefone);
+  if (!telefoneDigits) errors.push('Telefone e obrigatorio.');
+  else if (telefoneDigits.length < 10 || telefoneDigits.length > 11) errors.push('Telefone invalido (informe DDD + 8 ou 9 digitos).');
+
+  const setor = trimStr(body.setor, 100);
+  if (!setor) errors.push('Setor e obrigatorio.');
+
+  const revenda = trimStr(body.revenda, 100);
+  if (!revenda) errors.push('Revenda e obrigatoria.');
+
+  return {
+    errors,
+    data: { nome, email, telefone: telefoneDigits, setor, revenda },
+  };
+}
+
 /* ── Paginas inline helpers ── */
 
 function pageShell(title, body) {
@@ -329,6 +365,26 @@ app.post('/api/submit', async (req, res) => {
   } catch (err) {
     console.error('[submit] erro ao salvar solicitacao:', err);
     return res.status(500).json({ ok: false, errors: ['Erro interno ao salvar a solicitacao. Tente novamente em instantes.'] });
+  }
+});
+
+app.post('/api/imersao-tess/submit', async (req, res) => {
+  const { errors, data } = validateImersaoTessPayload(req.body || {});
+  if (errors.length) return res.status(400).json({ ok: false, errors });
+
+  try {
+    const saved = await insertImersaoTessRequest(data);
+
+    sendImersaoTessParticipantEmail({ id: saved.id, created_at: saved.created_at, data })
+      .catch((err) => console.error('[mailer] falha email participante imersao tess:', err));
+
+    sendImersaoTessAdminEmail({ id: saved.id, created_at: saved.created_at, data })
+      .catch((err) => console.error('[mailer] falha email admin imersao tess:', err));
+
+    return res.status(201).json({ ok: true, id: saved.id, created_at: saved.created_at });
+  } catch (err) {
+    console.error('[submit imersao tess] erro ao salvar:', err);
+    return res.status(500).json({ ok: false, errors: ['Erro interno ao salvar a inscricao. Tente novamente em instantes.'] });
   }
 });
 
@@ -817,6 +873,43 @@ app.get('/api/dashboard/export/contratos.csv', requireAuth, async (req, res) => 
   } catch (err) {
     console.error('[export/contratos] erro:', err);
     res.status(500).send('Erro ao exportar.');
+  }
+});
+
+/* ── Dashboard Imersão Tess ── */
+app.get('/api/dashboard/imersao-tess', requireAuth, async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const { rows, total } = await listImersaoTessRequests({
+      setor: req.query.setor, revenda: req.query.revenda,
+      search: req.query.search, limit: pageSize, offset: (page - 1) * pageSize,
+    });
+    res.json({ ok: true, rows, total, page, pageSize });
+  } catch (err) {
+    console.error('[dashboard/imersao-tess] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar inscricoes da Imersao Tess.' });
+  }
+});
+
+app.get('/api/dashboard/export/imersao-tess.csv', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await listImersaoTessRequests({
+      setor: req.query.setor, revenda: req.query.revenda,
+      search: req.query.search, limit: 5000, offset: 0,
+    });
+    sendCsv(res, 'inscritos-imersao-tess', [
+      { label: 'Inscricao', get: (r) => '#IM-' + String(r.id).padStart(5, '0') },
+      { label: 'Data', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Nome', get: (r) => r.nome },
+      { label: 'E-mail', get: (r) => r.email },
+      { label: 'Telefone', get: (r) => r.telefone },
+      { label: 'Setor', get: (r) => r.setor },
+      { label: 'Revenda', get: (r) => r.revenda },
+    ], rows);
+  } catch (err) {
+    console.error('[export/imersao-tess] erro:', err);
+    res.status(500).send('Erro ao exportar inscritos.');
   }
 });
 

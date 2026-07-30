@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <title>Revalle — Inscrição Imersão Tess</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <meta name="description" content="Formulário oficial de inscrição na Imersão Tess para colaboradores do Grupo Revalle." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, rgba(10, 50, 150, 0.1) 0%, rgba(37, 99, 235, 0.15) 100%);
+      color: var(--brand-blue);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .badge-icon {
+      font-size: 14px;
+    }
+    .form-hero {
+      text-align: center;
+      margin-bottom: 32px;
+      position: relative;
+    }
+    .form-hero h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .form-hero .lead {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    .icon-wrapper.tess {
+      background: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      color: #ffffff;
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(10, 50, 150, 0.25);
+      margin: 0 auto 16px;
+    }
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    .success-card {
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .success-icon-badge {
+      width: 72px;
+      height: 72px;
+      background: #dcfce7;
+      color: #15803d;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 25px rgba(22, 163, 74, 0.2);
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .proto-badge {
+      display: inline-block;
+      padding: 8px 20px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--brand-blue);
+      margin: 16px 0 24px;
+      letter-spacing: 0.5px;
+    }
+    .summary-box {
+      background: rgba(248, 250, 252, 0.8);
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: left;
+      margin: 20px 0 28px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px dashed #e2e8f0;
+      font-size: 14.5px;
+    }
+    .summary-row:last-child {
+      border-bottom: none;
+    }
+    .summary-label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .summary-val {
+      color: var(--text-main);
+      font-weight: 600;
+      text-align: right;
+    }
+    .btn-submit {
+      width: 100%;
+      padding: 16px 28px;
+      font-size: 16.5px;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      color: #ffffff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(10, 50, 150, 0.25);
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(10, 50, 150, 0.35);
+    }
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+    .btn-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="bg-elements" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/logo.png" alt="Revalle" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="brand-text-fallback" style="display: none;">
+          <span class="brand-name">revalle</span>
+          <span class="brand-tag">GRUPO PEDRO BARROS</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ════ Form Card ════ -->
+    <section class="card glass-panel" id="formCard">
+      <div class="form-hero">
+        <div class="icon-wrapper tess">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            <polygon points="12 2 15 8 9 8 12 2"/>
+          </svg>
+        </div>
+        <div class="badge-tag">
+          <span class="badge-icon">🚀</span> Imersão Exclusiva
+        </div>
+        <h1>Inscrição — Imersão Tess</h1>
+        <p class="lead">
+          Garanta sua vaga na imersão de conhecimento e transformação do Grupo Revalle.
+        </p>
+      </div>
+
+      <form id="imersaoTessForm" novalidate>
+        <div class="grid">
+          <!-- Nome Completo -->
+          <div class="field full-width">
+            <label for="nome">Nome Completo <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <input type="text" id="nome" name="nome" placeholder="Digite seu nome e sobrenome" required autocomplete="name" />
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+            </div>
+            <span class="error-msg" id="err-nome"></span>
+          </div>
+
+          <!-- E-mail -->
+          <div class="field">
+            <label for="email">E-mail Corporativo / Pessoal <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <input type="email" id="email" name="email" placeholder="seu.email@revalle.com.br" required autocomplete="email" />
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </span>
+            </div>
+            <span class="error-msg" id="err-email"></span>
+          </div>
+
+          <!-- Telefone / WhatsApp -->
+          <div class="field">
+            <label for="telefone">Telefone / WhatsApp <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <input type="tel" id="telefone" name="telefone" placeholder="(00) 00000-0000" maxlength="15" required autocomplete="tel" />
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </span>
+            </div>
+            <span class="error-msg" id="err-telefone"></span>
+          </div>
+
+          <!-- Setor -->
+          <div class="field">
+            <label for="setor">Setor <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <select id="setor" name="setor" required>
+                <option value="" disabled selected>Selecione o seu setor</option>
+                <option value="VENDAS">Vendas</option>
+                <option value="MARKETING">Marketing</option>
+                <option value="FINANCEIRO">Financeiro</option>
+                <option value="CONTROLADORIA">Controladoria</option>
+                <option value="CONTABILIDADE">Contabilidade</option>
+                <option value="RH">Recursos Humanos (RH)</option>
+                <option value="DP">Departamento Pessoal (DP)</option>
+                <option value="TI">Tecnologia da Informação (TI)</option>
+                <option value="LOGISTICA">Logística</option>
+                <option value="DISTRIBUICAO">Distribuição</option>
+                <option value="ARMAZEM">Armazém</option>
+                <option value="PUXADA">Puxada</option>
+                <option value="PROCESSOS">Processos</option>
+                <option value="COMPRAS">Compras</option>
+                <option value="CULTURA">Cultura</option>
+                <option value="TST">TST / Segurança do Trabalho</option>
+                <option value="DIRETORIA">Diretoria</option>
+                <option value="OUTRO">Outro Setor</option>
+              </select>
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              </span>
+            </div>
+            <span class="error-msg" id="err-setor"></span>
+          </div>
+
+          <!-- Revenda / Unidade -->
+          <div class="field">
+            <label for="revenda">Revenda / Unidade <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <select id="revenda" name="revenda" required>
+                <option value="" disabled selected>Selecione sua unidade</option>
+                <option value="Revalle Juazeiro">Revalle Juazeiro</option>
+                <option value="Revalle Petrolina">Revalle Petrolina</option>
+                <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
+                <option value="Revalle Serrinha">Revalle Serrinha</option>
+                <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
+                <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
+                <option value="Revalle Bonfim">Revalle Bonfim</option>
+                <option value="Grupo">Grupo Pedro Barros</option>
+                <option value="Outra">Outra Unidade</option>
+              </select>
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </span>
+            </div>
+            <span class="error-msg" id="err-revenda"></span>
+          </div>
+        </div>
+
+        <div id="generalError" class="alert-box alert-error" hidden></div>
+
+        <div style="margin-top: 32px;">
+          <button type="submit" class="btn-submit" id="btnSubmit">
+            <span id="btnText">Confirmar Minha Inscrição</span>
+            <svg id="btnIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <div id="btnSpinner" class="spinner" hidden></div>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ════ Success Card ════ -->
+    <section class="card glass-panel success-card" id="successCard" hidden>
+      <div class="success-icon-badge">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+
+      <h2 style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Inscrição Confirmada!</h2>
+      <p style="color: var(--text-muted); font-size: 15.5px;">Parabéns! Sua vaga na Imersão Tess foi reservada.</p>
+
+      <div class="proto-badge" id="successProto">#IM-00000</div>
+
+      <p style="color: #475569; font-size: 14.5px; max-width: 480px; margin: 0 auto 20px; line-height: 1.5;">
+        Enviamos um e-mail de confirmação bem detalhado para <strong id="successEmail" style="color: var(--brand-blue);"></strong> com todas as informações.
+      </p>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="summary-label">Participante:</span>
+          <span class="summary-val" id="summaryNome">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Telefone / WhatsApp:</span>
+          <span class="summary-val" id="summaryTelefone">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Setor:</span>
+          <span class="summary-val" id="summarySetor">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Revenda / Unidade:</span>
+          <span class="summary-val" id="summaryRevenda">---</span>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary" id="btnNewRegistration" style="padding: 14px 28px; width: 100%;">
+        Fazer Outra Inscrição
+      </button>
+    </section>
+  </main>
+
+  <footer class="footer" style="text-align: center; padding: 24px 0 40px; color: #64748b; font-size: 13px;">
+    <p>&copy; 2026 Revalle &bull; Grupo Pedro Barros. Todos os direitos reservados.</p>
+  </footer>
+
+  <script src="/imersao-tess.js"></script>
+</body>
+</html>
