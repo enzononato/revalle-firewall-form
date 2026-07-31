@@ -1,30 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="100%" height="100%">
-  <defs>
-    <style>
-      .tess-circle { fill: none; stroke: currentColor; stroke-width: 9; }
-      .tess-petal { fill: currentColor; }
-      .tess-text { font-family: 'Outfit', 'Inter', -apple-system, sans-serif; font-weight: 400; fill: currentColor; font-size: 142px; letter-spacing: -2px; }
-    </style>
-  </defs>
-
-  <!-- Circular Symbol -->
-  <g transform="translate(10, 0)">
-    <!-- Outer Circle -->
-    <circle cx="100" cy="100" r="92" class="tess-circle" />
-
-    <!-- 4 Petal/Leaf Elements forming the Tess Symbol -->
-    <g class="tess-petal">
-      <!-- Top Left Petal -->
-      <path d="M 68 56 C 85 56, 94 65, 94 82 L 94 90 C 94 93, 91 96, 88 96 L 68 96 C 51 96, 42 87, 42 70 C 42 61, 53 56, 68 56 Z" />
-      <!-- Top Right Petal -->
-      <path d="M 144 68 C 144 85, 135 94, 118 94 L 110 94 C 107 94, 104 91, 104 88 L 104 68 C 104 51, 113 42, 130 42 C 139 42, 144 53, 144 68 Z" />
-      <!-- Bottom Right Petal -->
-      <path d="M 132 144 C 115 144, 106 135, 106 118 L 106 110 C 106 107, 109 104, 112 104 L 132 104 C 149 104, 158 113, 158 130 C 158 139, 147 144, 132 144 Z" />
-      <!-- Bottom Left Petal -->
-      <path d="M 56 132 C 56 115, 65 106, 82 106 L 90 106 C 93 106, 96 109, 96 112 L 96 132 C 96 149, 87 158, 70 158 C 61 158, 56 147, 56 132 Z" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 160" width="100%" height="100%">
+  <g transform="translate(10, 10)">
+    <!-- Tess AI Icon Symbol -->
+    <g transform="scale(0.55)">
+      <!-- Top Left - Dark Indigo -->
+      <rect x="32" y="32" width="88" height="116" rx="44" ry="44" fill="#2D215C" />
+      
+      <!-- Top Right - Dark Purple -->
+      <rect x="108" y="32" width="116" height="88" rx="44" ry="44" fill="#352968" />
+      
+      <!-- Bottom Right - Lavender Light Pink -->
+      <rect x="136" y="108" width="88" height="116" rx="44" ry="44" fill="#EEB7FF" />
+      
+      <!-- Bottom Left - Coral Red -->
+      <rect x="32" y="136" width="116" height="88" rx="44" ry="44" fill="#FF5555" />
     </g>
-  </g>
 
-  <!-- Text "tess" -->
-  <text x="240" y="148" class="tess-text">tess</text>
+    <!-- Logo Typography: tess ai -->
+    <text x="175" y="100" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="96" font-weight="500" fill="#2D215C" letter-spacing="-2px">tess<tspan font-weight="700" fill="#FF5555">.ai</tspan></text>
+  </g>
 </svg>
