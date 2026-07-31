@@ -270,6 +270,7 @@ function validateImersaoTessPayload(body) {
   const email = trimStr(body.email, 200);
   if (!email) errors.push('E-mail e obrigatorio.');
   else if (!isValidEmail(email)) errors.push('E-mail invalido.');
+  else if (!email.toLowerCase().endsWith('@revalle.com.br')) errors.push('Use obrigatoriamente um e-mail corporativo (@revalle.com.br).');
 
   const telefoneDigits = onlyDigits(body.telefone);
   if (!telefoneDigits) errors.push('Telefone e obrigatorio.');

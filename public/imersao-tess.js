@@ -77,10 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!emailVal) {
-      setError('email', 'Informe seu e-mail.');
+      setError('email', 'Informe seu e-mail corporativo.');
       isValid = false;
     } else if (!isValidEmail(emailVal)) {
       setError('email', 'Informe um e-mail válido.');
+      isValid = false;
+    } else if (!emailVal.toLowerCase().endsWith('@revalle.com.br')) {
+      setError('email', 'Use obrigatoriamente seu e-mail corporativo (@revalle.com.br).');
       isValid = false;
     }
 
