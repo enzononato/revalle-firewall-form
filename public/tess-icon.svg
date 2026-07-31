@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <g fill="currentColor">
+    <!-- Outer Circle -->
+    <circle cx="100" cy="100" r="92" fill="none" stroke="currentColor" stroke-width="9" />
+
+    <!-- 4 Petal/Leaf Elements -->
+    <!-- Top Left Petal -->
+    <path d="M 68 56 C 85 56, 94 65, 94 82 L 94 90 C 94 93, 91 96, 88 96 L 68 96 C 51 96, 42 87, 42 70 C 42 61, 53 56, 68 56 Z" />
+    <!-- Top Right Petal -->
+    <path d="M 144 68 C 144 85, 135 94, 118 94 L 110 94 C 107 94, 104 91, 104 88 L 104 68 C 104 51, 113 42, 130 42 C 139 42, 144 53, 144 68 Z" />
+    <!-- Bottom Right Petal -->
+    <path d="M 132 144 C 115 144, 106 135, 106 118 L 106 110 C 106 107, 109 104, 112 104 L 132 104 C 149 104, 158 113, 158 130 C 158 139, 147 144, 132 144 Z" />
+    <!-- Bottom Left Petal -->
+    <path d="M 56 132 C 56 115, 65 106, 82 106 L 90 106 C 93 106, 96 109, 96 112 L 96 132 C 96 149, 87 158, 70 158 C 61 158, 56 147, 56 132 Z" />
+  </g>
+</svg>
