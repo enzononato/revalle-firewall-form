@@ -281,6 +281,7 @@ function validateImersaoTessPayload(body) {
 
   const revenda = trimStr(body.revenda, 100);
   if (!revenda) errors.push('Revenda e obrigatoria.');
+  else if (!UNIDADES_VALIDAS.includes(revenda)) errors.push('Revenda invalida. Selecione uma das 7 unidades Revalle.');
 
   return {
     errors,
