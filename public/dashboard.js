@@ -86,10 +86,10 @@ function switchView(view) {
   $('#pageSub').textContent = TITLES[view][1];
   closeSidebar();
   window.scrollTo({ top: 0 });
-  if (view === 'firewall' && !$('#fwBody').children.length) loadFirewall();
-  if (view === 'contratos' && !$('#ctBody').children.length) loadContratos();
-  if (view === 'tess' && !$('#tessBody').children.length) loadTess();
-  if (view === 'solides' && !$('#solidesBody').children.length) loadSolides();
+  if (view === 'firewall') loadFirewall();
+  if (view === 'contratos') loadContratos();
+  if (view === 'tess') loadTess();
+  if (view === 'solides') loadSolides();
 }
 
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('open'); }

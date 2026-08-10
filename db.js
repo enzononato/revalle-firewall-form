@@ -591,6 +591,7 @@ async function getImersaoTessStats() {
  * ────────────────────────────────────────────────────────────────────────── */
 
 let cachedColabTable = null;
+let cachedColabSchema = null;
 
 async function getColaboradoresTableName() {
   if (cachedColabTable) return cachedColabTable;
@@ -599,11 +600,25 @@ async function getColaboradoresTableName() {
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public'
-        AND table_name IN ('colaboradores-revalle', 'colaboradores_revalle', 'colaboradoresrevalle', 'colaboradores')
-      LIMIT 1
     `);
-    if (rows.length > 0) {
-      cachedColabTable = `"${rows[0].table_name}"`;
+    const matches = rows.map((r) => r.table_name);
+    console.log('[db] tabelas publicas encontradas no banco:', matches);
+
+    const exactMatch = matches.find((m) =>
+      ['colaboradores-revalle', 'colaboradores_revalle', 'colaboradoresrevalle', 'colaboradores'].includes(m.toLowerCase())
+    );
+
+    if (exactMatch) {
+      cachedColabTable = `"${exactMatch}"`;
+      return cachedColabTable;
+    }
+
+    const partialMatch = matches.find((m) =>
+      m.toLowerCase().includes('colaborador') || (m.toLowerCase().includes('revalle') && !m.includes('firewall') && !m.includes('tess'))
+    );
+
+    if (partialMatch) {
+      cachedColabTable = `"${partialMatch}"`;
       return cachedColabTable;
     }
   } catch (err) {
@@ -613,19 +628,76 @@ async function getColaboradoresTableName() {
   return cachedColabTable;
 }
 
-function mapColaboradorRow(row) {
+async function getColaboradorTableSchema() {
+  if (cachedColabSchema) return cachedColabSchema;
+
+  const table = await getColaboradoresTableName();
+  const rawTableName = table.replace(/"/g, '');
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+    `, [rawTableName]);
+
+    const colNames = rows.map((r) => r.column_name);
+    console.log(`[db] colunas encontradas na tabela ${rawTableName}:`, colNames);
+
+    const findCol = (candidates) => {
+      for (const cand of candidates) {
+        const found = colNames.find((c) => c.toLowerCase() === cand.toLowerCase());
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const cpfCol = findCol(['cpf', 'nr_cpf', 'cpf_cnpj', 'documento', 'doc', 'nu_cpf']);
+    const nomeCol = findCol(['nome_completo', 'nome', 'colaborador', 'nome_funcionario', 'funcionario', 'name', 'nom_funcionario']);
+    const cargoCol = findCol(['cargo', 'funcao', 'cargo_funcao', 'role', 'posicao', 'cargo_descricao', 'des_funcao']);
+    const setorCol = findCol(['setor', 'departamento', 'area', 'department', 'secao', 'lotacao', 'des_setor']);
+    const unidadeCol = findCol(['unidade', 'revenda', 'filial', 'empresa', 'unit', 'loja', 'des_unidade']);
+
+    cachedColabSchema = {
+      table,
+      rawTableName,
+      cpfCol,
+      nomeCol,
+      cargoCol,
+      setorCol,
+      unidadeCol,
+    };
+    return cachedColabSchema;
+  } catch (err) {
+    console.error('[db] erro ao inspecionar colunas:', err.message);
+    cachedColabSchema = {
+      table,
+      rawTableName,
+      cpfCol: 'cpf',
+      nomeCol: 'nome_completo',
+      cargoCol: 'cargo',
+      setorCol: 'setor',
+      unidadeCol: 'unidade',
+    };
+    return cachedColabSchema;
+  }
+}
+
+function mapColaboradorRow(row, schema) {
   if (!row) return null;
-  const cpfDigits = String(row.cpf || '').replace(/\D+/g, '');
-  const nome = row.nome_completo || row.nome || row.colaborador || row.nome_funcionario || row.name || '';
-  const cargo = row.cargo || row.funcao || row.cargo_funcao || row.role || '';
-  const setor = row.setor || row.departamento || row.area || row.department || '';
-  const unidade = row.unidade || row.revenda || row.filial || row.empresa || row.unit || '';
+  const cpfVal = schema && schema.cpfCol ? row[schema.cpfCol] : (row.cpf || row.nr_cpf || row.documento || '');
+  const nomeVal = schema && schema.nomeCol ? row[schema.nomeCol] : (row.nome_completo || row.nome || row.colaborador || row.nome_funcionario || row.name || '');
+  const cargoVal = schema && schema.cargoCol ? row[schema.cargoCol] : (row.cargo || row.funcao || row.cargo_funcao || '');
+  const setorVal = schema && schema.setorCol ? row[schema.setorCol] : (row.setor || row.departamento || row.area || '');
+  const unidadeVal = schema && schema.unidadeCol ? row[schema.unidadeCol] : (row.unidade || row.revenda || row.filial || row.empresa || '');
+
   return {
-    cpf: cpfDigits,
-    nome_completo: String(nome).trim(),
-    cargo: String(cargo).trim(),
-    setor: String(setor).trim(),
-    unidade: String(unidade).trim(),
+    cpf: String(cpfVal || '').replace(/\D+/g, ''),
+    nome_completo: String(nomeVal || '').trim(),
+    cargo: String(cargoVal || '').trim(),
+    setor: String(setorVal || '').trim(),
+    unidade: String(unidadeVal || '').trim(),
   };
 }
 
@@ -633,14 +705,17 @@ async function findSolidesColaboradorByCpf(cpf) {
   const digits = String(cpf || '').replace(/\D+/g, '');
   if (!digits || digits.length !== 11) return null;
 
-  const table = await getColaboradoresTableName();
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfCol = schema.cpfCol ? `"${schema.cpfCol}"` : 'cpf';
+
   let colabRow = null;
 
   try {
     const { rows } = await pool.query(
       `SELECT * FROM ${table}
-       WHERE regexp_replace(cpf::text, '\\D', '', 'g') = $1
-          OR cpf::text = $1
+       WHERE regexp_replace(${cpfCol}::text, '\\D', '', 'g') = $1
+          OR ${cpfCol}::text = $1
        LIMIT 1`,
       [digits]
     );
@@ -649,7 +724,7 @@ async function findSolidesColaboradorByCpf(cpf) {
     console.error(`[db] erro ao consultar colaborador em ${table}:`, err.message);
     try {
       const { rows } = await pool.query(
-        `SELECT * FROM "colaboradores-revalle" WHERE cpf::text LIKE $1 LIMIT 1`,
+        `SELECT * FROM ${table} WHERE ${cpfCol}::text LIKE $1 LIMIT 1`,
         [`%${digits}%`]
       );
       colabRow = rows[0] || null;
@@ -660,7 +735,7 @@ async function findSolidesColaboradorByCpf(cpf) {
 
   if (!colabRow) return null;
 
-  const mapped = mapColaboradorRow(colabRow);
+  const mapped = mapColaboradorRow(colabRow, schema);
 
   // Consulta se tem permissão e se já assinou
   const [sigRes, permRes] = await Promise.all([
@@ -739,7 +814,10 @@ async function assinarTermoSolides(cpf, ip = '') {
 }
 
 async function listSolidesColaboradores(filters = {}) {
-  const table = await getColaboradoresTableName();
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
+
   const conds = [];
   const params = [];
   const add = (val) => { params.push(val); return `$${params.length}`; };
@@ -754,22 +832,25 @@ async function listSolidesColaboradores(filters = {}) {
     conds.push(`s.id IS NULL AND COALESCE(p.permitido, FALSE) = TRUE`);
   }
 
-  if (filters.setor) {
-    conds.push(`c.setor = ${add(filters.setor)}`);
+  if (filters.setor && schema.setorCol) {
+    conds.push(`c."${schema.setorCol}" = ${add(filters.setor)}`);
   }
-  if (filters.unidade) {
-    conds.push(`c.unidade = ${add(filters.unidade)}`);
+  if (filters.unidade && schema.unidadeCol) {
+    conds.push(`c."${schema.unidadeCol}" = ${add(filters.unidade)}`);
   }
 
   if (filters.search) {
     const term = `%${filters.search.toLowerCase()}%`;
     const p = add(term);
-    conds.push(`(
-      LOWER(COALESCE(c.nome_completo, c.nome, '')::text) LIKE ${p} OR
-      regexp_replace(c.cpf::text, '\\D', '', 'g') LIKE ${p} OR
-      LOWER(COALESCE(c.cargo, c.funcao, '')::text) LIKE ${p} OR
-      LOWER(COALESCE(c.setor, c.departamento, '')::text) LIKE ${p}
-    )`);
+    const searchParts = [];
+    if (schema.nomeCol) searchParts.push(`LOWER(c."${schema.nomeCol}"::text) LIKE ${p}`);
+    if (schema.cpfCol) searchParts.push(`regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g') LIKE ${p}`);
+    if (schema.cargoCol) searchParts.push(`LOWER(c."${schema.cargoCol}"::text) LIKE ${p}`);
+    if (schema.setorCol) searchParts.push(`LOWER(c."${schema.setorCol}"::text) LIKE ${p}`);
+
+    if (searchParts.length > 0) {
+      conds.push(`(${searchParts.join(' OR ')})`);
+    }
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
@@ -779,6 +860,8 @@ async function listSolidesColaboradores(filters = {}) {
   const dataParams = params.slice();
   dataParams.push(limit); const limIdx = dataParams.length;
   dataParams.push(offset); const offIdx = dataParams.length;
+
+  const orderExpr = schema.nomeCol ? `c."${schema.nomeCol}" ASC` : `c.ctid ASC`;
 
   const dataSql = `
     SELECT
@@ -790,15 +873,15 @@ async function listSolidesColaboradores(filters = {}) {
       COALESCE(p.permitido, FALSE) AS permitido
     FROM ${table} c
     LEFT JOIN solides_treinamento_permissoes p
-      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = p.cpf
+      ON ${cpfExpr} = p.cpf
     LEFT JOIN solides_treinamento_assinaturas s
-      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
+      ON ${cpfExpr} = s.cpf
     ${where}
     ORDER BY
       CASE WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL THEN 0
            WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NOT NULL THEN 1
            ELSE 2 END,
-      COALESCE(c.nome_completo, c.nome, '') ASC
+      ${orderExpr}
     LIMIT $${limIdx} OFFSET $${offIdx}
   `;
 
@@ -806,9 +889,9 @@ async function listSolidesColaboradores(filters = {}) {
     SELECT COUNT(*)::int AS total
     FROM ${table} c
     LEFT JOIN solides_treinamento_permissoes p
-      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = p.cpf
+      ON ${cpfExpr} = p.cpf
     LEFT JOIN solides_treinamento_assinaturas s
-      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
+      ON ${cpfExpr} = s.cpf
     ${where}
   `;
 
@@ -819,9 +902,9 @@ async function listSolidesColaboradores(filters = {}) {
     ]);
 
     const formattedRows = dataRes.rows.map((row) => {
-      const mapped = mapColaboradorRow(row);
+      const mapped = mapColaboradorRow(row, schema);
       return {
-        id: row.assinatura_id || row.id,
+        id: row.assinatura_id || row.id || null,
         cpf: mapped.cpf,
         nome_completo: mapped.nome_completo,
         cargo: mapped.cargo,
@@ -836,13 +919,16 @@ async function listSolidesColaboradores(filters = {}) {
 
     return { rows: formattedRows, total: countRes.rows[0].total };
   } catch (err) {
-    console.error(`[db] erro ao listar colaboradores de ${table}:`, err.message);
+    console.error(`[db] erro ao listar colaboradores de ${table}:`, err);
     return { rows: [], total: 0 };
   }
 }
 
 async function getSolidesStats() {
-  const table = await getColaboradoresTableName();
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
+
   try {
     const { rows } = await pool.query(`
       SELECT
@@ -857,14 +943,14 @@ async function getSolidesStats() {
         END::float AS taxa_adesao
       FROM ${table} c
       LEFT JOIN solides_treinamento_permissoes p
-        ON regexp_replace(c.cpf::text, '\\D', '', 'g') = p.cpf
+        ON ${cpfExpr} = p.cpf
       LEFT JOIN solides_treinamento_assinaturas s
-        ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
+        ON ${cpfExpr} = s.cpf
     `);
     return rows[0] || { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
   } catch (err) {
-    console.error(`[db] erro ao calcular estatisticas de ${table}:`, err.message);
-    const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM solides_treinamento_assinaturas`);
+    console.error(`[db] erro ao calcular estatisticas de ${table}:`, err);
+    const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM solides_treinamento_assinaturas`).catch(() => ({ rows: [{ assinados: 0 }] }));
     const assinados = fallbackRes.rows[0] ? fallbackRes.rows[0].assinados : 0;
     return { total_base: assinados, total_permitidos: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
   }
