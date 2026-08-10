@@ -974,3 +974,64 @@ input:focus, select:focus, textarea:focus {
   background: var(--error-bg);
   color: var(--error);
 }
+
+/* Alert Box */
+.alert-box {
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 14px;
+}
+.alert-box.alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+.alert-box.alert-warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+/* Switch Toggle Component */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.2s ease-in-out;
+  border-radius: 22px;
+}
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s ease-in-out;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #10b981;
+}
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+}
+

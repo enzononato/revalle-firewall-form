@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
+        step1Error.className = data.not_permitted ? 'alert-box alert-warn' : 'alert-box alert-error';
         step1Error.textContent = data.error || 'CPF não localizado. Verifique os dados ou procure o Departamento Pessoal.';
         step1Error.hidden = false;
         return;

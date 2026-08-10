@@ -146,7 +146,17 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_assinaturas_cpf ON solides_treinamento_assinaturas (cpf)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_assinaturas_data ON solides_treinamento_assinaturas (assinado_em DESC)`);
 
-    console.log('[db] tabela solides_treinamento_assinaturas pronta');
+    // ── solides_treinamento_permissoes ─────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS solides_treinamento_permissoes (
+        cpf           VARCHAR(11) PRIMARY KEY,
+        permitido     BOOLEAN NOT NULL DEFAULT TRUE,
+        permitido_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_perm_cpf ON solides_treinamento_permissoes (cpf)`);
+
+    console.log('[db] tabelas solides_treinamento_assinaturas e solides_treinamento_permissoes prontas');
   } finally {
     client.release();
   }
@@ -652,12 +662,15 @@ async function findSolidesColaboradorByCpf(cpf) {
 
   const mapped = mapColaboradorRow(colabRow);
 
-  // Consulta se já assinou
-  const sigRes = await pool.query(
-    `SELECT id, assinado_em, ip FROM solides_treinamento_assinaturas WHERE cpf = $1 LIMIT 1`,
-    [digits]
-  );
+  // Consulta se tem permissão e se já assinou
+  const [sigRes, permRes] = await Promise.all([
+    pool.query(`SELECT id, assinado_em, ip FROM solides_treinamento_assinaturas WHERE cpf = $1 LIMIT 1`, [digits]),
+    pool.query(`SELECT permitido FROM solides_treinamento_permissoes WHERE cpf = $1 LIMIT 1`, [digits]),
+  ]);
+
   const sig = sigRes.rows[0] || null;
+  const perm = permRes.rows[0];
+  const permitido = perm ? Boolean(perm.permitido) : false;
 
   return {
     ...mapped,
@@ -665,7 +678,40 @@ async function findSolidesColaboradorByCpf(cpf) {
     assinado: Boolean(sig),
     assinado_em: sig ? sig.assinado_em : null,
     protocolo: sig ? '#TS-' + String(sig.id).padStart(5, '0') : null,
+    permitido,
   };
+}
+
+async function toggleSolidesPermissao(cpf, permitido) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits) return null;
+
+  const { rows } = await pool.query(
+    `INSERT INTO solides_treinamento_permissoes (cpf, permitido, permitido_em)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (cpf) DO UPDATE SET
+       permitido = EXCLUDED.permitido,
+       permitido_em = NOW()
+     RETURNING cpf, permitido, permitido_em`,
+    [digits, Boolean(permitido)]
+  );
+  return rows[0] || null;
+}
+
+async function bulkSetSolidesPermissoes(cpfs, permitido) {
+  if (!Array.isArray(cpfs) || !cpfs.length) return { count: 0 };
+  const cleanCpfs = cpfs.map((c) => String(c || '').replace(/\D+/g, '')).filter((c) => c.length === 11);
+  if (!cleanCpfs.length) return { count: 0 };
+
+  const { rowCount } = await pool.query(
+    `INSERT INTO solides_treinamento_permissoes (cpf, permitido, permitido_em)
+     SELECT unnest($1::text[]), $2, NOW()
+     ON CONFLICT (cpf) DO UPDATE SET
+       permitido = EXCLUDED.permitido,
+       permitido_em = NOW()`,
+    [cleanCpfs, Boolean(permitido)]
+  );
+  return { count: rowCount };
 }
 
 async function assinarTermoSolides(cpf, ip = '') {
@@ -674,6 +720,9 @@ async function assinarTermoSolides(cpf, ip = '') {
 
   const colab = await findSolidesColaboradorByCpf(digits);
   if (!colab) return null;
+  if (!colab.permitido) {
+    throw new Error('Colaborador não está habilitado para responder ao treinamento.');
+  }
 
   const { rows } = await pool.query(
     `INSERT INTO solides_treinamento_assinaturas
@@ -695,10 +744,14 @@ async function listSolidesColaboradores(filters = {}) {
   const params = [];
   const add = (val) => { params.push(val); return `$${params.length}`; };
 
-  if (filters.status === 'assinado') {
+  if (filters.status === 'permitido') {
+    conds.push(`COALESCE(p.permitido, FALSE) = TRUE`);
+  } else if (filters.status === 'nao_permitido') {
+    conds.push(`COALESCE(p.permitido, FALSE) = FALSE`);
+  } else if (filters.status === 'assinado') {
     conds.push(`s.id IS NOT NULL`);
   } else if (filters.status === 'pendente') {
-    conds.push(`s.id IS NULL`);
+    conds.push(`s.id IS NULL AND COALESCE(p.permitido, FALSE) = TRUE`);
   }
 
   if (filters.setor) {
@@ -733,13 +786,18 @@ async function listSolidesColaboradores(filters = {}) {
       s.id AS assinatura_id,
       s.assinado_em,
       s.ip,
-      (s.id IS NOT NULL) AS assinado
+      (s.id IS NOT NULL) AS assinado,
+      COALESCE(p.permitido, FALSE) AS permitido
     FROM ${table} c
+    LEFT JOIN solides_treinamento_permissoes p
+      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = p.cpf
     LEFT JOIN solides_treinamento_assinaturas s
       ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
     ${where}
     ORDER BY
-      CASE WHEN s.id IS NULL THEN 0 ELSE 1 END,
+      CASE WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL THEN 0
+           WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NOT NULL THEN 1
+           ELSE 2 END,
       COALESCE(c.nome_completo, c.nome, '') ASC
     LIMIT $${limIdx} OFFSET $${offIdx}
   `;
@@ -747,6 +805,8 @@ async function listSolidesColaboradores(filters = {}) {
   const countSql = `
     SELECT COUNT(*)::int AS total
     FROM ${table} c
+    LEFT JOIN solides_treinamento_permissoes p
+      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = p.cpf
     LEFT JOIN solides_treinamento_assinaturas s
       ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
     ${where}
@@ -767,6 +827,7 @@ async function listSolidesColaboradores(filters = {}) {
         cargo: mapped.cargo,
         setor: mapped.setor,
         unidade: mapped.unidade,
+        permitido: Boolean(row.permitido),
         assinado: Boolean(row.assinado),
         assinado_em: row.assinado_em,
         ip: row.ip,
@@ -785,23 +846,27 @@ async function getSolidesStats() {
   try {
     const { rows } = await pool.query(`
       SELECT
-        COUNT(c.*)::int AS total,
+        COUNT(c.*)::int AS total_base,
+        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::int AS total_permitidos,
         COUNT(s.id)::int AS assinados,
-        (COUNT(c.*) - COUNT(s.id))::int AS pendentes,
+        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL)::int AS pendentes,
         CASE
-          WHEN COUNT(c.*) > 0 THEN ROUND((COUNT(s.id)::numeric / COUNT(c.*)::numeric) * 100, 1)
+          WHEN COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE) > 0
+          THEN ROUND((COUNT(s.id)::numeric / COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::numeric) * 100, 1)
           ELSE 0
         END::float AS taxa_adesao
       FROM ${table} c
+      LEFT JOIN solides_treinamento_permissoes p
+        ON regexp_replace(c.cpf::text, '\\D', '', 'g') = p.cpf
       LEFT JOIN solides_treinamento_assinaturas s
         ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
     `);
-    return rows[0] || { total: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
+    return rows[0] || { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
   } catch (err) {
     console.error(`[db] erro ao calcular estatisticas de ${table}:`, err.message);
     const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM solides_treinamento_assinaturas`);
     const assinados = fallbackRes.rows[0] ? fallbackRes.rows[0].assinados : 0;
-    return { total: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
+    return { total_base: assinados, total_permitidos: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
   }
 }
 
@@ -812,6 +877,7 @@ module.exports = {
   insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
   // treinamento solides
   findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
+  toggleSolidesPermissao, bulkSetSolidesPermissoes,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,

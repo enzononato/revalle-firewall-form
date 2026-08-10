@@ -579,6 +579,8 @@ function renderTess(rows, total) {
 /* ════════════════════════════════════════════════════════════════
    Treinamento Sólides Dashboard
    ════════════════════════════════════════════════════════════════ */
+const selectedSolidesCpfs = new Set();
+
 async function loadSolides() {
   const { status, setor, search, page, pageSize } = state.solides;
   const query = new URLSearchParams({ page, pageSize });
@@ -587,7 +589,7 @@ async function loadSolides() {
   if (search) query.set('search', search);
 
   if ($('#solidesExport')) $('#solidesExport').href = `${API}/export/solides.csv?${query.toString()}`;
-  if ($('#solidesBody')) $('#solidesBody').innerHTML = skeletonRows(5, 7);
+  if ($('#solidesBody')) $('#solidesBody').innerHTML = skeletonRows(5, 8);
   if ($('#solidesEmpty')) $('#solidesEmpty').hidden = true;
 
   try {
@@ -596,7 +598,8 @@ async function loadSolides() {
     state.solides.total = res.total;
 
     if (res.stats) {
-      if ($('#solidesKpiTotal')) $('#solidesKpiTotal').textContent = res.stats.total || 0;
+      if ($('#solidesKpiTotalBase')) $('#solidesKpiTotalBase').textContent = res.stats.total_base || 0;
+      if ($('#solidesKpiTotal')) $('#solidesKpiTotal').textContent = res.stats.total_permitidos || 0;
       if ($('#solidesKpiAssinados')) $('#solidesKpiAssinados').textContent = res.stats.assinados || 0;
       if ($('#solidesKpiTaxa')) $('#solidesKpiTaxa').textContent = `${res.stats.taxa_adesao || 0}% de adesão`;
       if ($('#solidesKpiPendentes')) $('#solidesKpiPendentes').textContent = res.stats.pendentes || 0;
@@ -615,31 +618,63 @@ async function loadSolides() {
   }
 }
 
+function updateBulkBar() {
+  const bar = $('#solidesBulkBar');
+  const countEl = $('#solidesBulkCount');
+  if (!bar) return;
+  const count = selectedSolidesCpfs.size;
+  if (count > 0) {
+    bar.style.display = 'flex';
+    if (countEl) countEl.textContent = `${count} colaborador${count > 1 ? 'es' : ''} selecionado${count > 1 ? 's' : ''}`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
 function renderSolides(rows, total) {
   const tbody = $('#solidesBody');
   if (!tbody) return;
   tbody.innerHTML = '';
+  selectedSolidesCpfs.clear();
+  updateBulkBar();
+  const checkAll = $('#solidesCheckAll');
+  if (checkAll) checkAll.checked = false;
+
   if (!rows.length) {
     emptyState('#solidesEmpty', 'Nenhum colaborador encontrado', 'Tente ajustar a busca ou filtros.');
     return;
   }
   if ($('#solidesEmpty')) $('#solidesEmpty').hidden = true;
-  const html = rows.map((r) => `
-    <tr>
-      <td><span class="mono">${esc(proto(r.id))}</span></td>
-      <td><span class="mono">${esc(fmtCpf(r.cpf))}</span></td>
+
+  const html = rows.map((r) => {
+    let statusHtml = '';
+    if (r.assinado) {
+      statusHtml = `<span class="badge badge-ok"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Assinado</span>`;
+    } else if (r.permitido) {
+      statusHtml = `<span class="badge badge-warn"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pendente</span>`;
+    } else {
+      statusHtml = `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/></svg> Não Habilitado</span>`;
+    }
+
+    return `
+    <tr data-cpf="${esc(r.cpf)}">
+      <td style="text-align: center;">
+        <input type="checkbox" class="solides-row-check" data-cpf="${esc(r.cpf)}" />
+      </td>
+      <td style="text-align: center;">
+        <label class="toggle-switch" title="${r.permitido ? 'Permitido para responder' : 'Desabilitado'}">
+          <input type="checkbox" class="solides-perm-toggle" data-cpf="${esc(r.cpf)}" ${r.permitido ? 'checked' : ''} />
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>${statusHtml}</td>
       <td><strong>${esc(r.nome_completo)}</strong></td>
+      <td><span class="mono">${esc(fmtCpf(r.cpf))}</span></td>
       <td>
         <span class="chip">${esc(r.cargo || '—')}</span>
         ${r.setor ? `<span class="chip font-medium">${esc(r.setor)}</span>` : ''}
       </td>
       <td><span class="chip font-medium">${esc(r.unidade || '—')}</span></td>
-      <td>
-        ${r.assinado 
-          ? `<span class="badge badge-ok"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Assinado</span>`
-          : `<span class="badge badge-warn"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pendente</span>`
-        }
-      </td>
       <td>
         ${r.assinado_em 
           ? `<span class="date-tag">${esc(fmtDateTime(r.assinado_em))}</span>` 
@@ -647,8 +682,41 @@ function renderSolides(rows, total) {
         }
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+
   tbody.innerHTML = html;
+
+  // Bind individual toggle switch change
+  $$('.solides-perm-toggle', tbody).forEach((toggle) => {
+    toggle.onchange = async (e) => {
+      const cpf = e.target.dataset.cpf;
+      const permitido = e.target.checked;
+      try {
+        const res = await api('/solides/toggle-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpf, permitido }),
+        }).then((r) => r.json());
+
+        if (!res.ok) throw new Error(res.error || 'Erro ao atualizar');
+        toast('success', `Permissão ${permitido ? 'habilitada' : 'desabilitada'} com sucesso.`);
+        loadSolides();
+      } catch (err) {
+        e.target.checked = !permitido;
+        toast('error', 'Erro ao alterar permissão', err.message);
+      }
+    };
+  });
+
+  // Bind checkboxes
+  $$('.solides-row-check', tbody).forEach((cb) => {
+    cb.onchange = (e) => {
+      const cpf = e.target.dataset.cpf;
+      if (e.target.checked) selectedSolidesCpfs.add(cpf);
+      else selectedSolidesCpfs.delete(cpf);
+      updateBulkBar();
+    };
+  });
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -700,6 +768,59 @@ function bind() {
   // filtros treinamento solides
   if ($('#solidesStatus')) $('#solidesStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#solidesStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.solides.status = s.dataset.val; state.solides.page = 1; loadSolides(); };
   if ($('#solidesSearch')) $('#solidesSearch').oninput = debounce((e) => { state.solides.search = e.target.value.trim(); state.solides.page = 1; loadSolides(); });
+
+  // Check all
+  if ($('#solidesCheckAll')) {
+    $('#solidesCheckAll').onchange = (e) => {
+      const checked = e.target.checked;
+      $$('.solides-row-check', $('#solidesBody')).forEach((cb) => {
+        cb.checked = checked;
+        const cpf = cb.dataset.cpf;
+        if (checked) selectedSolidesCpfs.add(cpf);
+        else selectedSolidesCpfs.delete(cpf);
+      });
+      updateBulkBar();
+    };
+  }
+
+  // Ações em lote
+  if ($('#btnBulkAllow')) {
+    $('#btnBulkAllow').onclick = async () => {
+      const cpfs = [...selectedSolidesCpfs];
+      if (!cpfs.length) return;
+      try {
+        const res = await api('/solides/bulk-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpfs, permitido: true }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Erro');
+        toast('success', `${cpfs.length} colaborador${cpfs.length > 1 ? 'es habilitados' : ' habilitado'} com sucesso!`);
+        selectedSolidesCpfs.clear();
+        loadSolides();
+      } catch (err) {
+        toast('error', 'Erro ao habilitar em lote', err.message);
+      }
+    };
+  }
+
+  if ($('#btnBulkDisallow')) {
+    $('#btnBulkDisallow').onclick = async () => {
+      const cpfs = [...selectedSolidesCpfs];
+      if (!cpfs.length) return;
+      try {
+        const res = await api('/solides/bulk-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpfs, permitido: false }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Erro');
+        toast('success', `${cpfs.length} colaborador${cpfs.length > 1 ? 'es desabilitados' : ' desabilitado'} com sucesso!`);
+        selectedSolidesCpfs.clear();
+        loadSolides();
+      } catch (err) {
+        toast('error', 'Erro ao desabilitar em lote', err.message);
+      }
+    };
+  }
 }
 
 /* ════════ Init ════════ */

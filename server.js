@@ -8,6 +8,7 @@ const {
   insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
   // treinamento solides
   findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
+  toggleSolidesPermissao, bulkSetSolidesPermissoes,
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 } = require('./db');
@@ -413,7 +414,16 @@ app.post('/api/treinamento-solides/check-cpf', async (req, res) => {
       return res.status(404).json({
         ok: false,
         not_found: true,
-        error: 'CPF não localizado na lista de participantes do treinamento. Verifique o número digitado ou contate o Departamento Pessoal.',
+        error: 'CPF não localizado no cadastro da Revalle. Verifique o número digitado ou contate o Departamento Pessoal.',
+      });
+    }
+
+    if (!colab.permitido) {
+      return res.status(403).json({
+        ok: false,
+        not_permitted: true,
+        nome_completo: colab.nome_completo,
+        error: `Olá, ${colab.nome_completo}! Seu cadastro foi localizado, porém você ainda não foi liberado no painel para responder ao Treinamento de Gestão de Ponto (Sólides). Solicite a liberação ao seu gestor ou ao Departamento Pessoal.`,
       });
     }
 
@@ -451,6 +461,9 @@ app.post('/api/treinamento-solides/assinar', async (req, res) => {
     const colab = await findSolidesColaboradorByCpf(cpfDigits);
     if (!colab) {
       return res.status(404).json({ ok: false, error: 'Colaborador não encontrado.' });
+    }
+    if (!colab.permitido) {
+      return res.status(403).json({ ok: false, error: 'Colaborador não está habilitado para responder a este treinamento.' });
     }
     if (colab.assinado) {
       return res.status(409).json({
@@ -1038,6 +1051,36 @@ app.get('/api/dashboard/solides', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/dashboard/solides/toggle-permission', requireAuth, async (req, res) => {
+  const cpf = onlyDigits(req.body ? req.body.cpf : '');
+  const permitido = Boolean(req.body && req.body.permitido);
+  if (!cpf || cpf.length !== 11) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+  try {
+    const result = await toggleSolidesPermissao(cpf, permitido);
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error('[dashboard/solides/toggle-permission] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao alterar permissão.' });
+  }
+});
+
+app.post('/api/dashboard/solides/bulk-permission', requireAuth, async (req, res) => {
+  const cpfs = Array.isArray(req.body ? req.body.cpfs : null) ? req.body.cpfs : [];
+  const permitido = Boolean(req.body && req.body.permitido);
+  if (!cpfs.length) {
+    return res.status(400).json({ ok: false, error: 'Nenhum CPF informado.' });
+  }
+  try {
+    const result = await bulkSetSolidesPermissoes(cpfs, permitido);
+    res.json({ ok: true, count: result.count });
+  } catch (err) {
+    console.error('[dashboard/solides/bulk-permission] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao aplicar permissões em lote.' });
+  }
+});
+
 app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
   try {
     const { rows } = await listSolidesColaboradores({
@@ -1050,10 +1093,11 @@ app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
     });
 
     sendCsv(res, 'treinamento-solides-gestao-ponto', [
-      { label: 'Protocolo', get: (r) => '#TS-' + String(r.id).padStart(5, '0') },
+      { label: 'Protocolo', get: (r) => r.assinado ? '#TS-' + String(r.id).padStart(5, '0') : '' },
       { label: 'CPF', get: (r) => formatCpf(r.cpf) },
       { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
-      { label: 'Status', get: (r) => r.assinado ? 'Assinado' : 'Pendente' },
+      { label: 'Permissao', get: (r) => r.permitido ? 'Habilitado' : 'Nao Habilitado' },
+      { label: 'Status Assinatura', get: (r) => r.assinado ? 'Assinado' : 'Pendente' },
       { label: 'Data Assinatura', get: (r) => r.assinado_em ? formatDateTimeBr(r.assinado_em) : '' },
       { label: 'Cargo', get: (r) => r.cargo || '' },
       { label: 'Setor', get: (r) => r.setor || '' },
