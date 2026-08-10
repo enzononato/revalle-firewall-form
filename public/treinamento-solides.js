@@ -182,7 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!currentCollaborator || !currentCollaborator.id) {
+    const cpfToSign = (currentCollaborator && currentCollaborator.cpf) || cpfInput.value.replace(/\D/g, '');
+
+    if (!cpfToSign || cpfToSign.length !== 11) {
       step2Error.textContent = 'Sessão expirada. Consulte seu CPF novamente.';
       step2Error.hidden = false;
       return;
@@ -199,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cpf: currentCollaborator.cpf || cpfInput.value.replace(/\D/g, ''),
+          cpf: cpfToSign,
           aceitou_termos: true,
         }),
       });
@@ -212,6 +214,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      if (!currentCollaborator) {
+        currentCollaborator = { cpf: cpfToSign, nome_completo: data.nome_completo || '' };
+      }
       currentCollaborator.assinado = true;
       currentCollaborator.assinado_em = data.assinado_em;
       currentCollaborator.protocolo = data.protocolo;
