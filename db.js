@@ -129,25 +129,24 @@ async function initDb() {
 
     console.log('[db] tabela imersao_tess_requests pronta');
 
-    // ── solides_treinamento_colaboradores ──────────────────────────────────
+    // ── solides_treinamento_assinaturas ────────────────────────────────────
     await client.query(`
-      CREATE TABLE IF NOT EXISTS solides_treinamento_colaboradores (
+      CREATE TABLE IF NOT EXISTS solides_treinamento_assinaturas (
         id             SERIAL PRIMARY KEY,
         cpf            VARCHAR(11) UNIQUE NOT NULL,
         nome_completo  VARCHAR(200) NOT NULL,
         cargo          VARCHAR(150) NOT NULL DEFAULT '',
         setor          VARCHAR(100) NOT NULL DEFAULT '',
         unidade        VARCHAR(100) NOT NULL DEFAULT '',
-        assinado       BOOLEAN NOT NULL DEFAULT FALSE,
-        assinado_em    TIMESTAMPTZ DEFAULT NULL,
+        assinado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         ip             VARCHAR(45) DEFAULT NULL,
         created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_colab_cpf ON solides_treinamento_colaboradores (cpf)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_colab_assinado ON solides_treinamento_colaboradores (assinado)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_assinaturas_cpf ON solides_treinamento_assinaturas (cpf)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_assinaturas_data ON solides_treinamento_assinaturas (assinado_em DESC)`);
 
-    console.log('[db] tabela solides_treinamento_colaboradores pronta');
+    console.log('[db] tabela solides_treinamento_assinaturas pronta');
   } finally {
     client.release();
   }
@@ -578,45 +577,146 @@ async function getImersaoTessStats() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Treinamento Sólides — Gestão de Ponto
+ * Treinamento Sólides — Gestão de Ponto (Tabela de colaboradores: "colaboradores-revalle")
  * ────────────────────────────────────────────────────────────────────────── */
 
+let cachedColabTable = null;
+
+async function getColaboradoresTableName() {
+  if (cachedColabTable) return cachedColabTable;
+  try {
+    const { rows } = await pool.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('colaboradores-revalle', 'colaboradores_revalle', 'colaboradoresrevalle', 'colaboradores')
+      LIMIT 1
+    `);
+    if (rows.length > 0) {
+      cachedColabTable = `"${rows[0].table_name}"`;
+      return cachedColabTable;
+    }
+  } catch (err) {
+    console.warn('[db] erro ao consultar information_schema para tabela de colaboradores:', err.message);
+  }
+  cachedColabTable = '"colaboradores-revalle"';
+  return cachedColabTable;
+}
+
+function mapColaboradorRow(row) {
+  if (!row) return null;
+  const cpfDigits = String(row.cpf || '').replace(/\D+/g, '');
+  const nome = row.nome_completo || row.nome || row.colaborador || row.nome_funcionario || row.name || '';
+  const cargo = row.cargo || row.funcao || row.cargo_funcao || row.role || '';
+  const setor = row.setor || row.departamento || row.area || row.department || '';
+  const unidade = row.unidade || row.revenda || row.filial || row.empresa || row.unit || '';
+  return {
+    cpf: cpfDigits,
+    nome_completo: String(nome).trim(),
+    cargo: String(cargo).trim(),
+    setor: String(setor).trim(),
+    unidade: String(unidade).trim(),
+  };
+}
+
 async function findSolidesColaboradorByCpf(cpf) {
-  const { rows } = await pool.query(
-    `SELECT id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em, created_at
-     FROM solides_treinamento_colaboradores
-     WHERE cpf = $1 LIMIT 1`,
-    [cpf]
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits || digits.length !== 11) return null;
+
+  const table = await getColaboradoresTableName();
+  let colabRow = null;
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM ${table}
+       WHERE regexp_replace(cpf::text, '\\D', '', 'g') = $1
+          OR cpf::text = $1
+       LIMIT 1`,
+      [digits]
+    );
+    colabRow = rows[0] || null;
+  } catch (err) {
+    console.error(`[db] erro ao consultar colaborador em ${table}:`, err.message);
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM "colaboradores-revalle" WHERE cpf::text LIKE $1 LIMIT 1`,
+        [`%${digits}%`]
+      );
+      colabRow = rows[0] || null;
+    } catch (e2) {
+      console.error('[db] erro fallback:', e2.message);
+    }
+  }
+
+  if (!colabRow) return null;
+
+  const mapped = mapColaboradorRow(colabRow);
+
+  // Consulta se já assinou
+  const sigRes = await pool.query(
+    `SELECT id, assinado_em, ip FROM solides_treinamento_assinaturas WHERE cpf = $1 LIMIT 1`,
+    [digits]
   );
-  return rows[0] || null;
+  const sig = sigRes.rows[0] || null;
+
+  return {
+    ...mapped,
+    id: sig ? sig.id : null,
+    assinado: Boolean(sig),
+    assinado_em: sig ? sig.assinado_em : null,
+    protocolo: sig ? '#TS-' + String(sig.id).padStart(5, '0') : null,
+  };
 }
 
 async function assinarTermoSolides(cpf, ip = '') {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits) return null;
+
+  const colab = await findSolidesColaboradorByCpf(digits);
+  if (!colab) return null;
+
   const { rows } = await pool.query(
-    `UPDATE solides_treinamento_colaboradores
-     SET assinado = TRUE, assinado_em = NOW(), ip = $2
-     WHERE cpf = $1 AND assinado = FALSE
-     RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em`,
-    [cpf, ip]
+    `INSERT INTO solides_treinamento_assinaturas
+       (cpf, nome_completo, cargo, setor, unidade, assinado_em, ip)
+     VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+     ON CONFLICT (cpf) DO UPDATE SET
+       assinado_em = EXCLUDED.assinado_em,
+       ip = EXCLUDED.ip
+     RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado_em`,
+    [digits, colab.nome_completo, colab.cargo, colab.setor, colab.unidade, ip]
   );
-  return rows[0] || null;
+
+  return rows[0] ? { ...rows[0], assinado: true } : null;
 }
 
 async function listSolidesColaboradores(filters = {}) {
+  const table = await getColaboradoresTableName();
   const conds = [];
   const params = [];
   const add = (val) => { params.push(val); return `$${params.length}`; };
 
-  if (filters.status === 'assinado') conds.push(`assinado = TRUE`);
-  else if (filters.status === 'pendente') conds.push(`assinado = FALSE`);
+  if (filters.status === 'assinado') {
+    conds.push(`s.id IS NOT NULL`);
+  } else if (filters.status === 'pendente') {
+    conds.push(`s.id IS NULL`);
+  }
 
-  if (filters.setor) conds.push(`setor = ${add(filters.setor)}`);
-  if (filters.unidade) conds.push(`unidade = ${add(filters.unidade)}`);
+  if (filters.setor) {
+    conds.push(`c.setor = ${add(filters.setor)}`);
+  }
+  if (filters.unidade) {
+    conds.push(`c.unidade = ${add(filters.unidade)}`);
+  }
 
   if (filters.search) {
     const term = `%${filters.search.toLowerCase()}%`;
     const p = add(term);
-    conds.push(`(LOWER(nome_completo) LIKE ${p} OR cpf LIKE ${p} OR LOWER(cargo) LIKE ${p} OR LOWER(setor) LIKE ${p})`);
+    conds.push(`(
+      LOWER(COALESCE(c.nome_completo, c.nome, '')::text) LIKE ${p} OR
+      regexp_replace(c.cpf::text, '\\D', '', 'g') LIKE ${p} OR
+      LOWER(COALESCE(c.cargo, c.funcao, '')::text) LIKE ${p} OR
+      LOWER(COALESCE(c.setor, c.departamento, '')::text) LIKE ${p}
+    )`);
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
@@ -628,86 +728,80 @@ async function listSolidesColaboradores(filters = {}) {
   dataParams.push(offset); const offIdx = dataParams.length;
 
   const dataSql = `
-    SELECT id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em, ip, created_at
-    FROM solides_treinamento_colaboradores
+    SELECT
+      c.*,
+      s.id AS assinatura_id,
+      s.assinado_em,
+      s.ip,
+      (s.id IS NOT NULL) AS assinado
+    FROM ${table} c
+    LEFT JOIN solides_treinamento_assinaturas s
+      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
     ${where}
     ORDER BY
-      CASE WHEN assinado = FALSE THEN 0 ELSE 1 END,
-      nome_completo ASC
+      CASE WHEN s.id IS NULL THEN 0 ELSE 1 END,
+      COALESCE(c.nome_completo, c.nome, '') ASC
     LIMIT $${limIdx} OFFSET $${offIdx}
   `;
-  const countSql = `SELECT COUNT(*)::int AS total FROM solides_treinamento_colaboradores ${where}`;
 
-  const [dataRes, countRes] = await Promise.all([
-    pool.query(dataSql, dataParams),
-    pool.query(countSql, params),
-  ]);
-  return { rows: dataRes.rows, total: countRes.rows[0].total };
+  const countSql = `
+    SELECT COUNT(*)::int AS total
+    FROM ${table} c
+    LEFT JOIN solides_treinamento_assinaturas s
+      ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
+    ${where}
+  `;
+
+  try {
+    const [dataRes, countRes] = await Promise.all([
+      pool.query(dataSql, dataParams),
+      pool.query(countSql, params),
+    ]);
+
+    const formattedRows = dataRes.rows.map((row) => {
+      const mapped = mapColaboradorRow(row);
+      return {
+        id: row.assinatura_id || row.id,
+        cpf: mapped.cpf,
+        nome_completo: mapped.nome_completo,
+        cargo: mapped.cargo,
+        setor: mapped.setor,
+        unidade: mapped.unidade,
+        assinado: Boolean(row.assinado),
+        assinado_em: row.assinado_em,
+        ip: row.ip,
+      };
+    });
+
+    return { rows: formattedRows, total: countRes.rows[0].total };
+  } catch (err) {
+    console.error(`[db] erro ao listar colaboradores de ${table}:`, err.message);
+    return { rows: [], total: 0 };
+  }
 }
 
 async function getSolidesStats() {
-  const { rows } = await pool.query(`
-    SELECT
-      COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE assinado = TRUE)::int AS assinados,
-      COUNT(*) FILTER (WHERE assinado = FALSE)::int AS pendentes,
-      CASE
-        WHEN COUNT(*) > 0 THEN ROUND((COUNT(*) FILTER (WHERE assinado = TRUE)::numeric / COUNT(*)::numeric) * 100, 1)
-        ELSE 0
-      END::float AS taxa_adesao
-    FROM solides_treinamento_colaboradores
-  `);
-  return rows[0] || { total: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
-}
-
-async function upsertSolidesColaborador(data) {
-  const sql = `
-    INSERT INTO solides_treinamento_colaboradores (cpf, nome_completo, cargo, setor, unidade)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT (cpf) DO UPDATE SET
-      nome_completo = EXCLUDED.nome_completo,
-      cargo = CASE WHEN EXCLUDED.cargo <> '' THEN EXCLUDED.cargo ELSE solides_treinamento_colaboradores.cargo END,
-      setor = CASE WHEN EXCLUDED.setor <> '' THEN EXCLUDED.setor ELSE solides_treinamento_colaboradores.setor END,
-      unidade = CASE WHEN EXCLUDED.unidade <> '' THEN EXCLUDED.unidade ELSE solides_treinamento_colaboradores.unidade END
-    RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em
-  `;
-  const { rows } = await pool.query(sql, [
-    data.cpf,
-    data.nome_completo,
-    data.cargo || '',
-    data.setor || '',
-    data.unidade || '',
-  ]);
-  return rows[0];
-}
-
-async function bulkUpsertSolidesColaboradores(colaboradores) {
-  const client = await pool.connect();
+  const table = await getColaboradoresTableName();
   try {
-    await client.query('BEGIN');
-    let inserted = 0;
-    for (const c of colaboradores) {
-      if (!c.cpf || !c.nome_completo) continue;
-      const digits = String(c.cpf).replace(/\D+/g, '');
-      if (digits.length !== 11) continue;
-      await client.query(`
-        INSERT INTO solides_treinamento_colaboradores (cpf, nome_completo, cargo, setor, unidade)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (cpf) DO UPDATE SET
-          nome_completo = EXCLUDED.nome_completo,
-          cargo = CASE WHEN EXCLUDED.cargo <> '' THEN EXCLUDED.cargo ELSE solides_treinamento_colaboradores.cargo END,
-          setor = CASE WHEN EXCLUDED.setor <> '' THEN EXCLUDED.setor ELSE solides_treinamento_colaboradores.setor END,
-          unidade = CASE WHEN EXCLUDED.unidade <> '' THEN EXCLUDED.unidade ELSE solides_treinamento_colaboradores.unidade END
-      `, [digits, c.nome_completo.trim(), (c.cargo || '').trim(), (c.setor || '').trim(), (c.unidade || '').trim()]);
-      inserted++;
-    }
-    await client.query('COMMIT');
-    return { count: inserted };
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(c.*)::int AS total,
+        COUNT(s.id)::int AS assinados,
+        (COUNT(c.*) - COUNT(s.id))::int AS pendentes,
+        CASE
+          WHEN COUNT(c.*) > 0 THEN ROUND((COUNT(s.id)::numeric / COUNT(c.*)::numeric) * 100, 1)
+          ELSE 0
+        END::float AS taxa_adesao
+      FROM ${table} c
+      LEFT JOIN solides_treinamento_assinaturas s
+        ON regexp_replace(c.cpf::text, '\\D', '', 'g') = s.cpf
+    `);
+    return rows[0] || { total: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
   } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
+    console.error(`[db] erro ao calcular estatisticas de ${table}:`, err.message);
+    const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM solides_treinamento_assinaturas`);
+    const assinados = fallbackRes.rows[0] ? fallbackRes.rows[0].assinados : 0;
+    return { total: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
   }
 }
 
@@ -717,8 +811,7 @@ module.exports = {
   // imersao tess
   insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
   // treinamento solides
-  findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores,
-  getSolidesStats, upsertSolidesColaborador, bulkUpsertSolidesColaboradores,
+  findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,

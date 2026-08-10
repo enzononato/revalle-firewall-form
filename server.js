@@ -7,8 +7,7 @@ const {
   insertContract, findContractByIdAndToken,
   insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
   // treinamento solides
-  findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores,
-  getSolidesStats, upsertSolidesColaborador, bulkUpsertSolidesColaboradores,
+  findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 } = require('./db');
@@ -1036,50 +1035,6 @@ app.get('/api/dashboard/solides', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[dashboard/solides] erro:', err);
     res.status(500).json({ ok: false, error: 'Erro ao listar colaboradores do treinamento Sólides.' });
-  }
-});
-
-app.post('/api/dashboard/solides/colaborador', requireAuth, async (req, res) => {
-  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
-  const nome = trimStr(req.body ? req.body.nome_completo : '', 200);
-  const cargo = trimStr(req.body ? req.body.cargo : '', 150);
-  const setor = trimStr(req.body ? req.body.setor : '', 100);
-  const unidade = trimStr(req.body ? req.body.unidade : '', 100);
-
-  if (!cpfDigits || !isValidCpf(cpfDigits)) {
-    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
-  }
-  if (!nome || nome.length < 3) {
-    return res.status(400).json({ ok: false, error: 'Nome completo obrigatório.' });
-  }
-
-  try {
-    const saved = await upsertSolidesColaborador({
-      cpf: cpfDigits,
-      nome_completo: nome,
-      cargo,
-      setor,
-      unidade,
-    });
-    res.json({ ok: true, colaborador: saved });
-  } catch (err) {
-    console.error('[dashboard/solides/colaborador] erro:', err);
-    res.status(500).json({ ok: false, error: 'Erro ao salvar colaborador.' });
-  }
-});
-
-app.post('/api/dashboard/solides/import', requireAuth, async (req, res) => {
-  const list = Array.isArray(req.body ? req.body.colaboradores : null) ? req.body.colaboradores : [];
-  if (!list.length) {
-    return res.status(400).json({ ok: false, error: 'Nenhum colaborador enviado para importação.' });
-  }
-
-  try {
-    const result = await bulkUpsertSolidesColaboradores(list);
-    res.json({ ok: true, imported: result.count });
-  } catch (err) {
-    console.error('[dashboard/solides/import] erro:', err);
-    res.status(500).json({ ok: false, error: 'Erro ao importar colaboradores.' });
   }
 });
 
