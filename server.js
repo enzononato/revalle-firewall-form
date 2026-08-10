@@ -763,6 +763,11 @@ function formatIsoDateBr(value) {
   const [y, m, d] = String(value).split('-');
   return `${d}/${m}/${y}`;
 }
+function formatCpf(value) {
+  const d = String(value || '').replace(/\D+/g, '');
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  return value || '';
+}
 function sendCsv(res, baseName, cols, rows) {
   const escCell = (v) => '"' + (v === null || v === undefined ? '' : String(v)).replace(/"/g, '""') + '"';
   const lines = [cols.map((c) => escCell(c.label)).join(';')];
@@ -1091,7 +1096,7 @@ app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
 
     sendCsv(res, 'treinamento-solides-gestao-ponto', [
       { label: 'Protocolo', get: (r) => '#TS-' + String(r.id).padStart(5, '0') },
-      { label: 'CPF', get: (r) => fmtCpf ? fmtCpf(r.cpf) : r.cpf },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
       { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
       { label: 'Status', get: (r) => r.assinado ? 'Assinado' : 'Pendente' },
       { label: 'Data Assinatura', get: (r) => r.assinado_em ? formatDateTimeBr(r.assinado_em) : '' },

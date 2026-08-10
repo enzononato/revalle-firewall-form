@@ -545,7 +545,7 @@ async function loadTess() {
       $('#navTessTotal').hidden = res.total === 0;
     }
     renderTess(res.rows, res.total);
-    renderPager('#tessPager', state.tess, res.total, loadTess);
+    renderPager('#tessPager', state.tess, loadTess);
   } catch (err) {
     if (err.message === 'unauth') return;
     toast('error', 'Falha ao carregar inscritos da Imersão Tess', err.message);
@@ -607,7 +607,7 @@ async function loadSolides() {
     }
 
     renderSolides(res.rows, res.total);
-    renderPager('#solidesPager', state.solides, res.total, loadSolides);
+    renderPager('#solidesPager', state.solides, loadSolides);
   } catch (err) {
     if (err.message === 'unauth') return;
     toast('error', 'Falha ao carregar lista de treinamento Sólides', err.message);
