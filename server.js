@@ -6,6 +6,9 @@ const {
   initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
   insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
+  // treinamento solides
+  findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores,
+  getSolidesStats, upsertSolidesColaborador, bulkUpsertSolidesColaboradores,
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 } = require('./db');
@@ -82,6 +85,10 @@ app.get('/contratos', (_req, res) => {
 
 app.get('/imersao-tess-form', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'imersao-tess.html'));
+});
+
+app.get('/treinamento-solides', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'treinamento-solides.html'));
 });
 
 function onlyDigits(s) {
@@ -387,6 +394,87 @@ app.post('/api/imersao-tess/submit', async (req, res) => {
   } catch (err) {
     console.error('[submit imersao tess] erro ao salvar:', err);
     return res.status(500).json({ ok: false, errors: ['Erro interno ao salvar a inscricao. Tente novamente em instantes.'] });
+  }
+});
+
+/* ── Treinamento Sólides APIs ── */
+
+app.post('/api/treinamento-solides/check-cpf', async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits) {
+    return res.status(400).json({ ok: false, error: 'Informe o número do CPF.' });
+  }
+  if (!isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+  }
+
+  try {
+    const colab = await findSolidesColaboradorByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({
+        ok: false,
+        not_found: true,
+        error: 'CPF não localizado na lista de participantes do treinamento. Verifique o número digitado ou contate o Departamento Pessoal.',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      colaborador: {
+        id: colab.id,
+        nome_completo: colab.nome_completo,
+        cargo: colab.cargo,
+        setor: colab.setor,
+        unidade: colab.unidade,
+        assinado: colab.assinado,
+        assinado_em: colab.assinado_em,
+        protocolo: '#TS-' + String(colab.id).padStart(5, '0'),
+      },
+    });
+  } catch (err) {
+    console.error('[treinamento-solides/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao consultar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/treinamento-solides/assinar', async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+
+  const aceitou = Boolean(req.body && req.body.aceitou_termos);
+  if (!aceitou) {
+    return res.status(400).json({ ok: false, error: 'É necessário declarar ciência e concordância com os termos para assinar.' });
+  }
+
+  try {
+    const colab = await findSolidesColaboradorByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({ ok: false, error: 'Colaborador não encontrado.' });
+    }
+    if (colab.assinado) {
+      return res.status(409).json({
+        ok: false,
+        already_signed: true,
+        error: 'Este termo já foi assinado anteriormente.',
+        assinado_em: colab.assinado_em,
+        protocolo: '#TS-' + String(colab.id).padStart(5, '0'),
+      });
+    }
+
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').slice(0, 45);
+    const updated = await assinarTermoSolides(cpfDigits, ip);
+
+    return res.json({
+      ok: true,
+      protocolo: '#TS-' + String(updated.id).padStart(5, '0'),
+      nome_completo: updated.nome_completo,
+      assinado_em: updated.assinado_em,
+    });
+  } catch (err) {
+    console.error('[treinamento-solides/assinar] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
   }
 });
 
@@ -912,6 +1000,109 @@ app.get('/api/dashboard/export/imersao-tess.csv', requireAuth, async (req, res) 
   } catch (err) {
     console.error('[export/imersao-tess] erro:', err);
     res.status(500).send('Erro ao exportar inscritos.');
+  }
+});
+
+/* ── Dashboard Treinamento Sólides ── */
+app.get('/api/dashboard/solides', requireAuth, async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const [listResult, stats] = await Promise.all([
+      listSolidesColaboradores({
+        status: req.query.status,
+        setor: req.query.setor,
+        unidade: req.query.unidade,
+        search: req.query.search,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      }),
+      getSolidesStats(),
+    ]);
+
+    res.json({
+      ok: true,
+      rows: listResult.rows,
+      total: listResult.total,
+      page,
+      pageSize,
+      stats,
+    });
+  } catch (err) {
+    console.error('[dashboard/solides] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar colaboradores do treinamento Sólides.' });
+  }
+});
+
+app.post('/api/dashboard/solides/colaborador', requireAuth, async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  const nome = trimStr(req.body ? req.body.nome_completo : '', 200);
+  const cargo = trimStr(req.body ? req.body.cargo : '', 150);
+  const setor = trimStr(req.body ? req.body.setor : '', 100);
+  const unidade = trimStr(req.body ? req.body.unidade : '', 100);
+
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+  if (!nome || nome.length < 3) {
+    return res.status(400).json({ ok: false, error: 'Nome completo obrigatório.' });
+  }
+
+  try {
+    const saved = await upsertSolidesColaborador({
+      cpf: cpfDigits,
+      nome_completo: nome,
+      cargo,
+      setor,
+      unidade,
+    });
+    res.json({ ok: true, colaborador: saved });
+  } catch (err) {
+    console.error('[dashboard/solides/colaborador] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao salvar colaborador.' });
+  }
+});
+
+app.post('/api/dashboard/solides/import', requireAuth, async (req, res) => {
+  const list = Array.isArray(req.body ? req.body.colaboradores : null) ? req.body.colaboradores : [];
+  if (!list.length) {
+    return res.status(400).json({ ok: false, error: 'Nenhum colaborador enviado para importação.' });
+  }
+
+  try {
+    const result = await bulkUpsertSolidesColaboradores(list);
+    res.json({ ok: true, imported: result.count });
+  } catch (err) {
+    console.error('[dashboard/solides/import] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao importar colaboradores.' });
+  }
+});
+
+app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await listSolidesColaboradores({
+      status: req.query.status,
+      setor: req.query.setor,
+      unidade: req.query.unidade,
+      search: req.query.search,
+      limit: 10000,
+      offset: 0,
+    });
+
+    sendCsv(res, 'treinamento-solides-gestao-ponto', [
+      { label: 'Protocolo', get: (r) => '#TS-' + String(r.id).padStart(5, '0') },
+      { label: 'CPF', get: (r) => fmtCpf ? fmtCpf(r.cpf) : r.cpf },
+      { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
+      { label: 'Status', get: (r) => r.assinado ? 'Assinado' : 'Pendente' },
+      { label: 'Data Assinatura', get: (r) => r.assinado_em ? formatDateTimeBr(r.assinado_em) : '' },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'IP Assinatura', get: (r) => r.ip || '' },
+    ], rows);
+  } catch (err) {
+    console.error('[export/solides] erro:', err);
+    res.status(500).send('Erro ao exportar.');
   }
 });
 

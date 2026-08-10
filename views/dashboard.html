@@ -45,6 +45,11 @@
           <span>Imersão Tess</span>
           <em class="nav-badge blue" id="navTessTotal" hidden>0</em>
         </button>
+        <button class="nav-item" data-view="solides">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Gestão de Ponto (Sólides)</span>
+          <em class="nav-badge amber" id="navSolidesPending" hidden>0</em>
+        </button>
       </nav>
 
       <div class="side-foot">
@@ -221,6 +226,62 @@
           <div class="table-empty" id="tessEmpty" hidden>Nenhuma inscrição encontrada</div>
         </div>
         <div class="pager" id="tessPager"></div>
+      </section>
+
+      <!-- ─── VIEW: Treinamento Sólides ─── -->
+      <section class="view" id="view-solides">
+        <div class="kpi-grid" id="solidesKpis" style="margin-bottom: 20px;">
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Total de Participantes</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div>
+            <div class="kpi-value" id="solidesKpiTotal">0</div>
+            <div class="kpi-sub">Lideranças cadastradas</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Termos Assinados</span><div class="kpi-icon green"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+            <div class="kpi-value" id="solidesKpiAssinados">0</div>
+            <div class="kpi-sub" id="solidesKpiTaxa">0% de adesão</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Assinaturas Pendentes</span><div class="kpi-icon amber"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div></div>
+            <div class="kpi-value" id="solidesKpiPendentes">0</div>
+            <div class="kpi-sub">Aguardando confirmação</div>
+          </article>
+        </div>
+
+        <div class="toolbar">
+          <div class="segmented" id="solidesStatus">
+            <button class="seg active" data-val="">Todos</button>
+            <button class="seg" data-val="assinado">Assinados</button>
+            <button class="seg" data-val="pendente">Pendentes</button>
+          </div>
+          <div class="toolbar-spacer"></div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="solidesSearch" placeholder="Buscar colaborador, CPF, cargo…" />
+          </div>
+          <button class="btn btn-sm btn-primary" id="btnOpenAddColab" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar Colaborador
+          </button>
+          <button class="btn btn-sm btn-outline" id="btnOpenImportColab" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Importar em Lote
+          </button>
+          <a class="btn-export" id="solidesExport" href="/api/dashboard/export/solides.csv">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Exportar CSV
+          </a>
+        </div>
+        <div class="table-wrap card">
+          <table class="data-table" id="solidesTable">
+            <thead><tr>
+              <th>Protocolo</th><th>CPF</th><th>Nome do Colaborador</th><th>Cargo / Setor</th><th>Unidade</th><th>Status</th><th>Data da Assinatura</th>
+            </tr></thead>
+            <tbody id="solidesBody"></tbody>
+          </table>
+          <div class="table-empty" id="solidesEmpty" hidden>Nenhum colaborador encontrado</div>
+        </div>
+        <div class="pager" id="solidesPager"></div>
       </section>
     </div>
   </div>

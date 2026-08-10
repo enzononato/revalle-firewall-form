@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <title>Revalle — Termo de Treinamento Gestão de Ponto | Sólides</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <meta name="description" content="Assinatura digital do Termo de Ciência e Responsabilidade do Treinamento de Gestão de Ponto - Sólides." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, rgba(10, 50, 150, 0.08) 0%, rgba(37, 99, 235, 0.12) 100%);
+      color: var(--brand-blue);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .badge-solides {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.15) 100%);
+      color: #047857;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .form-hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .form-hero h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+    .form-hero .lead {
+      font-size: 15.5px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    .icon-wrapper.solides-icon {
+      background: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      color: #ffffff;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(10, 50, 150, 0.25);
+      margin: 0 auto 16px;
+    }
+    
+    /* Collaborator Banner */
+    .colab-greeting-box {
+      background: linear-gradient(135deg, #f0f4ff 0%, #e6edff 100%);
+      border: 1.5px solid #c7d7fe;
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .colab-info h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin: 0 0 4px;
+    }
+    .colab-info p {
+      font-size: 13.5px;
+      color: #475569;
+      margin: 0;
+    }
+    .colab-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .colab-chip {
+      padding: 4px 10px;
+      background: #ffffff;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    /* Training Points List */
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--brand-blue);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 20px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .training-desc {
+      font-size: 14.5px;
+      color: #334155;
+      line-height: 1.6;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+    .points-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .points-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      color: #1e293b;
+      line-height: 1.5;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      transition: var(--transition);
+    }
+    .points-list li:hover {
+      background: #ffffff;
+      border-color: #cbd5e1;
+      transform: translateX(2px);
+    }
+    .point-dot {
+      width: 20px;
+      height: 20px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Term of Commitment Box */
+    .termo-box {
+      background: #ffffff;
+      border: 2px solid #e2e8f0;
+      border-left: 5px solid var(--brand-blue);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin: 20px 0 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .termo-box h4 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      margin: 0 0 10px;
+    }
+    .termo-box p {
+      font-size: 14.5px;
+      color: #334155;
+      line-height: 1.7;
+      margin: 0;
+      text-align: justify;
+    }
+
+    /* Checkbox terms */
+    .checkbox-wrapper {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin: 24px 0;
+      cursor: pointer;
+      user-select: none;
+      background: #f8fafc;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      transition: var(--transition);
+    }
+    .checkbox-wrapper:hover {
+      background: #f1f5f9;
+      border-color: var(--brand-blue-light);
+    }
+    .checkbox-wrapper input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      accent-color: var(--brand-blue);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .checkbox-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+      line-height: 1.5;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 16px 28px;
+      font-size: 16.5px;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      color: #ffffff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(10, 50, 150, 0.25);
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(10, 50, 150, 0.35);
+    }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+    .btn-secondary-action {
+      background: transparent;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-secondary-action:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Success & Already Signed States */
+    .success-card {
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .success-icon-badge {
+      width: 72px;
+      height: 72px;
+      background: #dcfce7;
+      color: #15803d;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 25px rgba(22, 163, 74, 0.2);
+    }
+    .already-signed-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.15);
+    }
+    .proto-badge {
+      display: inline-block;
+      padding: 8px 22px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--brand-blue);
+      margin: 16px 0 20px;
+      letter-spacing: 0.5px;
+    }
+    .summary-box {
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: left;
+      margin: 20px 0 28px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px dashed #e2e8f0;
+      font-size: 14.5px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: var(--text-muted); font-weight: 500; }
+    .summary-val { color: var(--text-main); font-weight: 600; text-align: right; }
+
+    @media print {
+      .bg-elements, .topbar, .btn-submit, .btn-secondary-action, #step1Card, #step2Card, .footer {
+        display: none !important;
+      }
+      .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+      body { background: #fff !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-elements" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner" style="justify-content: space-between;">
+      <div class="brand">
+        <img src="/logo.png" alt="Revalle" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="brand-text-fallback" style="display: none;">
+          <span class="brand-name">revalle</span>
+          <span class="brand-tag">GRUPO PEDRO BARROS</span>
+        </div>
+      </div>
+      <div class="badge-tag badge-solides" style="margin: 0;">
+        <span>Gestão de Ponto</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="max-width: 720px;">
+    <!-- ════ ETAPA 1: Identificação por CPF ════ -->
+    <section class="card glass-panel" id="step1Card">
+      <div class="form-hero">
+        <div class="icon-wrapper solides-icon">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="badge-tag">Treinamento Obrigatório</div>
+        <h1>Gestão de Ponto | Sólides</h1>
+        <p class="lead">
+          Informe seu CPF para acessar o conteúdo do treinamento e assinar o Termo de Ciência e Responsabilidade.
+        </p>
+      </div>
+
+      <form id="formCpf" novalidate>
+        <div class="field full">
+          <label for="cpfInput">CPF do Colaborador <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <input type="tel" id="cpfInput" name="cpf" placeholder="000.000.000-00" maxlength="14" required autocomplete="off" />
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+            </span>
+          </div>
+          <span class="error-msg" id="err-cpf"></span>
+        </div>
+
+        <div id="step1Error" class="alert-box alert-error" style="margin-top: 18px;" hidden></div>
+
+        <div style="margin-top: 28px;">
+          <button type="submit" class="btn-submit" id="btnCheckCpf">
+            <span id="btnCheckText">Consultar e Continuar</span>
+            <svg id="btnCheckIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <div id="btnCheckSpinner" class="spinner" hidden></div>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ════ ETAPA 2: Leitura do Treinamento e Assinatura ════ -->
+    <section class="card glass-panel" id="step2Card" hidden>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <button type="button" class="btn-secondary-action" id="btnBackToCpf">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Trocar CPF
+        </button>
+        <span class="badge-tag badge-solides" style="margin: 0;">Sólides Gestão de Ponto</span>
+      </div>
+
+      <!-- Collaborator Greeting -->
+      <div class="colab-greeting-box">
+        <div class="colab-info">
+          <p>Colaborador(a) identificado(a):</p>
+          <h3 id="colabNome">---</h3>
+          <p id="colabCpf">CPF: ---</p>
+        </div>
+        <div class="colab-chips" id="colabChips"></div>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">
+          TREINAMENTO – GESTÃO DE PONTO | SÓLIDES
+        </h2>
+      </div>
+
+      <div class="training-desc">
+        Treinamento realizado com as lideranças sobre a utilização do sistema Sólides e as responsabilidades relacionadas à gestão e acompanhamento do ponto dos colaboradores.
+      </div>
+
+      <div class="section-title">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Pontos abordados no treinamento:
+      </div>
+
+      <ul class="points-list">
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Acompanhamento diário dos registros de ponto da equipe;</span>
+        </li>
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Identificação e tratativa das inconsistências;</span>
+        </li>
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Realização de justificativas e ajustes dentro dos prazos estabelecidos;</span>
+        </li>
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Acompanhamento de atrasos, faltas, horas extras e marcações incompletas;</span>
+        </li>
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Validação e acompanhamento do ponto dos colaboradores sob sua responsabilidade;</span>
+        </li>
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Cumprimento dos prazos e procedimentos definidos pelo Departamento Pessoal;</span>
+        </li>
+        <li>
+          <div class="point-dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span>Utilização correta do sistema Sólides para as tratativas relacionadas ao ponto.</span>
+        </li>
+      </ul>
+
+      <!-- Term Box -->
+      <div class="termo-box">
+        <h4>TERMO DE CIÊNCIA E RESPONSABILIDADE</h4>
+        <p>
+          Declaro, para os devidos fins, que participei do treinamento sobre Gestão de Ponto – Sólides, estando ciente dos procedimentos apresentados e das responsabilidades atribuídas, ficando, a partir desse momento, responsável pelo acompanhamento, conferência, validação e tratativa das inconsistências de ponto de sua equipe, observando os procedimentos e prazos definidos pelo Departamento Pessoal.
+        </p>
+      </div>
+
+      <form id="formSign" novalidate>
+        <label class="checkbox-wrapper" for="checkConsent">
+          <input type="checkbox" id="checkConsent" required />
+          <span class="checkbox-label">
+            Declaro expressamente que li, compreendi e concordo com todos os termos, procedimentos e responsabilidades apresentados acima.
+          </span>
+        </label>
+
+        <div id="step2Error" class="alert-box alert-error" style="margin-bottom: 20px;" hidden></div>
+
+        <button type="submit" class="btn-submit" id="btnSign">
+          <span id="btnSignText">Assinar Termo Digitalmente</span>
+          <svg id="btnSignIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div id="btnSignSpinner" class="spinner" hidden></div>
+        </button>
+      </form>
+    </section>
+
+    <!-- ════ ETAPA 3: Comprovante de Sucesso ════ -->
+    <section class="card glass-panel success-card" id="successCard" hidden>
+      <div class="success-icon-badge" id="successIconBadge">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+
+      <h2 style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 6px;" id="successTitle">
+        Termo Assinado com Sucesso!
+      </h2>
+      <p style="color: var(--text-muted); font-size: 15px;" id="successSub">
+        Sua participação e ciência do treinamento Gestão de Ponto (Sólides) foram registradas no sistema.
+      </p>
+
+      <div class="proto-badge" id="successProto">#TS-00000</div>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="summary-label">Colaborador:</span>
+          <span class="summary-val" id="summaryNome">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">CPF:</span>
+          <span class="summary-val" id="summaryCpf">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Data e Hora da Assinatura:</span>
+          <span class="summary-val" id="summaryData">---</span>
+        </div>
+        <div class="summary-row" id="summaryCargoRow">
+          <span class="summary-label">Cargo / Função:</span>
+          <span class="summary-val" id="summaryCargo">---</span>
+        </div>
+        <div class="summary-row" id="summarySetorRow">
+          <span class="summary-label">Setor / Unidade:</span>
+          <span class="summary-val" id="summarySetor">---</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn-secondary-action" onclick="window.print()" style="flex: 1; justify-content: center; padding: 14px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          Imprimir Comprovante
+        </button>
+        <button type="button" class="btn btn-primary" id="btnNewCheck" style="flex: 1; padding: 14px;">
+          Consultar Outro CPF
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" style="text-align: center; padding: 24px 0 40px; color: #64748b; font-size: 13px;">
+    <p>&copy; 2026 Revalle &bull; Grupo Pedro Barros. Departamento Pessoal.</p>
+  </footer>
+
+  <script src="/treinamento-solides.js"></script>
+</body>
+</html>

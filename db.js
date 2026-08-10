@@ -128,6 +128,26 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_imersao_tess_created_at ON imersao_tess_requests (created_at DESC)`);
 
     console.log('[db] tabela imersao_tess_requests pronta');
+
+    // ── solides_treinamento_colaboradores ──────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS solides_treinamento_colaboradores (
+        id             SERIAL PRIMARY KEY,
+        cpf            VARCHAR(11) UNIQUE NOT NULL,
+        nome_completo  VARCHAR(200) NOT NULL,
+        cargo          VARCHAR(150) NOT NULL DEFAULT '',
+        setor          VARCHAR(100) NOT NULL DEFAULT '',
+        unidade        VARCHAR(100) NOT NULL DEFAULT '',
+        assinado       BOOLEAN NOT NULL DEFAULT FALSE,
+        assinado_em    TIMESTAMPTZ DEFAULT NULL,
+        ip             VARCHAR(45) DEFAULT NULL,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_colab_cpf ON solides_treinamento_colaboradores (cpf)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_colab_assinado ON solides_treinamento_colaboradores (assinado)`);
+
+    console.log('[db] tabela solides_treinamento_colaboradores pronta');
   } finally {
     client.release();
   }
@@ -557,11 +577,148 @@ async function getImersaoTessStats() {
   };
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Treinamento Sólides — Gestão de Ponto
+ * ────────────────────────────────────────────────────────────────────────── */
+
+async function findSolidesColaboradorByCpf(cpf) {
+  const { rows } = await pool.query(
+    `SELECT id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em, created_at
+     FROM solides_treinamento_colaboradores
+     WHERE cpf = $1 LIMIT 1`,
+    [cpf]
+  );
+  return rows[0] || null;
+}
+
+async function assinarTermoSolides(cpf, ip = '') {
+  const { rows } = await pool.query(
+    `UPDATE solides_treinamento_colaboradores
+     SET assinado = TRUE, assinado_em = NOW(), ip = $2
+     WHERE cpf = $1 AND assinado = FALSE
+     RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em`,
+    [cpf, ip]
+  );
+  return rows[0] || null;
+}
+
+async function listSolidesColaboradores(filters = {}) {
+  const conds = [];
+  const params = [];
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+
+  if (filters.status === 'assinado') conds.push(`assinado = TRUE`);
+  else if (filters.status === 'pendente') conds.push(`assinado = FALSE`);
+
+  if (filters.setor) conds.push(`setor = ${add(filters.setor)}`);
+  if (filters.unidade) conds.push(`unidade = ${add(filters.unidade)}`);
+
+  if (filters.search) {
+    const term = `%${filters.search.toLowerCase()}%`;
+    const p = add(term);
+    conds.push(`(LOWER(nome_completo) LIKE ${p} OR cpf LIKE ${p} OR LOWER(cargo) LIKE ${p} OR LOWER(setor) LIKE ${p})`);
+  }
+
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 500);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const dataParams = params.slice();
+  dataParams.push(limit); const limIdx = dataParams.length;
+  dataParams.push(offset); const offIdx = dataParams.length;
+
+  const dataSql = `
+    SELECT id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em, ip, created_at
+    FROM solides_treinamento_colaboradores
+    ${where}
+    ORDER BY
+      CASE WHEN assinado = FALSE THEN 0 ELSE 1 END,
+      nome_completo ASC
+    LIMIT $${limIdx} OFFSET $${offIdx}
+  `;
+  const countSql = `SELECT COUNT(*)::int AS total FROM solides_treinamento_colaboradores ${where}`;
+
+  const [dataRes, countRes] = await Promise.all([
+    pool.query(dataSql, dataParams),
+    pool.query(countSql, params),
+  ]);
+  return { rows: dataRes.rows, total: countRes.rows[0].total };
+}
+
+async function getSolidesStats() {
+  const { rows } = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE assinado = TRUE)::int AS assinados,
+      COUNT(*) FILTER (WHERE assinado = FALSE)::int AS pendentes,
+      CASE
+        WHEN COUNT(*) > 0 THEN ROUND((COUNT(*) FILTER (WHERE assinado = TRUE)::numeric / COUNT(*)::numeric) * 100, 1)
+        ELSE 0
+      END::float AS taxa_adesao
+    FROM solides_treinamento_colaboradores
+  `);
+  return rows[0] || { total: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
+}
+
+async function upsertSolidesColaborador(data) {
+  const sql = `
+    INSERT INTO solides_treinamento_colaboradores (cpf, nome_completo, cargo, setor, unidade)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (cpf) DO UPDATE SET
+      nome_completo = EXCLUDED.nome_completo,
+      cargo = CASE WHEN EXCLUDED.cargo <> '' THEN EXCLUDED.cargo ELSE solides_treinamento_colaboradores.cargo END,
+      setor = CASE WHEN EXCLUDED.setor <> '' THEN EXCLUDED.setor ELSE solides_treinamento_colaboradores.setor END,
+      unidade = CASE WHEN EXCLUDED.unidade <> '' THEN EXCLUDED.unidade ELSE solides_treinamento_colaboradores.unidade END
+    RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado, assinado_em
+  `;
+  const { rows } = await pool.query(sql, [
+    data.cpf,
+    data.nome_completo,
+    data.cargo || '',
+    data.setor || '',
+    data.unidade || '',
+  ]);
+  return rows[0];
+}
+
+async function bulkUpsertSolidesColaboradores(colaboradores) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    let inserted = 0;
+    for (const c of colaboradores) {
+      if (!c.cpf || !c.nome_completo) continue;
+      const digits = String(c.cpf).replace(/\D+/g, '');
+      if (digits.length !== 11) continue;
+      await client.query(`
+        INSERT INTO solides_treinamento_colaboradores (cpf, nome_completo, cargo, setor, unidade)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (cpf) DO UPDATE SET
+          nome_completo = EXCLUDED.nome_completo,
+          cargo = CASE WHEN EXCLUDED.cargo <> '' THEN EXCLUDED.cargo ELSE solides_treinamento_colaboradores.cargo END,
+          setor = CASE WHEN EXCLUDED.setor <> '' THEN EXCLUDED.setor ELSE solides_treinamento_colaboradores.setor END,
+          unidade = CASE WHEN EXCLUDED.unidade <> '' THEN EXCLUDED.unidade ELSE solides_treinamento_colaboradores.unidade END
+      `, [digits, c.nome_completo.trim(), (c.cargo || '').trim(), (c.setor || '').trim(), (c.unidade || '').trim()]);
+      inserted++;
+    }
+    await client.query('COMMIT');
+    return { count: inserted };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
   // imersao tess
   insertImersaoTessRequest, listImersaoTessRequests, getImersaoTessStats,
+  // treinamento solides
+  findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores,
+  getSolidesStats, upsertSolidesColaborador, bulkUpsertSolidesColaboradores,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,

@@ -9,6 +9,7 @@ const state = {
   fw: { status: '', unidade: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
+  solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   charts: {},
   drawerKind: null,
 };
@@ -75,6 +76,7 @@ const TITLES = {
   firewall: ['Solicitações', 'Desbloqueios de firewall — aprove, reprove e acompanhe'],
   contratos: ['Contratos', 'Carteira de contratos e controle de vigência'],
   tess: ['Imersão Tess', 'Lista de inscritos e detalhes da Imersão Tess'],
+  solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
 };
 function switchView(view) {
   state.view = view;
@@ -87,6 +89,7 @@ function switchView(view) {
   if (view === 'firewall' && !$('#fwBody').children.length) loadFirewall();
   if (view === 'contratos' && !$('#ctBody').children.length) loadContratos();
   if (view === 'tess' && !$('#tessBody').children.length) loadTess();
+  if (view === 'solides' && !$('#solidesBody').children.length) loadSolides();
 }
 
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('open'); }
@@ -574,6 +577,240 @@ function renderTess(rows, total) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Treinamento Sólides Dashboard
+   ════════════════════════════════════════════════════════════════ */
+async function loadSolides() {
+  const { status, setor, search, page, pageSize } = state.solides;
+  const query = new URLSearchParams({ page, pageSize });
+  if (status) query.set('status', status);
+  if (setor) query.set('setor', setor);
+  if (search) query.set('search', search);
+
+  if ($('#solidesExport')) $('#solidesExport').href = `${API}/export/solides.csv?${query.toString()}`;
+  if ($('#solidesBody')) $('#solidesBody').innerHTML = skeletonRows(5, 7);
+  if ($('#solidesEmpty')) $('#solidesEmpty').hidden = true;
+
+  try {
+    const res = await api(`/solides?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.solides.total = res.total;
+
+    if (res.stats) {
+      if ($('#solidesKpiTotal')) $('#solidesKpiTotal').textContent = res.stats.total || 0;
+      if ($('#solidesKpiAssinados')) $('#solidesKpiAssinados').textContent = res.stats.assinados || 0;
+      if ($('#solidesKpiTaxa')) $('#solidesKpiTaxa').textContent = `${res.stats.taxa_adesao || 0}% de adesão`;
+      if ($('#solidesKpiPendentes')) $('#solidesKpiPendentes').textContent = res.stats.pendentes || 0;
+      if ($('#navSolidesPending')) {
+        $('#navSolidesPending').textContent = res.stats.pendentes || 0;
+        $('#navSolidesPending').hidden = (res.stats.pendentes || 0) === 0;
+      }
+    }
+
+    renderSolides(res.rows, res.total);
+    renderPager('#solidesPager', state.solides, res.total, loadSolides);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar lista de treinamento Sólides', err.message);
+    emptyState('#solidesEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function renderSolides(rows, total) {
+  const tbody = $('#solidesBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    emptyState('#solidesEmpty', 'Nenhum colaborador encontrado', 'Tente ajustar a busca ou filtros.');
+    return;
+  }
+  if ($('#solidesEmpty')) $('#solidesEmpty').hidden = true;
+  const html = rows.map((r) => `
+    <tr>
+      <td><span class="mono">${esc(proto(r.id))}</span></td>
+      <td><span class="mono">${esc(fmtCpf(r.cpf))}</span></td>
+      <td><strong>${esc(r.nome_completo)}</strong></td>
+      <td>
+        <span class="chip">${esc(r.cargo || '—')}</span>
+        ${r.setor ? `<span class="chip font-medium">${esc(r.setor)}</span>` : ''}
+      </td>
+      <td><span class="chip font-medium">${esc(r.unidade || '—')}</span></td>
+      <td>
+        ${r.assinado 
+          ? `<span class="badge badge-ok"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Assinado</span>`
+          : `<span class="badge badge-warn"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pendente</span>`
+        }
+      </td>
+      <td>
+        ${r.assinado_em 
+          ? `<span class="date-tag">${esc(fmtDateTime(r.assinado_em))}</span>` 
+          : `<span style="color: #94a3b8; font-size: 13px;">—</span>`
+        }
+      </td>
+    </tr>
+  `).join('');
+  tbody.innerHTML = html;
+}
+
+function openAddColaboradorDrawer() {
+  state.drawerKind = 'add_solides';
+  $('#drawerKicker').textContent = 'Treinamento Sólides';
+  $('#drawerTitle').textContent = 'Adicionar Colaborador';
+  $('#drawerFoot').hidden = true;
+
+  $('#drawerBody').innerHTML = `
+    <form id="drawerAddColabForm" style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">CPF <span style="color:red">*</span></label>
+        <input type="text" id="dColabCpf" placeholder="000.000.000-00" required style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+      </div>
+      <div>
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Nome Completo <span style="color:red">*</span></label>
+        <input type="text" id="dColabNome" placeholder="Nome do colaborador" required style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+      </div>
+      <div>
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Cargo</label>
+        <input type="text" id="dColabCargo" placeholder="Ex: Supervisor, Coordenador, Gerente" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+      </div>
+      <div>
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Setor</label>
+        <input type="text" id="dColabSetor" placeholder="Ex: Logística, Vendas, DP" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+      </div>
+      <div>
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Unidade / Revenda</label>
+        <input type="text" id="dColabUnidade" placeholder="Ex: Revalle Juazeiro" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+      </div>
+      <div id="dColabError" style="color: #ef4444; font-size: 13px;" hidden></div>
+      <button type="submit" class="btn btn-primary" id="dColabSubmit" style="margin-top: 10px; padding: 12px;">Salvar Colaborador</button>
+    </form>
+  `;
+
+  openDrawer();
+
+  const dCpfInput = $('#dColabCpf');
+  if (dCpfInput) {
+    dCpfInput.oninput = (e) => {
+      const v = e.target.value.replace(/\D/g, '').slice(0, 11);
+      if (v.length <= 3) e.target.value = v;
+      else if (v.length <= 6) e.target.value = `${v.slice(0, 3)}.${v.slice(3)}`;
+      else if (v.length <= 9) e.target.value = `${v.slice(0, 3)}.${v.slice(3, 6)}.${v.slice(6)}`;
+      else e.target.value = `${v.slice(0, 3)}.${v.slice(3, 6)}.${v.slice(6, 9)}-${v.slice(9, 11)}`;
+    };
+  }
+
+  $('#drawerAddColabForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const cpf = $('#dColabCpf').value.trim();
+    const nome_completo = $('#dColabNome').value.trim();
+    const cargo = $('#dColabCargo').value.trim();
+    const setor = $('#dColabSetor').value.trim();
+    const unidade = $('#dColabUnidade').value.trim();
+    const errEl = $('#dColabError');
+    const btnSub = $('#dColabSubmit');
+
+    btnSub.disabled = true;
+    btnSub.textContent = 'Salvando...';
+    if (errEl) errEl.hidden = true;
+
+    try {
+      const res = await api('/solides/colaborador', {
+        method: 'POST',
+        body: JSON.stringify({ cpf, nome_completo, cargo, setor, unidade }),
+      }).then((r) => r.json());
+
+      if (!res.ok) throw new Error(res.error || 'Erro ao salvar');
+      toast('success', 'Colaborador salvo com sucesso!');
+      closeDrawer();
+      loadSolides();
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = err.message || 'Erro ao cadastrar';
+        errEl.hidden = false;
+      }
+    } finally {
+      btnSub.disabled = false;
+      btnSub.textContent = 'Salvar Colaborador';
+    }
+  };
+}
+
+function openImportColaboradoresDrawer() {
+  state.drawerKind = 'import_solides';
+  $('#drawerKicker').textContent = 'Treinamento Sólides';
+  $('#drawerTitle').textContent = 'Importar Participantes em Lote';
+  $('#drawerFoot').hidden = true;
+
+  $('#drawerBody').innerHTML = `
+    <div style="font-size: 13.5px; color: #475569; margin-bottom: 16px; line-height: 1.5;">
+      Cole a lista de participantes abaixo. Cada linha pode estar no formato: <br/>
+      <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-size:12px;">CPF; Nome Completo; Cargo; Setor; Unidade</code> ou apenas <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-size:12px;">CPF; Nome Completo</code>.
+    </div>
+    <form id="drawerImportForm" style="display: flex; flex-direction: column; gap: 14px;">
+      <textarea id="importTextarea" placeholder="12345678900; João Silva; Coordenador; Logística; Revalle Juazeiro&#10;98765432100; Maria Santos; Supervisora; Vendas; Revalle Petrolina" rows="10" required style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-family:monospace; font-size:13px; resize:vertical;"></textarea>
+      <div id="dImportError" style="color: #ef4444; font-size: 13px;" hidden></div>
+      <button type="submit" class="btn btn-primary" id="dImportSubmit" style="padding: 12px;">Importar Participantes</button>
+    </form>
+  `;
+
+  openDrawer();
+
+  $('#drawerImportForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const text = $('#importTextarea').value.trim();
+    const errEl = $('#dImportError');
+    const btnSub = $('#dImportSubmit');
+
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) {
+      if (errEl) { errEl.textContent = 'Cole ao menos uma linha.'; errEl.hidden = false; }
+      return;
+    }
+
+    const colaboradores = [];
+    for (const line of lines) {
+      const parts = line.split(/[;,\t]/).map((p) => p.trim());
+      if (parts.length >= 2) {
+        colaboradores.push({
+          cpf: parts[0],
+          nome_completo: parts[1],
+          cargo: parts[2] || '',
+          setor: parts[3] || '',
+          unidade: parts[4] || '',
+        });
+      }
+    }
+
+    if (!colaboradores.length) {
+      if (errEl) { errEl.textContent = 'Nenhum formato válido identificado (esperado CPF e Nome separados por ponto-e-vírgula ou vírgula).'; errEl.hidden = false; }
+      return;
+    }
+
+    btnSub.disabled = true;
+    btnSub.textContent = `Importando ${colaboradores.length} colaboradores...`;
+    if (errEl) errEl.hidden = true;
+
+    try {
+      const res = await api('/solides/import', {
+        method: 'POST',
+        body: JSON.stringify({ colaboradores }),
+      }).then((r) => r.json());
+
+      if (!res.ok) throw new Error(res.error || 'Erro ao importar');
+      toast('success', `${res.imported || colaboradores.length} colaboradores importados com sucesso!`);
+      closeDrawer();
+      loadSolides();
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = err.message || 'Erro ao importar';
+        errEl.hidden = false;
+      }
+    } finally {
+      btnSub.disabled = false;
+      btnSub.textContent = 'Importar Participantes';
+    }
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
    Eventos
    ════════════════════════════════════════════════════════════════ */
 function bind() {
@@ -586,6 +823,8 @@ function bind() {
     await loadSummary();
     if (state.view === 'firewall') await loadFirewall();
     if (state.view === 'contratos') await loadContratos();
+    if (state.view === 'tess') await loadTess();
+    if (state.view === 'solides') await loadSolides();
     setTimeout(() => b.classList.remove('refreshing'), 500);
   };
 
@@ -616,6 +855,12 @@ function bind() {
   if ($('#tessSetor')) $('#tessSetor').onchange = (e) => { state.tess.setor = e.target.value; state.tess.page = 1; loadTess(); };
   if ($('#tessRevenda')) $('#tessRevenda').onchange = (e) => { state.tess.revenda = e.target.value; state.tess.page = 1; loadTess(); };
   if ($('#tessSearch')) $('#tessSearch').oninput = debounce((e) => { state.tess.search = e.target.value.trim(); state.tess.page = 1; loadTess(); });
+
+  // filtros e ações treinamento solides
+  if ($('#solidesStatus')) $('#solidesStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#solidesStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.solides.status = s.dataset.val; state.solides.page = 1; loadSolides(); };
+  if ($('#solidesSearch')) $('#solidesSearch').oninput = debounce((e) => { state.solides.search = e.target.value.trim(); state.solides.page = 1; loadSolides(); });
+  if ($('#btnOpenAddColab')) $('#btnOpenAddColab').onclick = openAddColaboradorDrawer;
+  if ($('#btnOpenImportColab')) $('#btnOpenImportColab').onclick = openImportColaboradoresDrawer;
 }
 
 /* ════════ Init ════════ */
@@ -624,3 +869,4 @@ function bind() {
   await loadSummary();
   $('#pageLoader').classList.add('hide');
 })();
+
