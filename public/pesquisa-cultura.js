@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Step 1 Elements
   const formCpf = document.getElementById('formCpf');
   const cpfInput = document.getElementById('cpfInput');
-  const errCpf = document.getElementById('errCpf');
+  const errCpf = document.getElementById('err-cpf');
   const step1Error = document.getElementById('step1Error');
   const btnCheckCpf = document.getElementById('btnCheckCpf');
   const btnCheckText = document.getElementById('btnCheckText');
@@ -63,16 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!container) return;
 
     container.addEventListener('click', (e) => {
-      const btn = e.target.closest('.option-btn');
+      const btn = e.target.closest('.chip-btn');
       if (!btn) return;
 
       const val = btn.dataset.val;
       inputEl.value = val;
 
-      container.querySelectorAll('.option-btn').forEach((b) => b.classList.remove('selected'));
+      container.querySelectorAll('.chip-btn').forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
 
-      const card = btn.closest('.question-card');
+      const card = btn.closest('.survey-card');
       if (card) card.classList.add('answered');
 
       updateLiveProgress();
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindOptionGroup('optsArea', inputArea);
   bindOptionGroup('optsTempo', inputTempo);
 
-  /* ── Textarea Live Character Counter & Auto-grow ── */
+  /* ── Textarea Live Character Counter ── */
   const textareas = formSurvey.querySelectorAll('textarea');
   textareas.forEach((ta) => {
     const footer = ta.parentElement ? ta.parentElement.querySelector('.char-count') : null;
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         footer.style.color = len > 0 ? '#2563eb' : '#94a3b8';
       }
 
-      const card = ta.closest('.question-card');
+      const card = ta.closest('.survey-card');
       if (card) {
         if (len > 0) card.classList.add('answered');
         else card.classList.remove('answered');
@@ -151,12 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cpfDigits = cpfInput.value.replace(/\D/g, '');
     if (!cpfDigits) {
-      errCpf.textContent = 'Informe o número do CPF.';
+      if (errCpf) errCpf.textContent = 'Informe o número do CPF.';
       cpfInput.classList.add('error');
       return;
     }
     if (cpfDigits.length !== 11) {
-      errCpf.textContent = 'CPF incompleto (deve conter 11 dígitos).';
+      if (errCpf) errCpf.textContent = 'CPF incompleto (deve conter 11 dígitos).';
       cpfInput.classList.add('error');
       return;
     }
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.colaborador && data.colaborador.unidade_sugerida && !inputUnidade.value) {
         const uContainer = document.getElementById('optsUnidade');
         if (uContainer) {
-          const matchBtn = [...uContainer.querySelectorAll('.option-btn')].find((b) =>
+          const matchBtn = [...uContainer.querySelectorAll('.chip-btn')].find((b) =>
             b.dataset.val.toLowerCase().includes(data.colaborador.unidade_sugerida.toLowerCase())
           );
           if (matchBtn) {
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (!payload.tempo_empresa) targetEl = document.getElementById('qcard-tempo');
       else {
         const emptyTa = [...textareas].find((ta) => !ta.value.trim());
-        if (emptyTa) targetEl = emptyTa.closest('.question-card');
+        if (emptyTa) targetEl = emptyTa.closest('.survey-card');
       }
 
       if (targetEl) {
@@ -330,8 +330,8 @@ document.addEventListener('DOMContentLoaded', () => {
     inputArea.value = '';
     inputTempo.value = '';
     verifiedCpf = '';
-    document.querySelectorAll('.option-btn').forEach((b) => b.classList.remove('selected'));
-    document.querySelectorAll('.question-card').forEach((c) => c.classList.remove('answered', 'active'));
+    document.querySelectorAll('.chip-btn').forEach((b) => b.classList.remove('selected'));
+    document.querySelectorAll('.survey-card').forEach((c) => c.classList.remove('answered', 'active'));
     document.querySelectorAll('.char-count').forEach((c) => { c.textContent = '0 caracteres'; c.style.color = '#94a3b8'; });
     
     successCard.hidden = true;
