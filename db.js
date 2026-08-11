@@ -13,8 +13,9 @@ const useSsl = String(process.env.PGSSL || '').toLowerCase() === 'true';
 const pool = new Pool({
   connectionString,
   ssl: useSsl ? { rejectUnauthorized: false } : false,
-  max: 10,
+  max: Number(process.env.PG_MAX_POOL) || 25,
   idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 pool.on('error', (err) => {
@@ -752,6 +753,40 @@ function mapColaboradorRow(row, schema) {
   };
 }
 
+async function findColaboradorBaseByCpf(cpf) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits || digits.length !== 11) return null;
+
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfCol = schema.cpfCol ? `"${schema.cpfCol}"` : 'cpf';
+
+  let colabRow = null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM ${table}
+       WHERE regexp_replace(${cpfCol}::text, '\\D', '', 'g') = $1
+          OR ${cpfCol}::text = $1
+       LIMIT 1`,
+      [digits]
+    );
+    colabRow = rows[0] || null;
+  } catch (err) {
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM ${table} WHERE ${cpfCol}::text LIKE $1 LIMIT 1`,
+        [`%${digits}%`]
+      );
+      colabRow = rows[0] || null;
+    } catch {
+      colabRow = null;
+    }
+  }
+
+  if (!colabRow) return null;
+  return mapColaboradorRow(colabRow, schema);
+}
+
 async function findSolidesColaboradorByCpf(cpf) {
   const digits = String(cpf || '').replace(/\D+/g, '');
   if (!digits || digits.length !== 11) return null;
@@ -1022,7 +1057,7 @@ async function checkPesquisaCulturaCpf(cpf) {
     return { ok: false, error: 'CPF inválido. Digite os 11 números do seu CPF.' };
   }
 
-  const colab = await findSolidesColaboradorByCpf(digits);
+  const colab = await findColaboradorBaseByCpf(digits);
   if (!colab) {
     return {
       ok: false,
