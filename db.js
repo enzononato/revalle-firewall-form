@@ -249,7 +249,7 @@ async function insertContract(data) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // We insert the contract request, using the first file's details for retrocompatibility
     const firstFile = data.arquivos[0];
     const sql = `
@@ -267,7 +267,7 @@ async function insertContract(data) {
     ];
     const { rows } = await client.query(sql, params);
     const saved = rows[0];
-    
+
     // Now we insert all files into contract_files
     const sqlFile = `
       INSERT INTO contract_files (contract_id, arquivo_nome, arquivo_dados, arquivo_token)
@@ -278,7 +278,7 @@ async function insertContract(data) {
       const token = data.arquivos_tokens[i];
       await client.query(sqlFile, [saved.id, file.nome, file.dados, token]);
     }
-    
+
     await client.query('COMMIT');
     return saved;
   } catch (err) {

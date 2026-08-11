@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const textareas = formSurvey.querySelectorAll('textarea');
   textareas.forEach((ta) => {
     const footer = ta.parentElement ? ta.parentElement.querySelector('.char-count') : null;
-    
+
     ta.addEventListener('input', () => {
       const len = ta.value.trim().length;
       if (footer) {
@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.chip-btn').forEach((b) => b.classList.remove('selected'));
     document.querySelectorAll('.survey-card').forEach((c) => c.classList.remove('answered', 'active'));
     document.querySelectorAll('.char-count').forEach((c) => { c.textContent = '0 caracteres'; c.style.color = '#94a3b8'; });
-    
+
     successCard.hidden = true;
     step2Card.hidden = true;
     step1Card.hidden = false;
