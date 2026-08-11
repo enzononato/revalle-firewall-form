@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const textareas = formSurvey.querySelectorAll('textarea');
   textareas.forEach((ta) => {
     const footer = ta.parentElement ? ta.parentElement.querySelector('.char-count') : null;
-
+    
     ta.addEventListener('input', () => {
       const len = ta.value.trim().length;
       if (footer) {
@@ -184,24 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       verifiedCpf = cpfDigits;
-
-      if (data.colaborador && data.colaborador.primeiro_nome) {
-        pesquisaGreeting.textContent = `Olá, ${data.colaborador.primeiro_nome}!`;
-      } else {
+      if (pesquisaGreeting) {
         pesquisaGreeting.textContent = 'Pesquisa de Cultura Revalle';
-      }
-
-      // Sugestão de unidade se encontrada
-      if (data.colaborador && data.colaborador.unidade_sugerida && !inputUnidade.value) {
-        const uContainer = document.getElementById('optsUnidade');
-        if (uContainer) {
-          const matchBtn = [...uContainer.querySelectorAll('.chip-btn')].find((b) =>
-            b.dataset.val.toLowerCase().includes(data.colaborador.unidade_sugerida.toLowerCase())
-          );
-          if (matchBtn) {
-            matchBtn.click();
-          }
-        }
       }
 
       step1Card.hidden = true;
@@ -333,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.chip-btn').forEach((b) => b.classList.remove('selected'));
     document.querySelectorAll('.survey-card').forEach((c) => c.classList.remove('answered', 'active'));
     document.querySelectorAll('.char-count').forEach((c) => { c.textContent = '0 caracteres'; c.style.color = '#94a3b8'; });
-
+    
     successCard.hidden = true;
     step2Card.hidden = true;
     step1Card.hidden = false;
