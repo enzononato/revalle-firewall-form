@@ -880,8 +880,22 @@ app.get('/api/dashboard/me', (req, res) => res.json({ ok: true, authed: isAuthed
 /* ── Indicadores (graficos + KPIs) ── */
 app.get('/api/dashboard/summary', requireAuth, async (_req, res) => {
   try {
-    const [firewall, contratos] = await Promise.all([getFirewallStats(), getContractStats()]);
-    res.json({ ok: true, firewall, contratos, generated_at: new Date().toISOString() });
+    const [firewall, contratos, tess, solides, cultura] = await Promise.all([
+      getFirewallStats(),
+      getContractStats(),
+      getImersaoTessStats().catch(() => ({ total: 0 })),
+      getSolidesStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0 })),
+      getPesquisaCulturaStats().catch(() => ({ total: 0 })),
+    ]);
+    res.json({
+      ok: true,
+      firewall,
+      contratos,
+      tess,
+      solides,
+      cultura,
+      generated_at: new Date().toISOString(),
+    });
   } catch (err) {
     console.error('[dashboard/summary] erro:', err);
     res.status(500).json({ ok: false, error: 'Erro ao carregar indicadores.' });

@@ -149,9 +149,48 @@ async function loadSummary() {
     renderExpire(data.contratos.upcoming);
     renderContratoMiniKpis(data.contratos.kpis);
     populateFilters(data);
+    updateNavBadges(data);
     $('#updatedAt').textContent = 'Atualizado ' + fmtDateTime(data.generated_at);
   } catch (e) {
     if (e.message !== 'unauth') toast('error', 'Erro ao carregar', 'Não foi possível obter os indicadores.');
+  }
+}
+
+function updateNavBadges(data) {
+  if (data.firewall && data.firewall.kpis) {
+    const p = data.firewall.kpis.pending || 0;
+    if ($('#navPending')) {
+      $('#navPending').textContent = p;
+      $('#navPending').hidden = p === 0;
+    }
+  }
+  if (data.contratos && data.contratos.kpis) {
+    const exp = (data.contratos.kpis.vence_30 || 0) + (data.contratos.kpis.vence_60 || 0) + (data.contratos.kpis.vence_90 || 0);
+    if ($('#navExpiring')) {
+      $('#navExpiring').textContent = exp;
+      $('#navExpiring').hidden = exp === 0;
+    }
+  }
+  if (data.tess) {
+    const t = data.tess.total || 0;
+    if ($('#navTessTotal')) {
+      $('#navTessTotal').textContent = t;
+      $('#navTessTotal').hidden = t === 0;
+    }
+  }
+  if (data.solides) {
+    const p = data.solides.pendentes != null ? data.solides.pendentes : (data.solides.total_permitidos - data.solides.assinados);
+    if ($('#navSolidesPending')) {
+      $('#navSolidesPending').textContent = p > 0 ? p : 0;
+      $('#navSolidesPending').hidden = p <= 0;
+    }
+  }
+  if (data.cultura) {
+    const c = data.cultura.total || 0;
+    if ($('#navCulturaTotal')) {
+      $('#navCulturaTotal').textContent = c;
+      $('#navCulturaTotal').hidden = c === 0;
+    }
   }
 }
 
