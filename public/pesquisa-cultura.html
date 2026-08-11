@@ -12,149 +12,422 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
   <style>
+    /* ════════ Premium Design System for Pesquisa ════════ */
+    :root {
+      --brand-gradient: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      --brand-soft: #eff6ff;
+      --brand-border: #bfdbfe;
+      --emerald-gradient: linear-gradient(135deg, #059669 0%, #10B981 100%);
+      --emerald-soft: #ecfdf5;
+      --emerald-border: #a7f3d0;
+      --card-shadow: 0 10px 30px -5px rgba(10, 50, 150, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+      --card-shadow-hover: 0 18px 40px -8px rgba(10, 50, 150, 0.15), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
+    }
+
+    body {
+      background: #f8fafc;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .form-container {
+      max-width: 760px;
+    }
+
+    /* ── Badges ── */
     .badge-anon {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.15) 100%);
+      gap: 7px;
+      padding: 6px 16px;
+      background: var(--emerald-soft);
       color: #047857;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      border-radius: 20px;
+      border: 1px solid var(--emerald-border);
+      border-radius: 9999px;
       font-size: 13px;
       font-weight: 700;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.1);
     }
+    .badge-anon svg {
+      color: #059669;
+    }
+
+    /* ── Hero ── */
     .form-hero {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
+      position: relative;
     }
     .form-hero h1 {
-      font-size: 27px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 30px;
       font-weight: 800;
       color: #0f172a;
-      letter-spacing: -0.5px;
-      margin-bottom: 8px;
-      line-height: 1.25;
+      letter-spacing: -0.6px;
+      margin-bottom: 10px;
+      line-height: 1.2;
     }
     .form-hero .lead {
-      font-size: 15.5px;
-      color: var(--text-muted);
+      font-size: 16px;
+      color: #64748b;
       max-width: 560px;
       margin: 0 auto;
       line-height: 1.5;
     }
     .icon-wrapper.cultura-icon {
-      background: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      background: var(--brand-gradient);
       color: #ffffff;
-      width: 60px;
-      height: 60px;
-      border-radius: 18px;
-      box-shadow: 0 8px 24px rgba(10, 50, 150, 0.25);
-      margin: 0 auto 16px;
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(10, 50, 150, 0.28);
+      margin: 0 auto 18px;
+      display: grid;
+      place-items: center;
+      transition: transform 0.3s ease;
     }
+    .icon-wrapper.cultura-icon:hover {
+      transform: scale(1.05) rotate(2deg);
+    }
+
+    /* ── Banner de Anonimato ── */
     .anon-banner {
-      background: #f0fdf4;
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
       border: 1.5px solid #86efac;
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
+      border-radius: 16px;
+      padding: 18px 22px;
       display: flex;
-      gap: 14px;
+      gap: 16px;
       align-items: flex-start;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+    .anon-banner::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 5px;
+      height: 100%;
+      background: #16a34a;
     }
     .anon-banner-icon {
       color: #16a34a;
       flex-shrink: 0;
       margin-top: 2px;
+      background: #ffffff;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
     .anon-banner-text h4 {
-      font-size: 14.5px;
+      font-size: 15px;
       font-weight: 700;
-      color: #15803d;
-      margin-bottom: 4px;
+      color: #14532d;
+      margin: 0 0 4px;
     }
     .anon-banner-text p {
       font-size: 13.5px;
       color: #166534;
-      line-height: 1.45;
+      line-height: 1.5;
       margin: 0;
     }
 
-    .form-section-title {
+    /* ── Sticky Live Progress Bar ── */
+    .sticky-progress-wrap {
+      position: sticky;
+      top: 12px;
+      z-index: 50;
+      margin-bottom: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      border-radius: 16px;
+      padding: 12px 18px;
+      box-shadow: 0 8px 24px -4px rgba(10, 50, 150, 0.08);
+      transition: all 0.3s ease;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+    .progress-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+    .progress-track {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2563eb, #10b981);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Section Dividers ── */
+    .survey-section-header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding-bottom: 12px;
-      margin-top: 28px;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #e2e8f0;
+      gap: 14px;
+      margin: 36px 0 20px;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-left: 4px solid var(--brand-blue);
+      border-radius: 0 14px 14px 0;
     }
-    .form-section-title:first-of-type {
-      margin-top: 8px;
+    .survey-section-header:first-of-type {
+      margin-top: 10px;
     }
-    .section-num {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
+    .section-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
       background: var(--brand-blue);
-      color: white;
-      font-size: 13.5px;
-      font-weight: 700;
+      color: #ffffff;
       display: grid;
       place-items: center;
       flex-shrink: 0;
     }
-    .form-section-title h3 {
-      font-size: 17px;
+    .survey-section-header h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
       font-weight: 700;
-      color: #1e293b;
+      color: #0f172a;
       margin: 0;
     }
+    .survey-section-header p {
+      font-size: 13px;
+      color: #64748b;
+      margin: 2px 0 0;
+    }
 
-    .question-block {
-      margin-bottom: 22px;
+    /* ── Question Cards ── */
+    .question-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+      transition: all 0.25s ease;
+      position: relative;
     }
-    .question-block label {
-      display: block;
-      font-size: 14.5px;
-      font-weight: 600;
-      color: #1e293b;
-      margin-bottom: 8px;
-      line-height: 1.4;
+    .question-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 6px 18px -3px rgba(0, 0, 0, 0.05);
     }
-    .question-block label .req {
-      color: #ef4444;
+    .question-card.active,
+    .question-card:focus-within {
+      border-color: var(--brand-blue);
+      box-shadow: 0 0 0 3px rgba(10, 50, 150, 0.12), 0 8px 24px -4px rgba(10, 50, 150, 0.08);
+      background: #ffffff;
+    }
+    .question-card.answered {
+      border-color: #cbd5e1;
+    }
+    .question-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .q-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      transition: all 0.25s ease;
+    }
+    .question-card.answered .q-number {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .question-card:focus-within .q-number {
+      background: var(--brand-blue);
+      color: #ffffff;
+    }
+    .q-title {
+      font-size: 15px;
       font-weight: 700;
+      color: #1e293b;
+      line-height: 1.45;
+      flex: 1;
     }
-    .question-block textarea,
-    .question-block select {
+    .q-title .req {
+      color: #ef4444;
+      margin-left: 2px;
+    }
+
+    /* ── Custom Chip/Option Buttons Grid ── */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .options-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .option-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      user-select: none;
+    }
+    .option-btn:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+    }
+    .option-btn.selected {
+      background: #eff6ff;
+      border-color: var(--brand-blue);
+      color: #1d4ed8;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+    }
+    .option-btn .opt-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid #cbd5e1;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+    .option-btn.selected .opt-dot {
+      border-color: var(--brand-blue);
+      background: var(--brand-blue);
+    }
+    .option-btn.selected .opt-dot::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ffffff;
+    }
+
+    /* ── Textarea Enhanced ── */
+    .textarea-wrap {
+      position: relative;
+    }
+    .question-card textarea {
       width: 100%;
       font-family: inherit;
       font-size: 14.5px;
-      padding: 12px 14px;
+      line-height: 1.55;
+      padding: 14px 16px;
       border: 1.5px solid #cbd5e1;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #ffffff;
       color: #0f172a;
-      transition: var(--transition);
+      transition: all 0.2s ease;
       outline: none;
+      resize: vertical;
+      min-height: 105px;
+      box-sizing: border-box;
     }
-    .question-block textarea:focus,
-    .question-block select:focus {
+    .question-card textarea:focus {
       border-color: var(--brand-blue);
       box-shadow: 0 0 0 3px rgba(10, 50, 150, 0.12);
     }
-    .question-block textarea {
-      resize: vertical;
-      min-height: 95px;
+    .textarea-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      padding: 0 4px;
+      font-size: 12px;
+      color: #94a3b8;
     }
-    .question-block .hint {
-      font-size: 12.5px;
-      color: var(--text-muted);
-      margin-top: 5px;
+    .char-count {
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    /* ── Success Celebration Screen ── */
+    .success-celebration {
+      text-align: center;
+      padding: 40px 24px 32px;
+    }
+    .success-badge-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 14px 30px rgba(16, 185, 129, 0.35);
+      animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes scaleIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .participation-receipt {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 18px;
+      padding: 24px 28px;
+      max-width: 440px;
+      margin: 0 auto 32px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+      position: relative;
+    }
+
+    /* ── Mobile Tweaks ── */
+    @media (max-width: 640px) {
+      .form-hero h1 { font-size: 24px; }
+      .question-card { padding: 16px; border-radius: 14px; }
+      .options-grid { grid-template-columns: 1fr; }
+      .survey-section-header { padding: 12px 14px; }
+      .sticky-progress-wrap { top: 8px; padding: 10px 14px; }
     }
   </style>
 </head>
@@ -170,37 +443,44 @@
       </header>
 
       <!-- ════════ ETAPA 1: Identificação de Acesso ════════ -->
-      <div class="card" id="step1Card">
+      <div class="card" id="step1Card" style="box-shadow: var(--card-shadow); border-radius: 20px;">
         <div class="form-hero">
           <div class="icon-wrapper cultura-icon">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
               <circle cx="9" cy="7" r="4"></circle>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
               <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
           </div>
-          <span class="badge-anon">100% Anônimo & Confidencial</span>
+          <span class="badge-anon">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            100% Anônimo & Confidencial
+          </span>
           <h1>Pesquisa de Cultura Revalle</h1>
-          <p class="lead">Como a gente vive nosso dia a dia?</p>
+          <p class="lead">Como a gente vive nosso dia a dia? Sua voz constrói o nosso futuro.</p>
         </div>
 
         <div class="anon-banner">
           <div class="anon-banner-icon">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
           <div class="anon-banner-text">
-            <h4>Garantia de Anonimato Total</h4>
-            <p>Seu CPF é solicitado <strong>apenas</strong> para verificar que você faz parte da equipe Revalle e garantir um envio por colaborador. As respostas <strong>não serão vinculadas ao seu nome ou CPF</strong>.</p>
+            <h4>Sigilo Absoluto Garantido</h4>
+            <p>Seu CPF é solicitado <strong>apenas</strong> para certificar que você é colaborador(a) Revalle e garantir um envio por pessoa. Suas respostas <strong>não ficam vinculadas a você</strong> de nenhuma forma.</p>
           </div>
         </div>
 
         <form id="formCpf" novalidate>
           <div class="form-group">
-            <label for="cpfInput">Informe seu CPF para iniciar <span style="color:#ef4444">*</span></label>
+            <label for="cpfInput" style="font-weight: 700; color: #1e293b; margin-bottom: 8px;">
+              Informe seu CPF para iniciar <span style="color:#ef4444">*</span>
+            </label>
             <div class="input-icon-wrapper">
               <svg class="field-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -217,6 +497,7 @@
                 maxlength="14" 
                 autocomplete="off"
                 required
+                style="height: 52px; font-size: 16px;"
               />
             </div>
             <span class="field-error" id="errCpf"></span>
@@ -225,7 +506,7 @@
           <div id="step1Error" class="alert-box alert-error" hidden></div>
 
           <div class="form-actions" style="margin-top: 24px;">
-            <button type="submit" class="btn btn-primary" id="btnCheckCpf" style="width: 100%; height: 50px; font-size: 16px;">
+            <button type="submit" class="btn btn-primary" id="btnCheckCpf" style="width: 100%; height: 52px; font-size: 16px; border-radius: 12px;">
               <span class="btn-label" id="btnCheckText">Acessar Pesquisa Anônima</span>
               <svg class="btn-icon" id="btnCheckIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="9 18 15 12 9 6" />
@@ -237,184 +518,304 @@
       </div>
 
       <!-- ════════ ETAPA 2: Formulário das 15 Perguntas ════════ -->
-      <div class="card" id="step2Card" hidden>
-        <div class="form-hero" style="margin-bottom: 20px;">
-          <span class="badge-anon">Respostas Confidenciais</span>
-          <h1 id="pesquisaGreeting">Pesquisa de Cultura Revalle</h1>
-          <p class="lead" style="font-size: 14.5px;">Responda com total sinceridade. Todas as 15 perguntas são obrigatórias.</p>
+      <div id="step2Card" hidden>
+        
+        <!-- Live Sticky Progress Header -->
+        <div class="sticky-progress-wrap" id="stickyProgress">
+          <div class="progress-header">
+            <span>Progresso da Pesquisa</span>
+            <span class="progress-badge" id="progressCountText">0 de 15 respondidas (0%)</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFillBar"></div>
+          </div>
         </div>
 
-        <form id="formSurvey" novalidate>
-          
-          <!-- SEÇÃO 1: PERFIL -->
-          <div class="form-section-title">
-            <span class="section-num">1</span>
-            <h3>Perfil Institucional</h3>
+        <div class="card" style="box-shadow: var(--card-shadow); border-radius: 20px; padding: 28px 30px;">
+          <div class="form-hero" style="margin-bottom: 24px; text-align: left;">
+            <span class="badge-anon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Respostas 100% Anônimas
+            </span>
+            <h1 id="pesquisaGreeting" style="font-size: 26px; margin-bottom: 6px;">Pesquisa de Cultura Revalle</h1>
+            <p class="lead" style="font-size: 14.5px; margin: 0;">Responda com total liberdade e sinceridade. Todas as 15 perguntas são obrigatórias.</p>
           </div>
 
-          <!-- P1: Unidade -->
-          <div class="question-block">
-            <label for="pUnidade">1) Em qual unidade você trabalha? <span class="req">*</span></label>
-            <select id="pUnidade" name="unidade" required>
-              <option value="">Selecione sua unidade...</option>
-              <option value="Revalle Juazeiro">Revalle Juazeiro</option>
-              <option value="Revalle Senhor do Bonfim">Revalle Senhor do Bonfim</option>
-              <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
-              <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
-              <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
-              <option value="Revalle Serrinha">Revalle Serrinha</option>
-              <option value="Revalle Pernambuco">Revalle Pernambuco</option>
-            </select>
-          </div>
+          <form id="formSurvey" novalidate>
+            
+            <!-- ════════ SEÇÃO 1: PERFIL INSTITUCIONAL ════════ -->
+            <div class="survey-section-header">
+              <div class="section-icon-box">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <div>
+                <h3>1. Seu Perfil na Empresa</h3>
+                <p>Informações gerais sobre seu local e área de atuação</p>
+              </div>
+            </div>
 
-          <!-- P2: Área / Departamento -->
-          <div class="question-block">
-            <label for="pArea">2) Qual é a sua área ou departamento? <span class="req">*</span></label>
-            <select id="pArea" name="area_departamento" required>
-              <option value="">Selecione seu nível / área...</option>
-              <option value="Operacional">Operacional</option>
-              <option value="Analista">Analista</option>
-              <option value="Supervisão">Supervisão</option>
-              <option value="Coordenação">Coordenação</option>
-              <option value="Gerência">Gerência</option>
-              <option value="Diretoria">Diretoria</option>
-            </select>
-          </div>
+            <!-- P1: Unidade -->
+            <div class="question-card" id="qcard-unidade">
+              <div class="question-header">
+                <span class="q-number">1</span>
+                <span class="q-title">Em qual unidade você trabalha? <span class="req">*</span></span>
+              </div>
+              <input type="hidden" name="unidade" id="inputUnidade" required />
+              <div class="options-grid" id="optsUnidade">
+                <div class="option-btn" data-val="Revalle Juazeiro"><span class="opt-dot"></span>Revalle Juazeiro</div>
+                <div class="option-btn" data-val="Revalle Senhor do Bonfim"><span class="opt-dot"></span>Revalle Senhor do Bonfim</div>
+                <div class="option-btn" data-val="Revalle Ribeira do Pombal"><span class="opt-dot"></span>Revalle Ribeira do Pombal</div>
+                <div class="option-btn" data-val="Revalle Paulo Afonso"><span class="opt-dot"></span>Revalle Paulo Afonso</div>
+                <div class="option-btn" data-val="Revalle Alagoinhas"><span class="opt-dot"></span>Revalle Alagoinhas</div>
+                <div class="option-btn" data-val="Revalle Serrinha"><span class="opt-dot"></span>Revalle Serrinha</div>
+                <div class="option-btn" data-val="Revalle Pernambuco"><span class="opt-dot"></span>Revalle Pernambuco</div>
+              </div>
+            </div>
 
-          <!-- P3: Tempo de Empresa -->
-          <div class="question-block">
-            <label for="pTempo">3) Há quanto tempo você está na empresa? <span class="req">*</span></label>
-            <select id="pTempo" name="tempo_empresa" required>
-              <option value="">Selecione o tempo de casa...</option>
-              <option value="Até 1 ano">Até 1 ano</option>
-              <option value="1 a 2 anos">1 a 2 anos</option>
-              <option value="2 a 5 anos">2 a 5 anos</option>
-              <option value="5 a 10 anos">5 a 10 anos</option>
-              <option value="10 a 15 anos">10 a 15 anos</option>
-              <option value="15 a 20 anos">15 a 20 anos</option>
-              <option value="20 anos ou mais">20 anos ou mais</option>
-            </select>
-          </div>
+            <!-- P2: Área / Departamento -->
+            <div class="question-card" id="qcard-area">
+              <div class="question-header">
+                <span class="q-number">2</span>
+                <span class="q-title">Qual é a sua área ou departamento? <span class="req">*</span></span>
+              </div>
+              <input type="hidden" name="area_departamento" id="inputArea" required />
+              <div class="options-pills" id="optsArea">
+                <div class="option-btn" data-val="Operacional"><span class="opt-dot"></span>Operacional</div>
+                <div class="option-btn" data-val="Analista"><span class="opt-dot"></span>Analista</div>
+                <div class="option-btn" data-val="Supervisão"><span class="opt-dot"></span>Supervisão</div>
+                <div class="option-btn" data-val="Coordenação"><span class="opt-dot"></span>Coordenação</div>
+                <div class="option-btn" data-val="Gerência"><span class="opt-dot"></span>Gerência</div>
+                <div class="option-btn" data-val="Diretoria"><span class="opt-dot"></span>Diretoria</div>
+              </div>
+            </div>
 
-          <!-- SEÇÃO 2: ENGAJAMENTO & CULTURA -->
-          <div class="form-section-title">
-            <span class="section-num">2</span>
-            <h3>Continuidade Cultural e Cultura Desejada</h3>
-          </div>
+            <!-- P3: Tempo de Empresa -->
+            <div class="question-card" id="qcard-tempo">
+              <div class="question-header">
+                <span class="q-number">3</span>
+                <span class="q-title">Há quanto tempo você está na empresa? <span class="req">*</span></span>
+              </div>
+              <input type="hidden" name="tempo_empresa" id="inputTempo" required />
+              <div class="options-pills" id="optsTempo">
+                <div class="option-btn" data-val="Até 1 ano"><span class="opt-dot"></span>Até 1 ano</div>
+                <div class="option-btn" data-val="1 a 2 anos"><span class="opt-dot"></span>1 a 2 anos</div>
+                <div class="option-btn" data-val="2 a 5 anos"><span class="opt-dot"></span>2 a 5 anos</div>
+                <div class="option-btn" data-val="5 a 10 anos"><span class="opt-dot"></span>5 a 10 anos</div>
+                <div class="option-btn" data-val="10 a 15 anos"><span class="opt-dot"></span>10 a 15 anos</div>
+                <div class="option-btn" data-val="15 a 20 anos"><span class="opt-dot"></span>15 a 20 anos</div>
+                <div class="option-btn" data-val="20 anos ou mais"><span class="opt-dot"></span>20 anos ou mais</div>
+              </div>
+            </div>
 
-          <!-- P4: Engajamento - NPS -->
-          <div class="question-block">
-            <label for="pPesaFavorContra">4) Imagina que um amigo te pergunta se vale a pena vir trabalhar na Revalle. O que pesa a favor de você continuar aqui, e o que pesa contra? <span class="req">*</span></label>
-            <textarea id="pPesaFavorContra" name="pesa_favor_contra" placeholder="Conte com detalhes o que mais te motiva e o que pesa contra..." required></textarea>
-          </div>
+            <!-- ════════ SEÇÃO 2: CONTINUIDADE CULTURAL & ENGAJAMENTO ════════ -->
+            <div class="survey-section-header">
+              <div class="section-icon-box" style="background: linear-gradient(135deg, #2563EB, #4f46e5);">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </div>
+              <div>
+                <h3>2. Continuidade Cultural e Cultura Desejada</h3>
+                <p>Sua percepção sincera sobre a empresa, valores e futuro</p>
+              </div>
+            </div>
 
-          <!-- P5: Futuro em 3 a 5 anos -->
-          <div class="question-block">
-            <label for="pFuturo">5) Como você imagina essa empresa daqui a uns 3 a 5 anos, no seu melhor momento possível? O que ela teria de diferente de hoje em valores, em atitudes, ou em qualquer coisa que precisasse mudar pra chegar lá? <span class="req">*</span></label>
-            <textarea id="pFuturo" name="futuro_3_5_anos" placeholder="Descreva como você enxerga a Revalle no seu melhor futuro..." required></textarea>
-          </div>
+            <!-- P4: Engajamento - NPS -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">4</span>
+                <span class="q-title">Imagina que um amigo te pergunta se vale a pena vir trabalhar na Revalle. O que pesa a favor de você continuar aqui, e o que pesa contra? <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pPesaFavorContra" name="pesa_favor_contra" placeholder="Conte o que mais te motiva no dia a dia e os pontos que pesam contra..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P6: 5 valores/palavras -->
-          <div class="question-block">
-            <label for="pValores">6) Escolha até 5 valores/palavras que representam como essa empresa age de verdade, no dia a dia. <span class="req">*</span></label>
-            <textarea id="pValores" name="valores_empresa" placeholder="Ex: União, Agilidade, Respeito, Dedicação, Exigência..." rows="3" required></textarea>
-          </div>
+            <!-- P5: Futuro em 3 a 5 anos -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">5</span>
+                <span class="q-title">Como você imagina essa empresa daqui a uns 3 a 5 anos, no seu melhor momento possível? O que ela teria de diferente de hoje em valores, em atitudes, ou em qualquer coisa que precisasse mudar pra chegar lá? <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pFuturo" name="futuro_3_5_anos" placeholder="Descreva sua visão de futuro ideal para a Revalle..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P7: O que não mudar nunca -->
-          <div class="question-block">
-            <label for="pNaoMudar">7) O que tem aqui que você não gostaria que mudasse nunca? <span class="req">*</span></label>
-            <textarea id="pNaoMudar" name="nao_mudar_nunca" placeholder="O que a Revalle tem de mais valioso que deve ser preservado..." required></textarea>
-          </div>
+            <!-- P6: 5 valores/palavras -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">6</span>
+                <span class="q-title">Escolha até 5 valores/palavras que representam como essa empresa age de verdade, no dia a dia. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pValores" name="valores_empresa" placeholder="Ex: União, Respeito, Dedicação, Agilidade, Exigência..." rows="3" required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P8: Dia difícil / motivo pra continuar -->
-          <div class="question-block">
-            <label for="pDiaDificil">8) Teve algum dia difícil em que você quase desistiu, mas achou um motivo pra continuar? Ou um dia em que pensou em sair? Me conta. <span class="req">*</span></label>
-            <textarea id="pDiaDificil" name="dia_dificil_motivo" placeholder="Conte sua experiência e o que te fez seguir em frente..." required></textarea>
-          </div>
+            <!-- P7: O que não mudar nunca -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">7</span>
+                <span class="q-title">O que tem aqui que você não gostaria que mudasse nunca? <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pNaoMudar" name="nao_mudar_nunca" placeholder="O que temos de mais valioso que precisa continuar sendo preservado..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P9: Ficou algo sem dizer -->
-          <div class="question-block">
-            <label for="pAlgoSemDizer">9) Ficou alguma coisa sem dizer? Essa parte é só sua. <span class="req">*</span></label>
-            <textarea id="pAlgoSemDizer" name="algo_sem_dizer" placeholder="Fique à vontade para compartilhar qualquer outro ponto ou sugestão..." required></textarea>
-          </div>
+            <!-- P8: Dia difícil / motivo pra continuar -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">8</span>
+                <span class="q-title">Teve algum dia difícil em que você quase desistiu, mas achou um motivo pra continuar? Ou um dia em que pensou em sair? Me conta. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pDiaDificil" name="dia_dificil_motivo" placeholder="Compartilhe esse momento difícil e o que te fez continuar..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- SEÇÃO 3: LIDERANÇA DIRETA -->
-          <div class="form-section-title">
-            <span class="section-num">3</span>
-            <h3>Liderança Direta</h3>
-          </div>
+            <!-- P9: Ficou algo sem dizer -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">9</span>
+                <span class="q-title">Ficou alguma coisa sem dizer? Essa parte é só sua. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pAlgoSemDizer" name="algo_sem_dizer" placeholder="Fique totalmente à vontade para qualquer comentário, desabafo ou sugestão..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P10: Acompanhamento -->
-          <div class="question-block">
-            <label for="pLidAcompanhamento">10) Pensa numa semana comum recente. Seja de perto ou a distância, você sentiu que sua liderança direta estava acompanhando o que você fazia? Me conta uma situação que mostre isso. <span class="req">*</span></label>
-            <textarea id="pLidAcompanhamento" name="lideranca_acompanhamento" placeholder="Descreva uma situação real de acompanhamento..." required></textarea>
-          </div>
+            <!-- ════════ SEÇÃO 3: LIDERANÇA DIRETA ════════ -->
+            <div class="survey-section-header">
+              <div class="section-icon-box" style="background: linear-gradient(135deg, #059669, #10B981);">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div>
+                <h3>3. Liderança Direta</h3>
+                <p>Relação, acompanhamento e desenvolvimento com sua liderança</p>
+              </div>
+            </div>
 
-          <!-- P11: Aprendizado / desafio -->
-          <div class="question-block">
-            <label for="pLidDesafio">11) Teve alguma vez em que sua liderança direta te ajudou a aprender algo novo, ou te desafiou de algum jeito? Me conta como foi. <span class="req">*</span></label>
-            <textarea id="pLidDesafio" name="lideranca_aprendizado_desafio" placeholder="Como foi essa situação de aprendizado ou desafio..." required></textarea>
-          </div>
+            <!-- P10: Acompanhamento -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">10</span>
+                <span class="q-title">Pensa numa semana comum recente. Seja de perto ou a distância, você sentiu que sua liderança direta estava acompanhando o que você fazia? Me conta uma situação que mostre isso. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pLidAcompanhamento" name="lideranca_acompanhamento" placeholder="Conte uma situação real recente..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P12: Entrega e expectativa -->
-          <div class="question-block">
-            <label for="pLidEntrega">12) Teve alguma vez em que você entregou algo e descobriu que não era bem o que sua liderança esperava ou que acertou de primeira? Como foi? <span class="req">*</span></label>
-            <textarea id="pLidEntrega" name="lideranca_entrega_feedback" placeholder="Conte como foi essa entrega e o alinhamento com seu líder..." required></textarea>
-          </div>
+            <!-- P11: Aprendizado / desafio -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">11</span>
+                <span class="q-title">Teve alguma vez em que sua liderança direta te ajudou a aprender algo novo, ou te desafiou de algum jeito? Me conta como foi. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pLidDesafio" name="lideranca_aprendizado_desafio" placeholder="Descreva essa situação de desenvolvimento..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P13: Último feedback -->
-          <div class="question-block">
-            <label for="pLidUltimoFeed">13) Quando foi a última vez que sua liderança direta te disse algo sobre o seu trabalho bom ou pra melhorar? Me conta como foi. <span class="req">*</span></label>
-            <textarea id="pLidUltimoFeed" name="lideranca_ultimo_feedback" placeholder="Descreva quando e como aconteceu esse retorno..." required></textarea>
-          </div>
+            <!-- P12: Entrega e expectativa -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">12</span>
+                <span class="q-title">Teve alguma vez em que você entregou algo e descobriu que não era bem o que sua liderança esperava ou que acertou de primeira? Como foi? <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pLidEntrega" name="lideranca_entrega_feedback" placeholder="Como foi o alinhamento das entregas e expectativas..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P14: Exemplo / coerência -->
-          <div class="question-block">
-            <label for="pLidIncoerencia">14) Teve alguma vez em que sua liderança pediu algo prazo, postura, dedicação e você viu ela não fazendo o mesmo? Me conta essa situação. <span class="req">*</span></label>
-            <textarea id="pLidIncoerencia" name="lideranca_exemplo_incoerencia" placeholder="Compartilhe como foi essa situação com sinceridade..." required></textarea>
-          </div>
+            <!-- P13: Último feedback -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">13</span>
+                <span class="q-title">Quando foi a última vez que sua liderança direta te disse algo sobre o seu trabalho bom ou pra melhorar? Me conta como foi. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pLidUltimoFeed" name="lideranca_ultimo_feedback" placeholder="Quando ocorreu e o que foi conversado..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <!-- P15: O que mais gosta e o que mudaria -->
-          <div class="question-block">
-            <label for="pLidGostaMudar">15) O que você mais gosta na sua liderança direta? E, se pudesse mudar uma coisa, o que seria? <span class="req">*</span></label>
-            <textarea id="pLidGostaMudar" name="lideranca_gosta_mudar" placeholder="Pontos fortes e oportunidades de melhoria da liderança..." required></textarea>
-          </div>
+            <!-- P14: Exemplo / coerência -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">14</span>
+                <span class="q-title">Teve alguma vez em que sua liderança pediu algo prazo, postura, dedicação e você viu ela não fazendo o mesmo? Me conta essa situação. <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pLidIncoerencia" name="lideranca_exemplo_incoerencia" placeholder="Compartilhe como foi com total sinceridade..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <div id="surveyError" class="alert-box alert-error" hidden></div>
+            <!-- P15: O que mais gosta e o que mudaria -->
+            <div class="question-card">
+              <div class="question-header">
+                <span class="q-number">15</span>
+                <span class="q-title">O que você mais gosta na sua liderança direta? E, se pudesse mudar uma coisa, o que seria? <span class="req">*</span></span>
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="pLidGostaMudar" name="lideranca_gosta_mudar" placeholder="Pontos positivos marcantes e o que gostaria que melhorasse..." required></textarea>
+                <div class="textarea-footer"><span class="char-count">0 caracteres</span></div>
+              </div>
+            </div>
 
-          <div class="form-actions" style="margin-top: 32px; display: flex; gap: 14px;">
-            <button type="button" class="btn btn-outline" id="btnBackToCpf" style="height: 50px; flex: 1;">
-              Voltar
-            </button>
-            <button type="submit" class="btn btn-primary" id="btnSubmitSurvey" style="height: 50px; flex: 2; font-size: 15.5px;">
-              <span class="btn-label" id="btnSubmitText">Enviar Respostas Anonimamente</span>
-              <svg class="btn-icon" id="btnSubmitIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-              <div class="spinner" id="btnSubmitSpinner" hidden></div>
-            </button>
-          </div>
-        </form>
+            <div id="surveyError" class="alert-box alert-error" hidden style="margin-top: 20px;"></div>
+
+            <div class="form-actions" style="margin-top: 36px; display: flex; gap: 16px;">
+              <button type="button" class="btn btn-outline" id="btnBackToCpf" style="height: 52px; flex: 1; border-radius: 12px; font-weight: 600;">
+                Voltar
+              </button>
+              <button type="submit" class="btn btn-primary" id="btnSubmitSurvey" style="height: 52px; flex: 2; font-size: 16px; border-radius: 12px; font-weight: 700; box-shadow: 0 4px 14px rgba(10, 50, 150, 0.25);">
+                <span class="btn-label" id="btnSubmitText">Enviar Respostas Anonimamente</span>
+                <svg class="btn-icon" id="btnSubmitIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <div class="spinner" id="btnSubmitSpinner" hidden></div>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
-      <!-- ════════ ETAPA 3: Tela de Sucesso ════════ -->
-      <div class="card card-success" id="successCard" hidden>
-        <div class="success-icon" style="background: #dcfce7; color: #16a34a;">
+      <!-- ════════ ETAPA 3: Tela de Sucesso com Celebração ════════ -->
+      <div class="card card-success success-celebration" id="successCard" hidden style="box-shadow: var(--card-shadow); border-radius: 20px;">
+        <div class="success-badge-icon">
           <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <h2>Obrigado pela sua contribuição!</h2>
-        <p style="color: var(--text-muted); font-size: 15.5px; line-height: 1.6; max-width: 480px; margin: 0 auto 28px;">
-          Sua resposta foi registrada <strong>anonimamente</strong> com sucesso. Sua opinião sincera é indispensável para continuarmos construindo uma Revalle cada vez melhor para todos.
+        <h2 style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+          Obrigado pela sua contribuição!
+        </h2>
+        <p style="color: #64748b; font-size: 16px; line-height: 1.6; max-width: 500px; margin: 0 auto 28px;">
+          Sua resposta foi registrada <strong>100% anonimamente</strong>. Sua visão sincera e transparente é fundamental para continuarmos evoluindo a cultura da Revalle.
         </p>
 
-        <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: var(--radius-md); padding: 18px 24px; max-width: 420px; margin: 0 auto 32px;">
-          <span style="font-size: 13px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.5px;">✓ Participação Confirmada</span>
-          <p style="font-size: 13.5px; color: #64748b; margin-top: 4px; margin-bottom: 0;">Seu envio foi computado com sigilo e anonimato garantidos.</p>
+        <div class="participation-receipt">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #16a34a; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            Participação Confirmada
+          </div>
+          <p style="font-size: 13.5px; color: #64748b; margin: 8px 0 0; line-height: 1.45;">
+            Seu formulário foi computado no banco com total proteção de identidade e sigilo garantidos.
+          </p>
         </div>
 
-        <button type="button" class="btn btn-outline" id="btnDone" style="height: 46px; padding: 0 28px;">
+        <button type="button" class="btn btn-outline" id="btnDone" style="height: 48px; padding: 0 32px; border-radius: 12px; font-weight: 700;">
           Concluir e Fechar
         </button>
       </div>

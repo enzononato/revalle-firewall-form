@@ -24,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSubmitSpinner = document.getElementById('btnSubmitSpinner');
   const surveyError = document.getElementById('surveyError');
 
+  // Progress Elements
+  const progressCountText = document.getElementById('progressCountText');
+  const progressFillBar = document.getElementById('progressFillBar');
+
+  // Selection Inputs
+  const inputUnidade = document.getElementById('inputUnidade');
+  const inputArea = document.getElementById('inputArea');
+  const inputTempo = document.getElementById('inputTempo');
+
   // Success Elements
   const btnDone = document.getElementById('btnDone');
 
@@ -47,6 +56,94 @@ document.addEventListener('DOMContentLoaded', () => {
       step1Error.textContent = '';
     }
   });
+
+  /* ── Interactive Option Grid Handlers ── */
+  function bindOptionGroup(containerId, inputEl) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('.option-btn');
+      if (!btn) return;
+
+      const val = btn.dataset.val;
+      inputEl.value = val;
+
+      container.querySelectorAll('.option-btn').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+
+      const card = btn.closest('.question-card');
+      if (card) card.classList.add('answered');
+
+      updateLiveProgress();
+    });
+  }
+
+  bindOptionGroup('optsUnidade', inputUnidade);
+  bindOptionGroup('optsArea', inputArea);
+  bindOptionGroup('optsTempo', inputTempo);
+
+  /* ── Textarea Live Character Counter & Auto-grow ── */
+  const textareas = formSurvey.querySelectorAll('textarea');
+  textareas.forEach((ta) => {
+    const footer = ta.parentElement ? ta.parentElement.querySelector('.char-count') : null;
+    
+    ta.addEventListener('input', () => {
+      const len = ta.value.trim().length;
+      if (footer) {
+        footer.textContent = `${len} caractere${len === 1 ? '' : 's'}`;
+        footer.style.color = len > 0 ? '#2563eb' : '#94a3b8';
+      }
+
+      const card = ta.closest('.question-card');
+      if (card) {
+        if (len > 0) card.classList.add('answered');
+        else card.classList.remove('answered');
+      }
+
+      updateLiveProgress();
+    });
+  });
+
+  /* ── Live Progress Calculation ── */
+  function updateLiveProgress() {
+    const requiredFields = [
+      inputUnidade.value.trim(),
+      inputArea.value.trim(),
+      inputTempo.value.trim(),
+      document.getElementById('pPesaFavorContra').value.trim(),
+      document.getElementById('pFuturo').value.trim(),
+      document.getElementById('pValores').value.trim(),
+      document.getElementById('pNaoMudar').value.trim(),
+      document.getElementById('pDiaDificil').value.trim(),
+      document.getElementById('pAlgoSemDizer').value.trim(),
+      document.getElementById('pLidAcompanhamento').value.trim(),
+      document.getElementById('pLidDesafio').value.trim(),
+      document.getElementById('pLidEntrega').value.trim(),
+      document.getElementById('pLidUltimoFeed').value.trim(),
+      document.getElementById('pLidIncoerencia').value.trim(),
+      document.getElementById('pLidGostaMudar').value.trim(),
+    ];
+
+    const filledCount = requiredFields.filter((val) => val.length > 0).length;
+    const totalCount = 15;
+    const percent = Math.round((filledCount / totalCount) * 100);
+
+    if (progressCountText) {
+      progressCountText.textContent = `${filledCount} de ${totalCount} respondidas (${percent}%)`;
+      if (filledCount === totalCount) {
+        progressCountText.style.background = '#dcfce7';
+        progressCountText.style.color = '#15803d';
+      } else {
+        progressCountText.style.background = '#eff6ff';
+        progressCountText.style.color = '#1d4ed8';
+      }
+    }
+
+    if (progressFillBar) {
+      progressFillBar.style.width = `${percent}%`;
+    }
+  }
 
   /* ── Step 1: Verificar CPF ── */
   formCpf.addEventListener('submit', async (e) => {
@@ -95,14 +192,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Sugestão de unidade se encontrada
-      if (data.colaborador && data.colaborador.unidade_sugerida) {
-        const uSelect = document.getElementById('pUnidade');
-        if (uSelect && !uSelect.value) {
-          for (const opt of uSelect.options) {
-            if (opt.value.toLowerCase().includes(data.colaborador.unidade_sugerida.toLowerCase())) {
-              uSelect.value = opt.value;
-              break;
-            }
+      if (data.colaborador && data.colaborador.unidade_sugerida && !inputUnidade.value) {
+        const uContainer = document.getElementById('optsUnidade');
+        if (uContainer) {
+          const matchBtn = [...uContainer.querySelectorAll('.option-btn')].find((b) =>
+            b.dataset.val.toLowerCase().includes(data.colaborador.unidade_sugerida.toLowerCase())
+          );
+          if (matchBtn) {
+            matchBtn.click();
           }
         }
       }
@@ -110,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
       step1Card.hidden = true;
       step2Card.hidden = false;
       successCard.hidden = true;
+      updateLiveProgress();
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (err) {
@@ -142,9 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const payload = {
-      unidade: document.getElementById('pUnidade').value.trim(),
-      area_departamento: document.getElementById('pArea').value.trim(),
-      tempo_empresa: document.getElementById('pTempo').value.trim(),
+      unidade: inputUnidade.value.trim(),
+      area_departamento: inputArea.value.trim(),
+      tempo_empresa: inputTempo.value.trim(),
       pesa_favor_contra: document.getElementById('pPesaFavorContra').value.trim(),
       futuro_3_5_anos: document.getElementById('pFuturo').value.trim(),
       valores_empresa: document.getElementById('pValores').value.trim(),
@@ -160,14 +258,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Validação de todos os campos
-    const emptyKeys = Object.keys(payload).filter((k) => !payload[k]);
-    if (emptyKeys.length > 0) {
-      surveyError.textContent = `Atenção: Por favor, responda a todas as 15 perguntas da pesquisa antes de enviar (faltam ${emptyKeys.length} resposta${emptyKeys.length > 1 ? 's' : ''}).`;
+    const emptyFields = Object.keys(payload).filter((k) => !payload[k]);
+    if (emptyFields.length > 0) {
+      surveyError.textContent = `Atenção: Por favor, responda a todas as 15 perguntas da pesquisa antes de enviar (faltam ${emptyFields.length} resposta${emptyFields.length > 1 ? 's' : ''}).`;
       surveyError.hidden = false;
-      const firstEmptyEl = formSurvey.querySelector('[required]:invalid') || formSurvey.querySelector('textarea:invalid, select:invalid');
-      if (firstEmptyEl) {
-        firstEmptyEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        firstEmptyEl.focus();
+
+      // Encontra o primeiro card não preenchido e rola até ele
+      let targetEl = null;
+      if (!payload.unidade) targetEl = document.getElementById('qcard-unidade');
+      else if (!payload.area_departamento) targetEl = document.getElementById('qcard-area');
+      else if (!payload.tempo_empresa) targetEl = document.getElementById('qcard-tempo');
+      else {
+        const emptyTa = [...textareas].find((ta) => !ta.value.trim());
+        if (emptyTa) targetEl = emptyTa.closest('.question-card');
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetEl.classList.add('active');
+        const ta = targetEl.querySelector('textarea');
+        if (ta) ta.focus();
       }
       return;
     }
@@ -216,7 +326,14 @@ document.addEventListener('DOMContentLoaded', () => {
   btnDone.addEventListener('click', () => {
     formCpf.reset();
     formSurvey.reset();
+    inputUnidade.value = '';
+    inputArea.value = '';
+    inputTempo.value = '';
     verifiedCpf = '';
+    document.querySelectorAll('.option-btn').forEach((b) => b.classList.remove('selected'));
+    document.querySelectorAll('.question-card').forEach((c) => c.classList.remove('answered', 'active'));
+    document.querySelectorAll('.char-count').forEach((c) => { c.textContent = '0 caracteres'; c.style.color = '#94a3b8'; });
+    
     successCard.hidden = true;
     step2Card.hidden = true;
     step1Card.hidden = false;
