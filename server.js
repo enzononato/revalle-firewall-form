@@ -12,6 +12,11 @@ const {
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
   getPesquisaCulturaById, getPesquisaCulturaStats,
+  // dashboard users & auth
+  hashUserPassword, verifyUserPassword, ensureDefaultAdminUser,
+  findDashboardUserByEmail, findDashboardUserById, listDashboardUsers,
+  createDashboardUser, updateDashboardUser, deleteDashboardUser, updateDashboardUserLastLogin,
+  // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 } = require('./db');
@@ -738,29 +743,39 @@ if (!DASHBOARD_PASSWORD) {
   console.warn('[dashboard] DASHBOARD_PASSWORD nao definida — o painel /dashboard ficara inacessivel ate configurar.');
 }
 
-/* ── Sessao stateless assinada (HMAC) ── */
+/* ── Sessao stateless assinada (HMAC) com perfil do usuario ── */
 function b64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function b64urlDecode(str) {
   return Buffer.from(String(str).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 }
-function signSession(expMs) {
-  const payload = b64url(JSON.stringify({ exp: expMs }));
+function signSession(user, expMs) {
+  const payloadData = {
+    id: user ? user.id : 1,
+    nome: user ? user.nome : 'Administrador',
+    email: user ? user.email : 'admin@revalle.com.br',
+    perfil: user ? user.perfil : 'admin',
+    exp: expMs,
+  };
+  const payload = b64url(JSON.stringify(payloadData));
   const sig = b64url(crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest());
   return `${payload}.${sig}`;
 }
 function verifySession(token) {
-  if (!token || typeof token !== 'string' || !token.includes('.')) return false;
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null;
   const [payload, sig] = token.split('.');
   const expected = b64url(crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest());
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
     const data = JSON.parse(b64urlDecode(payload).toString('utf8'));
-    return typeof data.exp === 'number' && data.exp > Date.now();
-  } catch { return false; }
+    if (typeof data.exp === 'number' && data.exp > Date.now()) {
+      return data;
+    }
+    return null;
+  } catch { return null; }
 }
 
 function parseCookies(req) {
@@ -778,8 +793,8 @@ function parseCookies(req) {
 function isSecureReq(req) {
   return req.secure || req.headers['x-forwarded-proto'] === 'https';
 }
-function setSessionCookie(req, res) {
-  const token = signSession(Date.now() + SESSION_TTL_MS);
+function setSessionCookie(req, res, user) {
+  const token = signSession(user, Date.now() + SESSION_TTL_MS);
   const attrs = [`${SESSION_COOKIE}=${token}`, 'HttpOnly', 'SameSite=Strict', 'Path=/', `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`];
   if (isSecureReq(req)) attrs.push('Secure');
   res.setHeader('Set-Cookie', attrs.join('; '));
@@ -789,12 +804,32 @@ function clearSessionCookie(req, res) {
   if (isSecureReq(req)) attrs.push('Secure');
   res.setHeader('Set-Cookie', attrs.join('; '));
 }
-function isAuthed(req) {
+function getCurrentUser(req) {
   return verifySession(parseCookies(req)[SESSION_COOKIE]);
 }
+function isAuthed(req) {
+  return Boolean(getCurrentUser(req));
+}
 function requireAuth(req, res, next) {
-  if (isAuthed(req)) return next();
-  return res.status(401).json({ ok: false, error: 'Sessao expirada ou nao autenticada.' });
+  const user = getCurrentUser(req);
+  if (user) {
+    req.user = user;
+    return next();
+  }
+  return res.status(401).json({ ok: false, error: 'Sessão expirada ou não autenticada.' });
+}
+function requireRole(allowedRoles) {
+  return (req, res, next) => {
+    const user = req.user || getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Sessão expirada ou não autenticada.' });
+    }
+    req.user = user;
+    if (!allowedRoles.includes(user.perfil)) {
+      return res.status(403).json({ ok: false, error: 'Acesso não autorizado para o seu perfil de usuário.' });
+    }
+    return next();
+  };
 }
 
 /* ── Senha + rate limit de login ── */
@@ -806,7 +841,7 @@ function passwordMatches(input) {
 }
 const loginAttempts = new Map(); // ip -> { count, first }
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_MAX = 10;
+const LOGIN_MAX = 15;
 function loginRateLimited(ip) {
   const rec = loginAttempts.get(ip);
   if (!rec || Date.now() - rec.first > LOGIN_WINDOW_MS) return false;
@@ -858,28 +893,129 @@ app.get('/dashboard/login', (req, res) => {
 });
 
 /* ── Autenticacao ── */
-app.post('/api/dashboard/login', (req, res) => {
+app.post('/api/dashboard/login', async (req, res) => {
   const ip = req.ip || 'unknown';
   if (loginRateLimited(ip)) {
-    return res.status(429).json({ ok: false, error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+    return res.status(429).json({ ok: false, error: 'Muitas tentativas incorretas. Aguarde alguns minutos e tente novamente.' });
   }
-  if (!passwordMatches((req.body || {}).senha)) {
+
+  const b = req.body || {};
+  const identifier = String(b.email || b.usuario || '').trim();
+  const senha = String(b.senha || '').trim();
+
+  if (!senha) {
+    return res.status(400).json({ ok: false, error: 'Informe a senha de acesso.' });
+  }
+
+  try {
+    // 1. Tenta autenticar por usuário cadastrado no banco (se e-mail/usuário fornecido)
+    if (identifier) {
+      const user = await findDashboardUserByEmail(identifier);
+      if (user) {
+        if (!user.ativo) {
+          return res.status(403).json({ ok: false, error: 'Este usuário está inativo. Contate o administrador.' });
+        }
+        if (verifyUserPassword(senha, user.senha_hash)) {
+          loginAttempts.delete(ip);
+          await updateDashboardUserLastLogin(user.id);
+          const authUser = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil };
+          setSessionCookie(req, res, authUser);
+          return res.json({ ok: true, user: authUser });
+        }
+      }
+    }
+
+    // 2. Fallback: autentica com a senha mestre de administrador (do .env)
+    if (passwordMatches(senha)) {
+      loginAttempts.delete(ip);
+      // Tenta achar admin na base ou usa objeto padrão
+      const dbAdmin = identifier ? await findDashboardUserByEmail(identifier) : null;
+      const authUser = dbAdmin && dbAdmin.perfil === 'admin'
+        ? { id: dbAdmin.id, nome: dbAdmin.nome, email: dbAdmin.email, perfil: 'admin' }
+        : { id: 1, nome: 'Administrador', email: 'admin@revalle.com.br', perfil: 'admin' };
+      setSessionCookie(req, res, authUser);
+      return res.json({ ok: true, user: authUser });
+    }
+
+    // Falha de login
     registerFailedLogin(ip);
-    return res.status(401).json({ ok: false, error: 'Senha incorreta.' });
+    return res.status(401).json({ ok: false, error: 'Credenciais incorretas ou usuário não encontrado.' });
+  } catch (err) {
+    console.error('[dashboard/login] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro ao autenticar. Tente novamente.' });
   }
-  loginAttempts.delete(ip);
-  setSessionCookie(req, res);
-  return res.json({ ok: true });
 });
+
 app.post('/api/dashboard/logout', (req, res) => {
   clearSessionCookie(req, res);
   return res.json({ ok: true });
 });
-app.get('/api/dashboard/me', (req, res) => res.json({ ok: true, authed: isAuthed(req) }));
+
+app.get('/api/dashboard/me', (req, res) => {
+  const user = getCurrentUser(req);
+  return res.json({ ok: true, authed: Boolean(user), user: user || null });
+});
+
+/* ── Gestão de Usuários e Perfis (Apenas Administrador) ── */
+
+app.get('/api/dashboard/usuarios', requireRole(['admin']), async (_req, res) => {
+  try {
+    const users = await listDashboardUsers();
+    res.json({ ok: true, users });
+  } catch (err) {
+    console.error('[dashboard/usuarios] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar usuários.' });
+  }
+});
+
+app.post('/api/dashboard/usuarios', requireRole(['admin']), async (req, res) => {
+  try {
+    const created = await createDashboardUser(req.body || {});
+    res.status(201).json({ ok: true, user: created });
+  } catch (err) {
+    console.error('[dashboard/usuarios/create] erro:', err);
+    res.status(400).json({ ok: false, error: err.message || 'Erro ao criar usuário.' });
+  }
+});
+
+app.put('/api/dashboard/usuarios/:id', requireRole(['admin']), async (req, res) => {
+  try {
+    const updated = await updateDashboardUser(req.params.id, req.body || {});
+    res.json({ ok: true, user: updated });
+  } catch (err) {
+    console.error('[dashboard/usuarios/update] erro:', err);
+    res.status(400).json({ ok: false, error: err.message || 'Erro ao atualizar usuário.' });
+  }
+});
+
+app.delete('/api/dashboard/usuarios/:id', requireRole(['admin']), async (req, res) => {
+  try {
+    const deleted = await deleteDashboardUser(req.params.id, req.user ? req.user.id : null);
+    res.json({ ok: true, id: deleted.id });
+  } catch (err) {
+    console.error('[dashboard/usuarios/delete] erro:', err);
+    res.status(400).json({ ok: false, error: err.message || 'Erro ao excluir usuário.' });
+  }
+});
 
 /* ── Indicadores (graficos + KPIs) ── */
-app.get('/api/dashboard/summary', requireAuth, async (_req, res) => {
+app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
   try {
+    const isMkt = req.user && req.user.perfil === 'mkt_cultura';
+
+    if (isMkt) {
+      const cultura = await getPesquisaCulturaStats().catch(() => ({ total: 0 }));
+      return res.json({
+        ok: true,
+        firewall: { total: 0, pendentes: 0, aprovadas: 0, reprovadas: 0, taxa_aprovacao: 0, top_dominios: [], por_unidade: [], por_setor: [], historico_12m: [] },
+        contratos: { total: 0, vigentes: 0, vencidos: 0, a_vencer_30d: 0, a_vencer_60d: 0, a_vencer_90d: 0, por_revenda: [], por_setor: [], proximos_vencimentos: [] },
+        tess: { total: 0 },
+        solides: { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 },
+        cultura,
+        generated_at: new Date().toISOString(),
+      });
+    }
+
     const [firewall, contratos, tess, solides, cultura] = await Promise.all([
       getFirewallStats(),
       getContractStats(),
@@ -903,7 +1039,7 @@ app.get('/api/dashboard/summary', requireAuth, async (_req, res) => {
 });
 
 /* ── Solicitacoes de firewall ── */
-app.get('/api/dashboard/firewall', requireAuth, async (req, res) => {
+app.get('/api/dashboard/firewall', requireRole(['admin']), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
@@ -918,14 +1054,14 @@ app.get('/api/dashboard/firewall', requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: 'Erro ao listar solicitacoes.' });
   }
 });
-app.get('/api/dashboard/firewall/:id', requireAuth, async (req, res) => {
+app.get('/api/dashboard/firewall/:id', requireRole(['admin']), async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
   const row = await findRequestById(id).catch(() => null);
   if (!row) return res.status(404).json({ ok: false, error: 'Solicitacao nao encontrada.' });
   res.json({ ok: true, row });
 });
-app.post('/api/dashboard/firewall/:id/approve', requireAuth, async (req, res) => {
+app.post('/api/dashboard/firewall/:id/approve', requireRole(['admin']), async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
   try {
@@ -940,7 +1076,7 @@ app.post('/api/dashboard/firewall/:id/approve', requireAuth, async (req, res) =>
     res.status(500).json({ ok: false, error: 'Erro ao aprovar a solicitacao.' });
   }
 });
-app.post('/api/dashboard/firewall/:id/reject', requireAuth, async (req, res) => {
+app.post('/api/dashboard/firewall/:id/reject', requireRole(['admin']), async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
   const motivo = String((req.body || {}).motivo || '').trim().slice(0, 1000);
@@ -959,7 +1095,7 @@ app.post('/api/dashboard/firewall/:id/reject', requireAuth, async (req, res) => 
 });
 
 /* ── Contratos ── */
-app.get('/api/dashboard/contratos', requireAuth, async (req, res) => {
+app.get('/api/dashboard/contratos', requireRole(['admin']), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
@@ -973,7 +1109,7 @@ app.get('/api/dashboard/contratos', requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: 'Erro ao listar contratos.' });
   }
 });
-app.get('/api/dashboard/contratos/:id', requireAuth, async (req, res) => {
+app.get('/api/dashboard/contratos/:id', requireRole(['admin']), async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
   try {
@@ -986,7 +1122,7 @@ app.get('/api/dashboard/contratos/:id', requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: 'Erro ao carregar o contrato.' });
   }
 });
-app.get('/api/dashboard/contratos/file/:fileId', requireAuth, async (req, res) => {
+app.get('/api/dashboard/contratos/file/:fileId', requireRole(['admin']), async (req, res) => {
   const fileId = Number(req.params.fileId);
   if (!fileId) return res.status(400).send('Parametro invalido.');
   const file = await getContractFileById(fileId).catch(() => null);
@@ -998,7 +1134,7 @@ app.get('/api/dashboard/contratos/file/:fileId', requireAuth, async (req, res) =
 });
 
 /* ── Exportacao CSV ── */
-app.get('/api/dashboard/export/firewall.csv', requireAuth, async (req, res) => {
+app.get('/api/dashboard/export/firewall.csv', requireRole(['admin']), async (req, res) => {
   try {
     const { rows } = await listFirewallRequests({
       status: req.query.status, unidade: req.query.unidade, setor: req.query.setor,
@@ -1026,7 +1162,7 @@ app.get('/api/dashboard/export/firewall.csv', requireAuth, async (req, res) => {
     res.status(500).send('Erro ao exportar.');
   }
 });
-app.get('/api/dashboard/export/contratos.csv', requireAuth, async (req, res) => {
+app.get('/api/dashboard/export/contratos.csv', requireRole(['admin']), async (req, res) => {
   try {
     const { rows } = await listContracts({
       setor: req.query.setor, revenda: req.query.revenda, vigencia: req.query.vigencia,
@@ -1054,7 +1190,7 @@ app.get('/api/dashboard/export/contratos.csv', requireAuth, async (req, res) => 
 });
 
 /* ── Dashboard Imersão Tess ── */
-app.get('/api/dashboard/imersao-tess', requireAuth, async (req, res) => {
+app.get('/api/dashboard/imersao-tess', requireRole(['admin']), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
@@ -1069,7 +1205,7 @@ app.get('/api/dashboard/imersao-tess', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/dashboard/export/imersao-tess.csv', requireAuth, async (req, res) => {
+app.get('/api/dashboard/export/imersao-tess.csv', requireRole(['admin']), async (req, res) => {
   try {
     const { rows } = await listImersaoTessRequests({
       setor: req.query.setor, revenda: req.query.revenda,
@@ -1091,7 +1227,7 @@ app.get('/api/dashboard/export/imersao-tess.csv', requireAuth, async (req, res) 
 });
 
 /* ── Dashboard Treinamento Sólides ── */
-app.get('/api/dashboard/solides', requireAuth, async (req, res) => {
+app.get('/api/dashboard/solides', requireRole(['admin']), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
@@ -1121,7 +1257,7 @@ app.get('/api/dashboard/solides', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/dashboard/solides/toggle-permission', requireAuth, async (req, res) => {
+app.post('/api/dashboard/solides/toggle-permission', requireRole(['admin']), async (req, res) => {
   const cpf = onlyDigits(req.body ? req.body.cpf : '');
   const permitido = Boolean(req.body && req.body.permitido);
   if (!cpf || cpf.length !== 11) {
@@ -1136,7 +1272,7 @@ app.post('/api/dashboard/solides/toggle-permission', requireAuth, async (req, re
   }
 });
 
-app.post('/api/dashboard/solides/bulk-permission', requireAuth, async (req, res) => {
+app.post('/api/dashboard/solides/bulk-permission', requireRole(['admin']), async (req, res) => {
   const cpfs = Array.isArray(req.body ? req.body.cpfs : null) ? req.body.cpfs : [];
   const permitido = Boolean(req.body && req.body.permitido);
   if (!cpfs.length) {
@@ -1151,7 +1287,7 @@ app.post('/api/dashboard/solides/bulk-permission', requireAuth, async (req, res)
   }
 });
 
-app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
+app.get('/api/dashboard/export/solides.csv', requireRole(['admin']), async (req, res) => {
   try {
     const { rows } = await listSolidesColaboradores({
       status: req.query.status,
@@ -1182,7 +1318,7 @@ app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
 
 /* ── Pesquisa de Cultura Dashboard APIs ── */
 
-app.get('/api/dashboard/pesquisa-cultura', requireAuth, async (req, res) => {
+app.get('/api/dashboard/pesquisa-cultura', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 100);
@@ -1213,7 +1349,7 @@ app.get('/api/dashboard/pesquisa-cultura', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/dashboard/pesquisa-cultura/:id', requireAuth, async (req, res) => {
+app.get('/api/dashboard/pesquisa-cultura/:id', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
   try {
     const resposta = await getPesquisaCulturaById(req.params.id);
     if (!resposta) return res.status(404).json({ ok: false, error: 'Resposta não encontrada.' });
@@ -1224,7 +1360,7 @@ app.get('/api/dashboard/pesquisa-cultura/:id', requireAuth, async (req, res) => 
   }
 });
 
-app.get('/api/dashboard/export/pesquisa-cultura.csv', requireAuth, async (req, res) => {
+app.get('/api/dashboard/export/pesquisa-cultura.csv', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
   try {
     const { rows } = await listPesquisaCulturaRespostas({
       unidade: req.query.unidade,
@@ -1264,6 +1400,7 @@ app.use((_req, res) => res.status(404).json({ ok: false, errors: ['Rota nao enco
 (async () => {
   try {
     await initDb();
+    await ensureDefaultAdminUser(DASHBOARD_PASSWORD);
     app.listen(PORT, '0.0.0.0', () => console.log(`[server] rodando em 0.0.0.0:${PORT}`));
   } catch (err) {
     console.error('[server] falha ao iniciar:', err);

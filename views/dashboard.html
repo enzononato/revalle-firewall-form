@@ -24,36 +24,49 @@
         </div>
       </div>
 
+      <div class="user-card" id="sideUserCard" style="margin: 0 16px 14px; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+        <div class="user-avatar" id="sideUserAvatar" style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2563EB, #0A3296); color: white; display: grid; place-items: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">A</div>
+        <div style="flex: 1; min-width: 0;">
+          <div id="sideUserName" style="font-size: 13.5px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Administrador</div>
+          <div id="sideUserRoleBadge" style="font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">Administrador</div>
+        </div>
+      </div>
+
       <nav class="nav">
         <span class="nav-label">Navegação</span>
-        <button class="nav-item active" data-view="overview">
+        <button class="nav-item active" data-view="overview" data-roles="admin">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
           <span>Visão Geral</span>
         </button>
-        <button class="nav-item" data-view="firewall">
+        <button class="nav-item" data-view="firewall" data-roles="admin">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
           <span>Solicitações</span>
           <em class="nav-badge" id="navPending" hidden>0</em>
         </button>
-        <button class="nav-item" data-view="contratos">
+        <button class="nav-item" data-view="contratos" data-roles="admin">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
           <span>Contratos</span>
           <em class="nav-badge amber" id="navExpiring" hidden>0</em>
         </button>
-        <button class="nav-item" data-view="tess">
+        <button class="nav-item" data-view="tess" data-roles="admin">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Imersão Tess</span>
           <em class="nav-badge blue" id="navTessTotal" hidden>0</em>
         </button>
-        <button class="nav-item" data-view="solides">
+        <button class="nav-item" data-view="solides" data-roles="admin">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>Gestão de Ponto (Sólides)</span>
           <em class="nav-badge amber" id="navSolidesPending" hidden>0</em>
         </button>
-        <button class="nav-item" data-view="cultura">
+        <button class="nav-item" data-view="cultura" data-roles="admin,mkt_cultura">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Pesquisa de Cultura</span>
           <em class="nav-badge teal" id="navCulturaTotal" hidden>0</em>
+        </button>
+        <button class="nav-item" data-view="usuarios" data-roles="admin">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Usuários & Acessos</span>
+          <em class="nav-badge purple" id="navUsuariosTotal" hidden>0</em>
         </button>
       </nav>
 
@@ -386,6 +399,92 @@
         </div>
         <div class="pager" id="culturaPager"></div>
       </section>
+
+      <!-- ─── VIEW: Usuários & Acessos (Admin) ─── -->
+      <section class="view" id="view-usuarios">
+        <div class="toolbar" style="margin-bottom: 20px;">
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="usuariosSearch" placeholder="Buscar por nome ou e-mail…" />
+          </div>
+          <select id="usuariosFilterPerfil" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os perfis</option>
+            <option value="admin">Administrador</option>
+            <option value="mkt_cultura">Mkt / Cultura</option>
+          </select>
+          <div class="toolbar-spacer"></div>
+          <button class="btn btn-primary" id="btnNovoUsuario" style="height: 38px; padding: 0 16px; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; background: linear-gradient(135deg, #0A3296, #2563EB); color: #fff; border: none; cursor: pointer; font-weight: 700;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo Usuário
+          </button>
+        </div>
+
+        <div class="table-wrap card">
+          <table class="data-table" id="usuariosTable">
+            <thead><tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Perfil de Acesso</th>
+              <th>Status</th>
+              <th>Último Acesso</th>
+              <th>Criado em</th>
+              <th style="width: 140px; text-align: center;">Ações</th>
+            </tr></thead>
+            <tbody id="usuariosBody"></tbody>
+          </table>
+          <div class="table-empty" id="usuariosEmpty" hidden>Nenhum usuário cadastrado</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ════ Modal de Usuário (Criar / Editar) ════ -->
+  <div class="modal-overlay" id="userModalOverlay" style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1000; display: none; place-items: center; padding: 20px;">
+    <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+      <div style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+        <h3 id="userModalTitle" style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0;">Novo Usuário</h3>
+        <button type="button" id="btnUserModalClose" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; line-height: 1;">&times;</button>
+      </div>
+
+      <form id="userModalForm" style="padding: 24px;">
+        <input type="hidden" id="userIdInput" />
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Nome Completo <span style="color: #ef4444;">*</span></label>
+          <input type="text" id="userNomeInput" placeholder="Ex: Maria Silva" required style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box;" />
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">E-mail de Acesso <span style="color: #ef4444;">*</span></label>
+          <input type="email" id="userEmailInput" placeholder="usuario@revalle.com.br" required style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box;" />
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Perfil de Acesso <span style="color: #ef4444;">*</span></label>
+          <select id="userPerfilInput" required style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; background: #fff; box-sizing: border-box;">
+            <option value="mkt_cultura">Mkt / Cultura (Acesso exclusivo à Pesquisa de Cultura)</option>
+            <option value="admin">Administrador (Acesso Total ao Painel)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 16px;" id="userSenhaGroup">
+          <label id="userSenhaLabel" style="display: block; font-size: 13.5px; font-weight: 700; color: #334155; margin-bottom: 6px;">Senha de Acesso <span style="color: #ef4444;">*</span></label>
+          <input type="password" id="userSenhaInput" placeholder="Mínimo 6 caracteres" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box;" />
+          <small id="userSenhaHelp" style="display: block; color: #64748b; font-size: 12px; margin-top: 4px;" hidden>Deixe em branco para manter a senha atual.</small>
+        </div>
+
+        <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="userAtivoInput" checked style="width: 16px; height: 16px; cursor: pointer;" />
+          <label for="userAtivoInput" style="font-size: 13.5px; font-weight: 600; color: #334155; cursor: pointer;">Usuário ativo (permite login)</label>
+        </div>
+
+        <div id="userModalError" style="padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #b91c1c; font-size: 13px; margin-bottom: 16px;" hidden></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" id="btnUserModalCancel" style="padding: 10px 18px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 600; cursor: pointer;">Cancelar</button>
+          <button type="submit" id="btnUserModalSave" style="padding: 10px 20px; border-radius: 8px; border: none; background: linear-gradient(135deg, #0A3296, #2563EB); color: #fff; font-weight: 700; cursor: pointer;">Salvar Usuário</button>
+        </div>
+      </form>
     </div>
   </div>
 

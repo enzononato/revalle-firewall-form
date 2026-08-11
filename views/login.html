@@ -127,10 +127,18 @@
       <p class="sub">Informe a senha de acesso para continuar.</p>
 
       <div class="field">
+        <label for="email">E-mail ou Usuário</label>
+        <div class="pw-wrap">
+          <svg class="lead" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <input type="text" id="email" name="email" autocomplete="username" placeholder="seu.email@revalle.com.br" autofocus />
+        </div>
+      </div>
+
+      <div class="field">
         <label for="senha">Senha de acesso</label>
         <div class="pw-wrap">
           <svg class="lead" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <input type="password" id="senha" name="senha" autocomplete="current-password" placeholder="••••••••••" required autofocus />
+          <input type="password" id="senha" name="senha" autocomplete="current-password" placeholder="••••••••••" required />
           <button type="button" class="toggle" id="toggle" aria-label="Mostrar senha">
             <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
@@ -144,7 +152,7 @@
 
       <div class="error-msg" id="errorMsg">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-        <span id="errorText">Senha incorreta.</span>
+        <span id="errorText">Credenciais incorretas.</span>
       </div>
 
       <div class="foot"><span class="dot"></span> Conexão segura · Revalle &middot; Revenda e Distribuição Ambev</div>
@@ -156,16 +164,17 @@
     const btn = document.getElementById('submitBtn');
     const errBox = document.getElementById('errorMsg');
     const errText = document.getElementById('errorText');
-    const input = document.getElementById('senha');
+    const emailInput = document.getElementById('email');
+    const senhaInput = document.getElementById('senha');
     const toggle = document.getElementById('toggle');
 
     toggle.addEventListener('click', () => {
-      const show = input.type === 'password';
-      input.type = show ? 'text' : 'password';
+      const show = senhaInput.type === 'password';
+      senhaInput.type = show ? 'text' : 'password';
       toggle.innerHTML = show
         ? '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></svg>'
         : '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-      input.focus();
+      senhaInput.focus();
     });
 
     form.addEventListener('submit', async (e) => {
@@ -176,13 +185,16 @@
         const res = await fetch('/api/dashboard/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ senha: input.value }),
+          body: JSON.stringify({
+            email: emailInput.value.trim(),
+            senha: senhaInput.value,
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok) { window.location.href = '/dashboard'; return; }
         errText.textContent = data.error || 'Não foi possível entrar.';
         errBox.classList.add('show');
-        input.select();
+        senhaInput.select();
       } catch {
         errText.textContent = 'Falha de conexão. Tente novamente.';
         errBox.classList.add('show');

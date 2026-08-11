@@ -5,12 +5,14 @@ const API = '/api/dashboard';
 
 const state = {
   view: 'overview',
+  user: null,
   summary: null,
   fw: { status: '', unidade: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0 },
+  usuarios: { search: '', perfil: '', list: [] },
   charts: {},
   drawerKind: null,
 };
@@ -79,13 +81,17 @@ const TITLES = {
   tess: ['Imersão Tess', 'Lista de inscritos e detalhes da Imersão Tess'],
   solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
+  usuarios: ['Usuários & Acessos', 'Gerenciamento de acessos e perfis de usuários do painel'],
 };
 function switchView(view) {
+  if (state.user && state.user.perfil === 'mkt_cultura') {
+    view = 'cultura';
+  }
   state.view = view;
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $$('.view').forEach((v) => v.hidden = v.id !== `view-${view}`);
-  $('#pageTitle').textContent = TITLES[view][0];
-  $('#pageSub').textContent = TITLES[view][1];
+  $('#pageTitle').textContent = TITLES[view] ? TITLES[view][0] : 'Painel';
+  $('#pageSub').textContent = TITLES[view] ? TITLES[view][1] : '';
   closeSidebar();
   window.scrollTo({ top: 0 });
   if (view === 'firewall') loadFirewall();
@@ -93,6 +99,48 @@ function switchView(view) {
   if (view === 'tess') loadTess();
   if (view === 'solides') loadSolides();
   if (view === 'cultura') loadPesquisaCultura();
+  if (view === 'usuarios') loadUsuarios();
+}
+
+async function loadCurrentUser() {
+  try {
+    const res = await api('/me').then((r) => r.json());
+    if (res.ok && res.user) {
+      state.user = res.user;
+      const name = state.user.nome || 'Administrador';
+      const isAdmin = state.user.perfil === 'admin';
+      const roleLabel = isAdmin ? 'Administrador' : 'Mkt / Cultura';
+      
+      if ($('#sideUserName')) $('#sideUserName').textContent = name;
+      if ($('#sideUserRoleBadge')) {
+        $('#sideUserRoleBadge').textContent = roleLabel;
+        $('#sideUserRoleBadge').style.color = isAdmin ? '#38bdf8' : '#34d399';
+      }
+      if ($('#sideUserAvatar')) {
+        $('#sideUserAvatar').textContent = (name.trim()[0] || 'U').toUpperCase();
+        $('#sideUserAvatar').style.background = isAdmin
+          ? 'linear-gradient(135deg, #2563EB, #0A3296)'
+          : 'linear-gradient(135deg, #059669, #10B981)';
+      }
+
+      // Filtrar itens do menu pela permissão data-roles
+      $$('.nav-item').forEach((item) => {
+        const roles = (item.dataset.roles || '').split(',').map((r) => r.trim()).filter(Boolean);
+        if (roles.length > 0 && !roles.includes(state.user.perfil)) {
+          item.style.display = 'none';
+        } else {
+          item.style.display = 'flex';
+        }
+      });
+
+      // Se for Mkt/Cultura, direciona exclusivamente para a Pesquisa de Cultura
+      if (!isAdmin) {
+        switchView('cultura');
+      }
+    }
+  } catch (err) {
+    console.error('[dashboard] erro ao obter usuario logado:', err);
+  }
 }
 
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('open'); }
@@ -897,6 +945,207 @@ async function openPesquisaCulturaDrawer(id) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Usuários & Acessos (Admin)
+   ════════════════════════════════════════════════════════════════ */
+async function loadUsuarios() {
+  try {
+    const res = await api('/usuarios').then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar usuários');
+    state.usuarios.list = res.users || [];
+    if ($('#navUsuariosTotal')) {
+      $('#navUsuariosTotal').textContent = state.usuarios.list.length;
+      $('#navUsuariosTotal').hidden = state.usuarios.list.length === 0;
+    }
+    renderUsuarios();
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar usuários', err.message);
+    emptyState('#usuariosEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os usuários.');
+  }
+}
+
+function renderUsuarios() {
+  const tbody = $('#usuariosBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  const term = (state.usuarios.search || '').toLowerCase();
+  const perfilFilter = state.usuarios.perfil;
+
+  const filtered = state.usuarios.list.filter((u) => {
+    if (perfilFilter && u.perfil !== perfilFilter) return false;
+    if (!term) return true;
+    return (u.nome || '').toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
+  });
+
+  if (!filtered.length) {
+    emptyState('#usuariosEmpty', 'Nenhum usuário encontrado', 'Tente ajustar o termo de busca ou filtro de perfil.');
+    return;
+  }
+  if ($('#usuariosEmpty')) $('#usuariosEmpty').hidden = true;
+
+  const html = filtered.map((u) => {
+    const isAdmin = u.perfil === 'admin';
+    const perfilTag = isAdmin
+      ? '<span class="chip" style="background:#e0f2fe; color:#0369a1; font-weight:700;">Administrador</span>'
+      : '<span class="chip" style="background:#dcfce7; color:#15803d; font-weight:700;">Mkt / Cultura</span>';
+    const statusTag = u.ativo
+      ? '<span class="chip font-medium" style="background:#f0fdf4; color:#16a34a; border: 1px solid #bbf7d0;">Ativo</span>'
+      : '<span class="chip font-medium" style="background:#f8fafc; color:#94a3b8; border: 1px solid #e2e8f0;">Inativo</span>';
+
+    const lastLogin = u.ultimo_login ? fmtDateTime(u.ultimo_login) : 'Nunca acessou';
+    const isSelf = state.user && state.user.id === u.id;
+
+    return `
+      <tr>
+        <td><strong>${esc(u.nome)}</strong></td>
+        <td><span class="mono" style="font-size: 13px;">${esc(u.email)}</span></td>
+        <td>${perfilTag}</td>
+        <td>${statusTag}</td>
+        <td><span class="date-tag">${esc(lastLogin)}</span></td>
+        <td><span class="date-tag">${esc(fmtDateTime(u.created_at))}</span></td>
+        <td style="text-align: center;">
+          <div style="display: flex; gap: 6px; justify-content: center;">
+            <button class="btn btn-sm btn-outline" data-user-edit="${esc(u.id)}" title="Editar Usuário" style="font-size: 12px; padding: 4px 8px;">
+              Editar
+            </button>
+            <button class="btn btn-sm btn-outline" data-user-toggle="${esc(u.id)}" data-current-ativo="${u.ativo ? '1' : '0'}" title="${u.ativo ? 'Desativar acesso' : 'Ativar acesso'}" style="font-size: 12px; padding: 4px 8px; color: ${u.ativo ? '#d97706' : '#16a34a'};">
+              ${u.ativo ? 'Desativar' : 'Ativar'}
+            </button>
+            ${!isSelf ? `
+              <button class="btn btn-sm btn-outline" data-user-delete="${esc(u.id)}" data-user-nome="${esc(u.nome)}" title="Excluir Usuário" style="font-size: 12px; padding: 4px 8px; color: #dc2626;">
+                Excluir
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.innerHTML = html;
+}
+
+function openUserModal(user = null) {
+  const modal = $('#userModalOverlay');
+  const title = $('#userModalTitle');
+  const form = $('#userModalForm');
+  const err = $('#userModalError');
+  const idInput = $('#userIdInput');
+  const nomeInput = $('#userNomeInput');
+  const emailInput = $('#userEmailInput');
+  const perfilInput = $('#userPerfilInput');
+  const senhaInput = $('#userSenhaInput');
+  const senhaLabel = $('#userSenhaLabel');
+  const senhaHelp = $('#userSenhaHelp');
+  const ativoInput = $('#userAtivoInput');
+
+  if (err) { err.hidden = true; err.textContent = ''; }
+  form.reset();
+
+  if (user) {
+    title.textContent = 'Editar Usuário';
+    idInput.value = user.id;
+    nomeInput.value = user.nome || '';
+    emailInput.value = user.email || '';
+    perfilInput.value = user.perfil || 'mkt_cultura';
+    ativoInput.checked = Boolean(user.ativo);
+    senhaInput.required = false;
+    senhaLabel.innerHTML = 'Alterar Senha <span style="font-weight: normal; color: #64748b;">(opcional)</span>';
+    senhaHelp.hidden = false;
+  } else {
+    title.textContent = 'Novo Usuário';
+    idInput.value = '';
+    ativoInput.checked = true;
+    perfilInput.value = 'mkt_cultura';
+    senhaInput.required = true;
+    senhaLabel.innerHTML = 'Senha de Acesso <span style="color: #ef4444;">*</span>';
+    senhaHelp.hidden = true;
+  }
+
+  modal.style.display = 'grid';
+  nomeInput.focus();
+}
+
+function closeUserModal() {
+  const modal = $('#userModalOverlay');
+  if (modal) modal.style.display = 'none';
+}
+
+async function saveUser(e) {
+  e.preventDefault();
+  const id = $('#userIdInput').value;
+  const nome = $('#userNomeInput').value.trim();
+  const email = $('#userEmailInput').value.trim();
+  const perfil = $('#userPerfilInput').value;
+  const senha = $('#userSenhaInput').value;
+  const ativo = $('#userAtivoInput').checked;
+  const errBox = $('#userModalError');
+  const btnSave = $('#btnUserModalSave');
+
+  if (!nome) { errBox.textContent = 'Informe o nome completo.'; errBox.hidden = false; return; }
+  if (!email || !email.includes('@')) { errBox.textContent = 'Informe um e-mail válido.'; errBox.hidden = false; return; }
+  if (!id && (!senha || senha.length < 6)) { errBox.textContent = 'A senha deve conter no mínimo 6 caracteres.'; errBox.hidden = false; return; }
+  if (id && senha && senha.length < 6) { errBox.textContent = 'A nova senha deve conter no mínimo 6 caracteres.'; errBox.hidden = false; return; }
+
+  errBox.hidden = true;
+  btnSave.disabled = true;
+  btnSave.textContent = 'Salvando...';
+
+  try {
+    const isEdit = Boolean(id);
+    const url = isEdit ? `/usuarios/${id}` : '/usuarios';
+    const method = isEdit ? 'PUT' : 'POST';
+    const payload = { nome, email, perfil, ativo };
+    if (senha) payload.senha = senha;
+
+    const res = await api(url, {
+      method,
+      body: JSON.stringify(payload),
+    }).then((r) => r.json());
+
+    if (!res.ok) throw new Error(res.error || 'Erro ao salvar usuário');
+
+    toast('success', isEdit ? 'Usuário atualizado com sucesso!' : 'Usuário cadastrado com sucesso!');
+    closeUserModal();
+    await loadUsuarios();
+  } catch (err) {
+    errBox.textContent = err.message || 'Erro ao salvar dados do usuário.';
+    errBox.hidden = false;
+  } finally {
+    btnSave.disabled = false;
+    btnSave.textContent = 'Salvar Usuário';
+  }
+}
+
+async function deleteUser(id, nome) {
+  if (!confirm(`Deseja realmente excluir o usuário "${nome}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const res = await api(`/usuarios/${id}`, { method: 'DELETE' }).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao excluir usuário');
+    toast('success', 'Usuário excluído com sucesso.');
+    await loadUsuarios();
+  } catch (err) {
+    toast('error', 'Erro ao excluir', err.message);
+  }
+}
+
+async function toggleUserStatus(id, currentAtivo) {
+  const newStatus = !currentAtivo;
+  try {
+    const res = await api(`/usuarios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ativo: newStatus }),
+    }).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao alterar status');
+    toast('success', `Usuário ${newStatus ? 'ativado' : 'desativado'} com sucesso.`);
+    await loadUsuarios();
+  } catch (err) {
+    toast('error', 'Erro ao alterar status', err.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
    Eventos
    ════════════════════════════════════════════════════════════════ */
 function bind() {
@@ -912,6 +1161,7 @@ function bind() {
     if (state.view === 'tess') await loadTess();
     if (state.view === 'solides') await loadSolides();
     if (state.view === 'cultura') await loadPesquisaCultura();
+    if (state.view === 'usuarios') await loadUsuarios();
     setTimeout(() => b.classList.remove('refreshing'), 500);
   };
 
@@ -922,11 +1172,37 @@ function bind() {
     const fwRow = e.target.closest('[data-fw]'); if (fwRow) { openFirewall(fwRow.dataset.fw); return; }
     const ctRow = e.target.closest('[data-contract]'); if (ctRow) { openContrato(ctRow.dataset.contract); return; }
     const cult = e.target.closest('[data-cultura]'); if (cult) { openPesquisaCulturaDrawer(cult.dataset.cultura); return; }
+
+    // Ações de usuário
+    const uEdit = e.target.closest('[data-user-edit]');
+    if (uEdit) {
+      const u = state.usuarios.list.find((x) => String(x.id) === String(uEdit.dataset.userEdit));
+      if (u) openUserModal(u);
+      return;
+    }
+    const uToggle = e.target.closest('[data-user-toggle]');
+    if (uToggle) {
+      toggleUserStatus(uToggle.dataset.userToggle, uToggle.dataset.currentAtivo === '1');
+      return;
+    }
+    const uDel = e.target.closest('[data-user-delete]');
+    if (uDel) {
+      deleteUser(uDel.dataset.userDelete, uDel.dataset.userNome);
+      return;
+    }
   });
 
   $('#drawerClose').onclick = closeDrawer;
   $('#drawerScrim').onclick = closeDrawer;
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); closeSidebar(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); closeSidebar(); closeUserModal(); } });
+
+  // Eventos de Usuários
+  if ($('#btnNovoUsuario')) $('#btnNovoUsuario').onclick = () => openUserModal();
+  if ($('#btnUserModalClose')) $('#btnUserModalClose').onclick = closeUserModal;
+  if ($('#btnUserModalCancel')) $('#btnUserModalCancel').onclick = closeUserModal;
+  if ($('#userModalForm')) $('#userModalForm').onsubmit = saveUser;
+  if ($('#usuariosSearch')) $('#usuariosSearch').oninput = debounce((e) => { state.usuarios.search = e.target.value.trim(); renderUsuarios(); });
+  if ($('#usuariosFilterPerfil')) $('#usuariosFilterPerfil').onchange = (e) => { state.usuarios.perfil = e.target.value; renderUsuarios(); };
 
   // filtros firewall
   $('#fwStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#fwStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.fw.status = s.dataset.val; state.fw.page = 1; loadFirewall(); };
@@ -1011,6 +1287,7 @@ function bind() {
 /* ════════ Init ════════ */
 (async function init() {
   bind();
+  await loadCurrentUser();
   await loadSummary();
   $('#pageLoader').classList.add('hide');
 })();

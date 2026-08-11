@@ -191,6 +191,23 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_pesquisa_cultura_area ON pesquisa_cultura_respostas (area_departamento)`);
 
     console.log('[db] tabelas da pesquisa de cultura prontas');
+
+    // ── dashboard_usuarios ──────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS dashboard_usuarios (
+        id            SERIAL PRIMARY KEY,
+        nome          VARCHAR(150) NOT NULL,
+        email         VARCHAR(200) UNIQUE NOT NULL,
+        senha_hash    VARCHAR(255) NOT NULL,
+        perfil        VARCHAR(50)  NOT NULL DEFAULT 'mkt_cultura',
+        ativo         BOOLEAN      NOT NULL DEFAULT TRUE,
+        created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        ultimo_login  TIMESTAMPTZ  DEFAULT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_dash_usuarios_email ON dashboard_usuarios (LOWER(email))`);
+
+    console.log('[db] tabela dashboard_usuarios pronta');
   } finally {
     client.release();
   }
@@ -1221,6 +1238,183 @@ async function getPesquisaCulturaStats() {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Gestão de Usuários e Perfis do Painel (/dashboard)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+function hashUserPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password || ''), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyUserPassword(password, storedHash) {
+  if (!storedHash || !password) return false;
+  if (!storedHash.includes(':')) {
+    const h = crypto.createHash('sha256').update(String(password)).digest('hex');
+    return h === storedHash || String(password) === storedHash;
+  }
+  const [salt, hash] = storedHash.split(':');
+  try {
+    const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
+    const a = Buffer.from(hash, 'hex');
+    const b = Buffer.from(derived, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+async function ensureDefaultAdminUser(defaultPassword) {
+  try {
+    const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM dashboard_usuarios`);
+    if (rows[0] && rows[0].count === 0 && defaultPassword) {
+      const pwdHash = hashUserPassword(defaultPassword);
+      await pool.query(
+        `INSERT INTO dashboard_usuarios (nome, email, senha_hash, perfil, ativo)
+         VALUES ($1, $2, $3, $4, TRUE)
+         ON CONFLICT (email) DO NOTHING`,
+        ['Administrador', 'admin@revalle.com.br', pwdHash, 'admin']
+      );
+      console.log('[db] Usuário administrador padrão (admin@revalle.com.br) inicializado.');
+    }
+  } catch (err) {
+    console.error('[db] erro ao verificar/criar administrador padrao:', err);
+  }
+}
+
+async function findDashboardUserByEmail(email) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail) return null;
+  const { rows } = await pool.query(
+    `SELECT id, nome, email, senha_hash, perfil, ativo, created_at, ultimo_login
+     FROM dashboard_usuarios
+     WHERE LOWER(email) = $1 LIMIT 1`,
+    [cleanEmail]
+  );
+  return rows[0] || null;
+}
+
+async function findDashboardUserById(id) {
+  const numId = Number(id);
+  if (!numId) return null;
+  const { rows } = await pool.query(
+    `SELECT id, nome, email, perfil, ativo, created_at, ultimo_login
+     FROM dashboard_usuarios
+     WHERE id = $1 LIMIT 1`,
+    [numId]
+  );
+  return rows[0] || null;
+}
+
+async function listDashboardUsers() {
+  const { rows } = await pool.query(
+    `SELECT id, nome, email, perfil, ativo, created_at, ultimo_login
+     FROM dashboard_usuarios
+     ORDER BY id ASC`
+  );
+  return rows;
+}
+
+async function createDashboardUser({ nome, email, senha, perfil }) {
+  const cleanNome = String(nome || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanPerfil = String(perfil || 'mkt_cultura').trim() === 'admin' ? 'admin' : 'mkt_cultura';
+  const cleanSenha = String(senha || '').trim();
+
+  if (!cleanNome) throw new Error('Nome é obrigatório.');
+  if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('E-mail válido é obrigatório.');
+  if (!cleanSenha || cleanSenha.length < 6) throw new Error('A senha deve ter no mínimo 6 caracteres.');
+
+  const existing = await findDashboardUserByEmail(cleanEmail);
+  if (existing) {
+    throw new Error('Já existe um usuário cadastrado com este e-mail.');
+  }
+
+  const senhaHash = hashUserPassword(cleanSenha);
+  const { rows } = await pool.query(
+    `INSERT INTO dashboard_usuarios (nome, email, senha_hash, perfil, ativo)
+     VALUES ($1, $2, $3, $4, TRUE)
+     RETURNING id, nome, email, perfil, ativo, created_at`,
+    [cleanNome, cleanEmail, senhaHash, cleanPerfil]
+  );
+  return rows[0];
+}
+
+async function updateDashboardUser(id, { nome, email, perfil, ativo, senha }) {
+  const numId = Number(id);
+  if (!numId) throw new Error('ID de usuário inválido.');
+
+  const user = await findDashboardUserById(numId);
+  if (!user) throw new Error('Usuário não encontrado.');
+
+  const cleanNome = nome !== undefined ? String(nome).trim() : user.nome;
+  const cleanEmail = email !== undefined ? String(email).trim().toLowerCase() : user.email;
+  const cleanPerfil = perfil !== undefined ? (String(perfil).trim() === 'admin' ? 'admin' : 'mkt_cultura') : user.perfil;
+  const cleanAtivo = ativo !== undefined ? Boolean(ativo) : user.ativo;
+
+  if (!cleanNome) throw new Error('Nome não pode ficar vazio.');
+  if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('E-mail válido é obrigatório.');
+
+  // Verifica se o e-mail mudou e já pertence a outro usuário
+  if (cleanEmail !== user.email) {
+    const existing = await findDashboardUserByEmail(cleanEmail);
+    if (existing && existing.id !== numId) {
+      throw new Error('Este e-mail já está sendo utilizado por outro usuário.');
+    }
+  }
+
+  if (senha && String(senha).trim().length >= 6) {
+    const senhaHash = hashUserPassword(String(senha).trim());
+    const { rows } = await pool.query(
+      `UPDATE dashboard_usuarios
+       SET nome = $1, email = $2, perfil = $3, ativo = $4, senha_hash = $5
+       WHERE id = $6
+       RETURNING id, nome, email, perfil, ativo, created_at, ultimo_login`,
+      [cleanNome, cleanEmail, cleanPerfil, cleanAtivo, senhaHash, numId]
+    );
+    return rows[0];
+  } else {
+    const { rows } = await pool.query(
+      `UPDATE dashboard_usuarios
+       SET nome = $1, email = $2, perfil = $3, ativo = $4
+       WHERE id = $5
+       RETURNING id, nome, email, perfil, ativo, created_at, ultimo_login`,
+      [cleanNome, cleanEmail, cleanPerfil, cleanAtivo, numId]
+    );
+    return rows[0];
+  }
+}
+
+async function deleteDashboardUser(id, requestingUserId) {
+  const numId = Number(id);
+  if (!numId) throw new Error('ID de usuário inválido.');
+
+  if (requestingUserId && Number(requestingUserId) === numId) {
+    throw new Error('Você não pode excluir seu próprio usuário.');
+  }
+
+  const { rows: adminRows } = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM dashboard_usuarios WHERE perfil = 'admin' AND ativo = TRUE AND id <> $1`,
+    [numId]
+  );
+  if (adminRows[0] && adminRows[0].count === 0) {
+    throw new Error('Não é possível remover o único administrador ativo do sistema.');
+  }
+
+  const { rows } = await pool.query(
+    `DELETE FROM dashboard_usuarios WHERE id = $1 RETURNING id`,
+    [numId]
+  );
+  return rows[0] || null;
+}
+
+async function updateDashboardUserLastLogin(id) {
+  const numId = Number(id);
+  if (!numId) return;
+  await pool.query(`UPDATE dashboard_usuarios SET ultimo_login = NOW() WHERE id = $1`, [numId]).catch(() => {});
+}
+
 module.exports = {
   pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
@@ -1232,6 +1426,10 @@ module.exports = {
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
   getPesquisaCulturaById, getPesquisaCulturaStats,
+  // dashboard users & auth
+  hashUserPassword, verifyUserPassword, ensureDefaultAdminUser,
+  findDashboardUserByEmail, findDashboardUserById, listDashboardUsers,
+  createDashboardUser, updateDashboardUser, deleteDashboardUser, updateDashboardUserLastLogin,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
