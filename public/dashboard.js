@@ -10,6 +10,7 @@ const state = {
   ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
+  cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0 },
   charts: {},
   drawerKind: null,
 };
@@ -77,6 +78,7 @@ const TITLES = {
   contratos: ['Contratos', 'Carteira de contratos e controle de vigência'],
   tess: ['Imersão Tess', 'Lista de inscritos e detalhes da Imersão Tess'],
   solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
+  cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
 };
 function switchView(view) {
   state.view = view;
@@ -90,6 +92,7 @@ function switchView(view) {
   if (view === 'contratos') loadContratos();
   if (view === 'tess') loadTess();
   if (view === 'solides') loadSolides();
+  if (view === 'cultura') loadPesquisaCultura();
 }
 
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('open'); }
@@ -720,6 +723,138 @@ function renderSolides(rows, total) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Pesquisa de Cultura Revalle Dashboard
+   ════════════════════════════════════════════════════════════════ */
+async function loadPesquisaCultura() {
+  const { unidade, area, tempo, search, page, pageSize } = state.cultura;
+  const query = new URLSearchParams({ page, pageSize });
+  if (unidade) query.set('unidade', unidade);
+  if (area) query.set('area', area);
+  if (tempo) query.set('tempo', tempo);
+  if (search) query.set('search', search);
+
+  if ($('#culturaExport')) $('#culturaExport').href = `${API}/export/pesquisa-cultura.csv?${query.toString()}`;
+  if ($('#culturaBody')) $('#culturaBody').innerHTML = skeletonRows(5, 7);
+  if ($('#culturaEmpty')) $('#culturaEmpty').hidden = true;
+
+  try {
+    const res = await api(`/pesquisa-cultura?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.cultura.total = res.total;
+
+    if (res.stats) {
+      if ($('#culturaKpiTotal')) $('#culturaKpiTotal').textContent = res.stats.total || 0;
+      if ($('#culturaKpiUnidades')) $('#culturaKpiUnidades').textContent = (res.stats.byUnidade || []).length;
+      if ($('#culturaKpiAreas')) $('#culturaKpiAreas').textContent = (res.stats.byArea || []).length;
+      if ($('#navCulturaTotal')) {
+        $('#navCulturaTotal').textContent = res.stats.total || 0;
+        $('#navCulturaTotal').hidden = (res.stats.total || 0) === 0;
+      }
+    }
+
+    renderPesquisaCultura(res.rows, res.total);
+    renderPager('#culturaPager', state.cultura, loadPesquisaCultura);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar pesquisa de cultura', err.message);
+    emptyState('#culturaEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function renderPesquisaCultura(rows, total) {
+  const tbody = $('#culturaBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    emptyState('#culturaEmpty', 'Nenhuma resposta encontrada', 'Tente ajustar os filtros ou termo de busca.');
+    return;
+  }
+  if ($('#culturaEmpty')) $('#culturaEmpty').hidden = true;
+
+  const html = rows.map((r) => {
+    const highlight = r.pesa_favor_contra ? r.pesa_favor_contra.slice(0, 75) + (r.pesa_favor_contra.length > 75 ? '…' : '') : '—';
+    return `
+    <tr data-cultura="${esc(r.id)}" style="cursor: pointer;">
+      <td><span class="mono">#PC-${String(r.id).padStart(5, '0')}</span></td>
+      <td><span class="date-tag">${esc(fmtDateTime(r.created_at))}</span></td>
+      <td><strong>${esc(r.unidade || '—')}</strong></td>
+      <td><span class="chip">${esc(r.area_departamento || '—')}</span></td>
+      <td><span class="chip font-medium">${esc(r.tempo_empresa || '—')}</span></td>
+      <td style="max-width: 280px; color: #475569; font-size: 13px; line-height: 1.4;">
+        <em>"${esc(highlight)}"</em>
+      </td>
+      <td style="text-align: center;">
+        <button class="btn btn-sm btn-outline" data-cultura="${esc(r.id)}" style="font-size: 12px; padding: 4px 10px;">
+          Ver Respostas
+        </button>
+      </td>
+    </tr>
+  `;
+  }).join('');
+
+  tbody.innerHTML = html;
+}
+
+async function openPesquisaCulturaDrawer(id) {
+  state.drawerKind = 'cultura';
+  $('#drawerKicker').textContent = 'Pesquisa de Cultura Revalle';
+  $('#drawerTitle').textContent = `Resposta #PC-${String(id).padStart(5, '0')}`;
+  $('#drawerFoot').hidden = true;
+  $('#drawerBody').innerHTML = '<div style="padding: 24px; text-align: center; color: #64748b;">Carregando respostas completas...</div>';
+  openDrawer();
+
+  try {
+    const res = await api(`/pesquisa-cultura/${id}`).then((r) => r.json());
+    if (!res.ok || !res.resposta) throw new Error(res.error || 'Resposta não encontrada');
+
+    const r = res.resposta;
+
+    const qBlock = (num, title, text) => `
+      <div style="margin-bottom: 20px; padding: 14px 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+        <div style="font-size: 13.5px; font-weight: 700; color: #1e293b; margin-bottom: 6px; line-height: 1.4;">
+          ${num}) ${esc(title)}
+        </div>
+        <div style="font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; word-break: break-word;">
+          ${esc(text || '—')}
+        </div>
+      </div>
+    `;
+
+    $('#drawerBody').innerHTML = `
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+        <span class="chip" style="background:#e0f2fe; color:#0369a1; font-weight:700;">🏢 ${esc(r.unidade)}</span>
+        <span class="chip" style="background:#f1f5f9; color:#334155; font-weight:600;">💼 ${esc(r.area_departamento)}</span>
+        <span class="chip" style="background:#fef3c7; color:#92400e; font-weight:600;">⏳ ${esc(r.tempo_empresa)}</span>
+        <span class="chip" style="background:#f3e8ff; color:#6b21a8; font-weight:600;">📅 ${esc(fmtDateTime(r.created_at))}</span>
+      </div>
+
+      <div style="font-size: 15px; font-weight: 800; color: #0A3296; margin-top: 10px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+        Continuidade Cultural & Engajamento
+      </div>
+      ${qBlock('4', 'O que pesa a favor e contra continuar na Revalle?', r.pesa_favor_contra)}
+      ${qBlock('5', 'Como imagina a empresa daqui a 3 a 5 anos?', r.futuro_3_5_anos)}
+      ${qBlock('6', 'Até 5 valores/palavras que representam a empresa no dia a dia', r.valores_empresa)}
+      ${qBlock('7', 'O que não gostaria que mudasse nunca?', r.nao_mudar_nunca)}
+      ${qBlock('8', 'Dia difícil / motivo pra continuar ou pensamento de sair', r.dia_dificil_motivo)}
+      ${qBlock('9', 'Ficou alguma coisa sem dizer? (Espaço livre)', r.algo_sem_dizer)}
+
+      <div style="font-size: 15px; font-weight: 800; color: #0A3296; margin-top: 24px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+        Liderança Direta
+      </div>
+      ${qBlock('10', 'Acompanhamento da liderança no dia a dia', r.lideranca_acompanhamento)}
+      ${qBlock('11', 'Liderança ajudou a aprender algo novo ou desafiou', r.lideranca_aprendizado_desafio)}
+      ${qBlock('12', 'Entrega e alinhamento de expectativas', r.lideranca_entrega_feedback)}
+      ${qBlock('13', 'Última vez que recebeu feedback', r.lideranca_ultimo_feedback)}
+      ${qBlock('14', 'Exemplo e coerência de postura/prazo/dedicação', r.lideranca_exemplo_incoerencia)}
+      ${qBlock('15', 'O que mais gosta e o que mudaria na liderança', r.lideranca_gosta_mudar)}
+    `;
+  } catch (err) {
+    $('#drawerBody').innerHTML = `<div style="padding:24px; color:#ef4444;">Erro ao carregar detalhes: ${esc(err.message)}</div>`;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
    Eventos
    ════════════════════════════════════════════════════════════════ */
 function bind() {
@@ -734,6 +869,7 @@ function bind() {
     if (state.view === 'contratos') await loadContratos();
     if (state.view === 'tess') await loadTess();
     if (state.view === 'solides') await loadSolides();
+    if (state.view === 'cultura') await loadPesquisaCultura();
     setTimeout(() => b.classList.remove('refreshing'), 500);
   };
 
@@ -743,6 +879,7 @@ function bind() {
     const exp = e.target.closest('[data-contract]'); if (exp) { switchView('contratos'); openContrato(exp.dataset.contract); return; }
     const fwRow = e.target.closest('[data-fw]'); if (fwRow) { openFirewall(fwRow.dataset.fw); return; }
     const ctRow = e.target.closest('[data-contract]'); if (ctRow) { openContrato(ctRow.dataset.contract); return; }
+    const cult = e.target.closest('[data-cultura]'); if (cult) { openPesquisaCulturaDrawer(cult.dataset.cultura); return; }
   });
 
   $('#drawerClose').onclick = closeDrawer;
@@ -769,7 +906,13 @@ function bind() {
   if ($('#solidesStatus')) $('#solidesStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#solidesStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.solides.status = s.dataset.val; state.solides.page = 1; loadSolides(); };
   if ($('#solidesSearch')) $('#solidesSearch').oninput = debounce((e) => { state.solides.search = e.target.value.trim(); state.solides.page = 1; loadSolides(); });
 
-  // Check all
+  // filtros pesquisa cultura
+  if ($('#culturaUnidade')) $('#culturaUnidade').onchange = (e) => { state.cultura.unidade = e.target.value; state.cultura.page = 1; loadPesquisaCultura(); };
+  if ($('#culturaArea')) $('#culturaArea').onchange = (e) => { state.cultura.area = e.target.value; state.cultura.page = 1; loadPesquisaCultura(); };
+  if ($('#culturaTempo')) $('#culturaTempo').onchange = (e) => { state.cultura.tempo = e.target.value; state.cultura.page = 1; loadPesquisaCultura(); };
+  if ($('#culturaSearch')) $('#culturaSearch').oninput = debounce((e) => { state.cultura.search = e.target.value.trim(); state.cultura.page = 1; loadPesquisaCultura(); });
+
+  // Check all solides
   if ($('#solidesCheckAll')) {
     $('#solidesCheckAll').onchange = (e) => {
       const checked = e.target.checked;
@@ -783,7 +926,7 @@ function bind() {
     };
   }
 
-  // Ações em lote
+  // Ações em lote solides
   if ($('#btnBulkAllow')) {
     $('#btnBulkAllow').onclick = async () => {
       const cpfs = [...selectedSolidesCpfs];

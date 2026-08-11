@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
@@ -156,7 +157,40 @@ async function initDb() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_perm_cpf ON solides_treinamento_permissoes (cpf)`);
 
-    console.log('[db] tabelas solides_treinamento_assinaturas e solides_treinamento_permissoes prontas');
+    // ── pesquisa_cultura_participantes & pesquisa_cultura_respostas ─────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pesquisa_cultura_participantes (
+        cpf_hash      VARCHAR(64) PRIMARY KEY,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pesquisa_cultura_respostas (
+        id                            SERIAL PRIMARY KEY,
+        unidade                       VARCHAR(100) NOT NULL,
+        area_departamento             VARCHAR(100) NOT NULL,
+        tempo_empresa                 VARCHAR(100) NOT NULL,
+        pesa_favor_contra             TEXT NOT NULL,
+        futuro_3_5_anos               TEXT NOT NULL,
+        valores_empresa               TEXT NOT NULL,
+        nao_mudar_nunca               TEXT NOT NULL,
+        dia_dificil_motivo            TEXT NOT NULL,
+        algo_sem_dizer                TEXT NOT NULL,
+        lideranca_acompanhamento      TEXT NOT NULL,
+        lideranca_aprendizado_desafio TEXT NOT NULL,
+        lideranca_entrega_feedback    TEXT NOT NULL,
+        lideranca_ultimo_feedback     TEXT NOT NULL,
+        lideranca_exemplo_incoerencia TEXT NOT NULL,
+        lideranca_gosta_mudar         TEXT NOT NULL,
+        created_at                    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_pesquisa_cultura_created_at ON pesquisa_cultura_respostas (created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_pesquisa_cultura_unidade ON pesquisa_cultura_respostas (unidade)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_pesquisa_cultura_area ON pesquisa_cultura_respostas (area_departamento)`);
+
+    console.log('[db] tabelas da pesquisa de cultura prontas');
   } finally {
     client.release();
   }
@@ -956,6 +990,237 @@ async function getSolidesStats() {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Pesquisa de Cultura Revalle (Respostas 100% Anônimas)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+function hashPesquisaCpf(cpf) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  return crypto.createHash('sha256').update(digits + '_revalle_cultura_salt_2026').digest('hex');
+}
+
+async function checkPesquisaCulturaCpf(cpf) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits || digits.length !== 11) {
+    return { ok: false, error: 'CPF inválido. Digite os 11 números do seu CPF.' };
+  }
+
+  const colab = await findSolidesColaboradorByCpf(digits);
+  if (!colab) {
+    return {
+      ok: false,
+      not_found: true,
+      error: 'CPF não localizado no cadastro de colaboradores da Revalle. Verifique o número digitado ou contate o DP.',
+    };
+  }
+
+  const cpfHash = hashPesquisaCpf(digits);
+  const { rows } = await pool.query(
+    `SELECT created_at FROM pesquisa_cultura_participantes WHERE cpf_hash = $1 LIMIT 1`,
+    [cpfHash]
+  );
+
+  if (rows.length > 0) {
+    return {
+      ok: false,
+      already_participated: true,
+      error: 'Você já registrou sua resposta nesta pesquisa de cultura anteriormente. Agradecemos sua participação!',
+    };
+  }
+
+  const nomeParts = (colab.nome_completo || '').trim().split(/\s+/);
+  const primeiroNome = nomeParts[0] || 'Colaborador';
+
+  return {
+    ok: true,
+    colaborador: {
+      primeiro_nome: primeiroNome,
+      unidade_sugerida: colab.unidade || '',
+      setor_sugerido: colab.setor || '',
+    },
+  };
+}
+
+async function insertPesquisaCulturaResposta(cpf, answers) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits || digits.length !== 11) {
+    throw new Error('CPF inválido.');
+  }
+
+  const check = await checkPesquisaCulturaCpf(digits);
+  if (!check.ok) {
+    throw new Error(check.error || 'Não foi possível validar o CPF.');
+  }
+
+  const cpfHash = hashPesquisaCpf(digits);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Marca participação do CPF de forma isolada
+    await client.query(
+      `INSERT INTO pesquisa_cultura_participantes (cpf_hash, created_at) VALUES ($1, NOW())`,
+      [cpfHash]
+    );
+
+    // 2. Grava a resposta sem vincular ao CPF
+    const insertSql = `
+      INSERT INTO pesquisa_cultura_respostas (
+        unidade, area_departamento, tempo_empresa,
+        pesa_favor_contra, futuro_3_5_anos, valores_empresa,
+        nao_mudar_nunca, dia_dificil_motivo, algo_sem_dizer,
+        lideranca_acompanhamento, lideranca_aprendizado_desafio,
+        lideranca_entrega_feedback, lideranca_ultimo_feedback,
+        lideranca_exemplo_incoerencia, lideranca_gosta_mudar
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      ) RETURNING id, created_at
+    `;
+
+    const params = [
+      String(answers.unidade || '').trim().slice(0, 100),
+      String(answers.area_departamento || '').trim().slice(0, 100),
+      String(answers.tempo_empresa || '').trim().slice(0, 100),
+      String(answers.pesa_favor_contra || '').trim(),
+      String(answers.futuro_3_5_anos || '').trim(),
+      String(answers.valores_empresa || '').trim(),
+      String(answers.nao_mudar_nunca || '').trim(),
+      String(answers.dia_dificil_motivo || '').trim(),
+      String(answers.algo_sem_dizer || '').trim(),
+      String(answers.lideranca_acompanhamento || '').trim(),
+      String(answers.lideranca_aprendizado_desafio || '').trim(),
+      String(answers.lideranca_entrega_feedback || '').trim(),
+      String(answers.lideranca_ultimo_feedback || '').trim(),
+      String(answers.lideranca_exemplo_incoerencia || '').trim(),
+      String(answers.lideranca_gosta_mudar || '').trim(),
+    ];
+
+    const { rows } = await client.query(insertSql, params);
+
+    await client.query('COMMIT');
+    return rows[0];
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function listPesquisaCulturaRespostas(filters = {}) {
+  const conds = [];
+  const params = [];
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+
+  if (filters.unidade) {
+    conds.push(`unidade = ${add(filters.unidade)}`);
+  }
+  if (filters.area) {
+    conds.push(`area_departamento = ${add(filters.area)}`);
+  }
+  if (filters.tempo) {
+    conds.push(`tempo_empresa = ${add(filters.tempo)}`);
+  }
+
+  if (filters.search) {
+    const term = `%${filters.search.toLowerCase()}%`;
+    const p = add(term);
+    conds.push(`(
+      LOWER(pesa_favor_contra) LIKE ${p} OR
+      LOWER(futuro_3_5_anos) LIKE ${p} OR
+      LOWER(valores_empresa) LIKE ${p} OR
+      LOWER(nao_mudar_nunca) LIKE ${p} OR
+      LOWER(dia_dificil_motivo) LIKE ${p} OR
+      LOWER(algo_sem_dizer) LIKE ${p} OR
+      LOWER(lideranca_acompanhamento) LIKE ${p} OR
+      LOWER(lideranca_aprendizado_desafio) LIKE ${p} OR
+      LOWER(lideranca_entrega_feedback) LIKE ${p} OR
+      LOWER(lideranca_ultimo_feedback) LIKE ${p} OR
+      LOWER(lideranca_exemplo_incoerencia) LIKE ${p} OR
+      LOWER(lideranca_gosta_mudar) LIKE ${p}
+    )`);
+  }
+
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 500);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const dataParams = params.slice();
+  dataParams.push(limit); const limIdx = dataParams.length;
+  dataParams.push(offset); const offIdx = dataParams.length;
+
+  const dataSql = `
+    SELECT
+      id, unidade, area_departamento, tempo_empresa,
+      pesa_favor_contra, futuro_3_5_anos, valores_empresa,
+      nao_mudar_nunca, dia_dificil_motivo, algo_sem_dizer,
+      lideranca_acompanhamento, lideranca_aprendizado_desafio,
+      lideranca_entrega_feedback, lideranca_ultimo_feedback,
+      lideranca_exemplo_incoerencia, lideranca_gosta_mudar,
+      created_at
+    FROM pesquisa_cultura_respostas
+    ${where}
+    ORDER BY created_at DESC
+    LIMIT $${limIdx} OFFSET $${offIdx}
+  `;
+
+  const countSql = `SELECT COUNT(*)::int AS total FROM pesquisa_cultura_respostas ${where}`;
+
+  const [dataRes, countRes] = await Promise.all([
+    pool.query(dataSql, dataParams),
+    pool.query(countSql, params),
+  ]);
+
+  return { rows: dataRes.rows, total: countRes.rows[0].total };
+}
+
+async function getPesquisaCulturaById(id) {
+  const cleanId = Number(id);
+  if (!cleanId || cleanId < 1) return null;
+  const { rows } = await pool.query(
+    `SELECT * FROM pesquisa_cultura_respostas WHERE id = $1 LIMIT 1`,
+    [cleanId]
+  );
+  return rows[0] || null;
+}
+
+async function getPesquisaCulturaStats() {
+  try {
+    const [totalRes, byUnidade, byArea, byTempo] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS total FROM pesquisa_cultura_respostas`),
+      pool.query(`
+        SELECT unidade AS label, COUNT(*)::int AS value
+        FROM pesquisa_cultura_respostas
+        GROUP BY unidade
+        ORDER BY value DESC
+      `),
+      pool.query(`
+        SELECT area_departamento AS label, COUNT(*)::int AS value
+        FROM pesquisa_cultura_respostas
+        GROUP BY area_departamento
+        ORDER BY value DESC
+      `),
+      pool.query(`
+        SELECT tempo_empresa AS label, COUNT(*)::int AS value
+        FROM pesquisa_cultura_respostas
+        GROUP BY tempo_empresa
+        ORDER BY value DESC
+      `),
+    ]);
+
+    return {
+      total: totalRes.rows[0] ? totalRes.rows[0].total : 0,
+      byUnidade: byUnidade.rows,
+      byArea: byArea.rows,
+      byTempo: byTempo.rows,
+    };
+  } catch (err) {
+    console.error('[db] erro ao calcular stats de pesquisa cultura:', err);
+    return { total: 0, byUnidade: [], byArea: [], byTempo: [] };
+  }
+}
+
 module.exports = {
   pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
@@ -964,6 +1229,9 @@ module.exports = {
   // treinamento solides
   findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
   toggleSolidesPermissao, bulkSetSolidesPermissoes,
+  // pesquisa cultura revalle
+  checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
+  getPesquisaCulturaById, getPesquisaCulturaStats,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,

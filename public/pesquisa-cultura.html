@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <title>Revalle — Pesquisa de Cultura Revalle: Como a gente vive nosso dia a dia?</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <meta name="description" content="Pesquisa de Cultura Revalle - Como a gente vive nosso dia a dia? Responda anonimamente e contribua para nossa evolução." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .badge-anon {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.15) 100%);
+      color: #047857;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .form-hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .form-hero h1 {
+      font-size: 27px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+    .form-hero .lead {
+      font-size: 15.5px;
+      color: var(--text-muted);
+      max-width: 560px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    .icon-wrapper.cultura-icon {
+      background: linear-gradient(135deg, #0A3296 0%, #2563EB 100%);
+      color: #ffffff;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(10, 50, 150, 0.25);
+      margin: 0 auto 16px;
+    }
+    .anon-banner {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+    .anon-banner-icon {
+      color: #16a34a;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .anon-banner-text h4 {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #15803d;
+      margin-bottom: 4px;
+    }
+    .anon-banner-text p {
+      font-size: 13.5px;
+      color: #166534;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .form-section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 12px;
+      margin-top: 28px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .form-section-title:first-of-type {
+      margin-top: 8px;
+    }
+    .section-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--brand-blue);
+      color: white;
+      font-size: 13.5px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .form-section-title h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+
+    .question-block {
+      margin-bottom: 22px;
+    }
+    .question-block label {
+      display: block;
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .question-block label .req {
+      color: #ef4444;
+      font-weight: 700;
+    }
+    .question-block textarea,
+    .question-block select {
+      width: 100%;
+      font-family: inherit;
+      font-size: 14.5px;
+      padding: 12px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #0f172a;
+      transition: var(--transition);
+      outline: none;
+    }
+    .question-block textarea:focus,
+    .question-block select:focus {
+      border-color: var(--brand-blue);
+      box-shadow: 0 0 0 3px rgba(10, 50, 150, 0.12);
+    }
+    .question-block textarea {
+      resize: vertical;
+      min-height: 95px;
+    }
+    .question-block .hint {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="form-container">
+      
+      <!-- Top Brand Header -->
+      <header class="app-header">
+        <img src="/logo.png" alt="Revalle Logo" class="brand-logo" />
+        <div class="header-divider"></div>
+        <span class="header-tag">Pesquisa de Clima & Cultura</span>
+      </header>
+
+      <!-- ════════ ETAPA 1: Identificação de Acesso ════════ -->
+      <div class="card" id="step1Card">
+        <div class="form-hero">
+          <div class="icon-wrapper cultura-icon">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <span class="badge-anon">100% Anônimo & Confidencial</span>
+          <h1>Pesquisa de Cultura Revalle</h1>
+          <p class="lead">Como a gente vive nosso dia a dia?</p>
+        </div>
+
+        <div class="anon-banner">
+          <div class="anon-banner-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <div class="anon-banner-text">
+            <h4>Garantia de Anonimato Total</h4>
+            <p>Seu CPF é solicitado <strong>apenas</strong> para verificar que você faz parte da equipe Revalle e garantir um envio por colaborador. As respostas <strong>não serão vinculadas ao seu nome ou CPF</strong>.</p>
+          </div>
+        </div>
+
+        <form id="formCpf" novalidate>
+          <div class="form-group">
+            <label for="cpfInput">Informe seu CPF para iniciar <span style="color:#ef4444">*</span></label>
+            <div class="input-icon-wrapper">
+              <svg class="field-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <line x1="7" y1="8" x2="17" y2="8" />
+                <line x1="7" y1="12" x2="13" y2="12" />
+                <line x1="7" y1="16" x2="11" y2="16" />
+              </svg>
+              <input 
+                type="text" 
+                id="cpfInput" 
+                name="cpf" 
+                placeholder="000.000.000-00" 
+                inputmode="numeric" 
+                maxlength="14" 
+                autocomplete="off"
+                required
+              />
+            </div>
+            <span class="field-error" id="errCpf"></span>
+          </div>
+
+          <div id="step1Error" class="alert-box alert-error" hidden></div>
+
+          <div class="form-actions" style="margin-top: 24px;">
+            <button type="submit" class="btn btn-primary" id="btnCheckCpf" style="width: 100%; height: 50px; font-size: 16px;">
+              <span class="btn-label" id="btnCheckText">Acessar Pesquisa Anônima</span>
+              <svg class="btn-icon" id="btnCheckIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              <div class="spinner" id="btnCheckSpinner" hidden></div>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ════════ ETAPA 2: Formulário das 15 Perguntas ════════ -->
+      <div class="card" id="step2Card" hidden>
+        <div class="form-hero" style="margin-bottom: 20px;">
+          <span class="badge-anon">Respostas Confidenciais</span>
+          <h1 id="pesquisaGreeting">Pesquisa de Cultura Revalle</h1>
+          <p class="lead" style="font-size: 14.5px;">Responda com total sinceridade. Todas as 15 perguntas são obrigatórias.</p>
+        </div>
+
+        <form id="formSurvey" novalidate>
+          
+          <!-- SEÇÃO 1: PERFIL -->
+          <div class="form-section-title">
+            <span class="section-num">1</span>
+            <h3>Perfil Institucional</h3>
+          </div>
+
+          <!-- P1: Unidade -->
+          <div class="question-block">
+            <label for="pUnidade">1) Em qual unidade você trabalha? <span class="req">*</span></label>
+            <select id="pUnidade" name="unidade" required>
+              <option value="">Selecione sua unidade...</option>
+              <option value="Revalle Juazeiro">Revalle Juazeiro</option>
+              <option value="Revalle Senhor do Bonfim">Revalle Senhor do Bonfim</option>
+              <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
+              <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
+              <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
+              <option value="Revalle Serrinha">Revalle Serrinha</option>
+              <option value="Revalle Pernambuco">Revalle Pernambuco</option>
+            </select>
+          </div>
+
+          <!-- P2: Área / Departamento -->
+          <div class="question-block">
+            <label for="pArea">2) Qual é a sua área ou departamento? <span class="req">*</span></label>
+            <select id="pArea" name="area_departamento" required>
+              <option value="">Selecione seu nível / área...</option>
+              <option value="Operacional">Operacional</option>
+              <option value="Analista">Analista</option>
+              <option value="Supervisão">Supervisão</option>
+              <option value="Coordenação">Coordenação</option>
+              <option value="Gerência">Gerência</option>
+              <option value="Diretoria">Diretoria</option>
+            </select>
+          </div>
+
+          <!-- P3: Tempo de Empresa -->
+          <div class="question-block">
+            <label for="pTempo">3) Há quanto tempo você está na empresa? <span class="req">*</span></label>
+            <select id="pTempo" name="tempo_empresa" required>
+              <option value="">Selecione o tempo de casa...</option>
+              <option value="Até 1 ano">Até 1 ano</option>
+              <option value="1 a 2 anos">1 a 2 anos</option>
+              <option value="2 a 5 anos">2 a 5 anos</option>
+              <option value="5 a 10 anos">5 a 10 anos</option>
+              <option value="10 a 15 anos">10 a 15 anos</option>
+              <option value="15 a 20 anos">15 a 20 anos</option>
+              <option value="20 anos ou mais">20 anos ou mais</option>
+            </select>
+          </div>
+
+          <!-- SEÇÃO 2: ENGAJAMENTO & CULTURA -->
+          <div class="form-section-title">
+            <span class="section-num">2</span>
+            <h3>Continuidade Cultural e Cultura Desejada</h3>
+          </div>
+
+          <!-- P4: Engajamento - NPS -->
+          <div class="question-block">
+            <label for="pPesaFavorContra">4) Imagina que um amigo te pergunta se vale a pena vir trabalhar na Revalle. O que pesa a favor de você continuar aqui, e o que pesa contra? <span class="req">*</span></label>
+            <textarea id="pPesaFavorContra" name="pesa_favor_contra" placeholder="Conte com detalhes o que mais te motiva e o que pesa contra..." required></textarea>
+          </div>
+
+          <!-- P5: Futuro em 3 a 5 anos -->
+          <div class="question-block">
+            <label for="pFuturo">5) Como você imagina essa empresa daqui a uns 3 a 5 anos, no seu melhor momento possível? O que ela teria de diferente de hoje em valores, em atitudes, ou em qualquer coisa que precisasse mudar pra chegar lá? <span class="req">*</span></label>
+            <textarea id="pFuturo" name="futuro_3_5_anos" placeholder="Descreva como você enxerga a Revalle no seu melhor futuro..." required></textarea>
+          </div>
+
+          <!-- P6: 5 valores/palavras -->
+          <div class="question-block">
+            <label for="pValores">6) Escolha até 5 valores/palavras que representam como essa empresa age de verdade, no dia a dia. <span class="req">*</span></label>
+            <textarea id="pValores" name="valores_empresa" placeholder="Ex: União, Agilidade, Respeito, Dedicação, Exigência..." rows="3" required></textarea>
+          </div>
+
+          <!-- P7: O que não mudar nunca -->
+          <div class="question-block">
+            <label for="pNaoMudar">7) O que tem aqui que você não gostaria que mudasse nunca? <span class="req">*</span></label>
+            <textarea id="pNaoMudar" name="nao_mudar_nunca" placeholder="O que a Revalle tem de mais valioso que deve ser preservado..." required></textarea>
+          </div>
+
+          <!-- P8: Dia difícil / motivo pra continuar -->
+          <div class="question-block">
+            <label for="pDiaDificil">8) Teve algum dia difícil em que você quase desistiu, mas achou um motivo pra continuar? Ou um dia em que pensou em sair? Me conta. <span class="req">*</span></label>
+            <textarea id="pDiaDificil" name="dia_dificil_motivo" placeholder="Conte sua experiência e o que te fez seguir em frente..." required></textarea>
+          </div>
+
+          <!-- P9: Ficou algo sem dizer -->
+          <div class="question-block">
+            <label for="pAlgoSemDizer">9) Ficou alguma coisa sem dizer? Essa parte é só sua. <span class="req">*</span></label>
+            <textarea id="pAlgoSemDizer" name="algo_sem_dizer" placeholder="Fique à vontade para compartilhar qualquer outro ponto ou sugestão..." required></textarea>
+          </div>
+
+          <!-- SEÇÃO 3: LIDERANÇA DIRETA -->
+          <div class="form-section-title">
+            <span class="section-num">3</span>
+            <h3>Liderança Direta</h3>
+          </div>
+
+          <!-- P10: Acompanhamento -->
+          <div class="question-block">
+            <label for="pLidAcompanhamento">10) Pensa numa semana comum recente. Seja de perto ou a distância, você sentiu que sua liderança direta estava acompanhando o que você fazia? Me conta uma situação que mostre isso. <span class="req">*</span></label>
+            <textarea id="pLidAcompanhamento" name="lideranca_acompanhamento" placeholder="Descreva uma situação real de acompanhamento..." required></textarea>
+          </div>
+
+          <!-- P11: Aprendizado / desafio -->
+          <div class="question-block">
+            <label for="pLidDesafio">11) Teve alguma vez em que sua liderança direta te ajudou a aprender algo novo, ou te desafiou de algum jeito? Me conta como foi. <span class="req">*</span></label>
+            <textarea id="pLidDesafio" name="lideranca_aprendizado_desafio" placeholder="Como foi essa situação de aprendizado ou desafio..." required></textarea>
+          </div>
+
+          <!-- P12: Entrega e expectativa -->
+          <div class="question-block">
+            <label for="pLidEntrega">12) Teve alguma vez em que você entregou algo e descobriu que não era bem o que sua liderança esperava ou que acertou de primeira? Como foi? <span class="req">*</span></label>
+            <textarea id="pLidEntrega" name="lideranca_entrega_feedback" placeholder="Conte como foi essa entrega e o alinhamento com seu líder..." required></textarea>
+          </div>
+
+          <!-- P13: Último feedback -->
+          <div class="question-block">
+            <label for="pLidUltimoFeed">13) Quando foi a última vez que sua liderança direta te disse algo sobre o seu trabalho bom ou pra melhorar? Me conta como foi. <span class="req">*</span></label>
+            <textarea id="pLidUltimoFeed" name="lideranca_ultimo_feedback" placeholder="Descreva quando e como aconteceu esse retorno..." required></textarea>
+          </div>
+
+          <!-- P14: Exemplo / coerência -->
+          <div class="question-block">
+            <label for="pLidIncoerencia">14) Teve alguma vez em que sua liderança pediu algo prazo, postura, dedicação e você viu ela não fazendo o mesmo? Me conta essa situação. <span class="req">*</span></label>
+            <textarea id="pLidIncoerencia" name="lideranca_exemplo_incoerencia" placeholder="Compartilhe como foi essa situação com sinceridade..." required></textarea>
+          </div>
+
+          <!-- P15: O que mais gosta e o que mudaria -->
+          <div class="question-block">
+            <label for="pLidGostaMudar">15) O que você mais gosta na sua liderança direta? E, se pudesse mudar uma coisa, o que seria? <span class="req">*</span></label>
+            <textarea id="pLidGostaMudar" name="lideranca_gosta_mudar" placeholder="Pontos fortes e oportunidades de melhoria da liderança..." required></textarea>
+          </div>
+
+          <div id="surveyError" class="alert-box alert-error" hidden></div>
+
+          <div class="form-actions" style="margin-top: 32px; display: flex; gap: 14px;">
+            <button type="button" class="btn btn-outline" id="btnBackToCpf" style="height: 50px; flex: 1;">
+              Voltar
+            </button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitSurvey" style="height: 50px; flex: 2; font-size: 15.5px;">
+              <span class="btn-label" id="btnSubmitText">Enviar Respostas Anonimamente</span>
+              <svg class="btn-icon" id="btnSubmitIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              <div class="spinner" id="btnSubmitSpinner" hidden></div>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ════════ ETAPA 3: Tela de Sucesso ════════ -->
+      <div class="card card-success" id="successCard" hidden>
+        <div class="success-icon" style="background: #dcfce7; color: #16a34a;">
+          <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <h2>Obrigado pela sua contribuição!</h2>
+        <p style="color: var(--text-muted); font-size: 15.5px; line-height: 1.6; max-width: 480px; margin: 0 auto 28px;">
+          Sua resposta foi registrada <strong>anonimamente</strong> com sucesso. Sua opinião sincera é indispensável para continuarmos construindo uma Revalle cada vez melhor para todos.
+        </p>
+
+        <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: var(--radius-md); padding: 18px 24px; max-width: 420px; margin: 0 auto 32px;">
+          <span style="font-size: 13px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.5px;">✓ Participação Confirmada</span>
+          <p style="font-size: 13.5px; color: #64748b; margin-top: 4px; margin-bottom: 0;">Seu envio foi computado com sigilo e anonimato garantidos.</p>
+        </div>
+
+        <button type="button" class="btn btn-outline" id="btnDone" style="height: 46px; padding: 0 28px;">
+          Concluir e Fechar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/pesquisa-cultura.js"></script>
+</body>
+</html>

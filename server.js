@@ -9,6 +9,9 @@ const {
   // treinamento solides
   findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
   toggleSolidesPermissao, bulkSetSolidesPermissoes,
+  // pesquisa cultura revalle
+  checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
+  getPesquisaCulturaById, getPesquisaCulturaStats,
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
 } = require('./db');
@@ -89,6 +92,10 @@ app.get('/imersao-tess-form', (_req, res) => {
 
 app.get('/treinamento-solides', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'treinamento-solides.html'));
+});
+
+app.get('/pesquisa-cultura', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pesquisa-cultura.html'));
 });
 
 function onlyDigits(s) {
@@ -487,6 +494,55 @@ app.post('/api/treinamento-solides/assinar', async (req, res) => {
   } catch (err) {
     console.error('[treinamento-solides/assinar] erro:', err);
     return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
+  }
+});
+
+/* ── Pesquisa de Cultura Revalle APIs (100% Anônima) ── */
+
+app.post('/api/pesquisa-cultura/check-cpf', async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits) return res.status(400).json({ ok: false, error: 'Informe o número do seu CPF.' });
+  if (!isValidCpf(cpfDigits)) return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+
+  try {
+    const result = await checkPesquisaCulturaCpf(cpfDigits);
+    if (!result.ok) {
+      return res.status(result.already_participated ? 409 : (result.not_found ? 404 : 400)).json(result);
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error('[pesquisa-cultura/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao validar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/pesquisa-cultura/submit', async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, errors: ['CPF inválido. Preencha seu CPF corretamente.'] });
+  }
+
+  const b = req.body || {};
+  const required = [
+    'unidade', 'area_departamento', 'tempo_empresa',
+    'pesa_favor_contra', 'futuro_3_5_anos', 'valores_empresa',
+    'nao_mudar_nunca', 'dia_dificil_motivo', 'algo_sem_dizer',
+    'lideranca_acompanhamento', 'lideranca_aprendizado_desafio',
+    'lideranca_entrega_feedback', 'lideranca_ultimo_feedback',
+    'lideranca_exemplo_incoerencia', 'lideranca_gosta_mudar',
+  ];
+
+  const missing = required.filter((field) => !b[field] || !String(b[field]).trim());
+  if (missing.length > 0) {
+    return res.status(400).json({ ok: false, errors: ['Todas as perguntas da pesquisa são de preenchimento obrigatório.'] });
+  }
+
+  try {
+    const saved = await insertPesquisaCulturaResposta(cpfDigits, b);
+    return res.status(201).json({ ok: true, id: saved.id, created_at: saved.created_at });
+  } catch (err) {
+    console.error('[pesquisa-cultura/submit] erro:', err);
+    return res.status(400).json({ ok: false, errors: [err.message || 'Erro ao registrar sua resposta.'] });
   }
 });
 
@@ -1107,6 +1163,86 @@ app.get('/api/dashboard/export/solides.csv', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[export/solides] erro:', err);
     res.status(500).send('Erro ao exportar.');
+  }
+});
+
+/* ── Pesquisa de Cultura Dashboard APIs ── */
+
+app.get('/api/dashboard/pesquisa-cultura', requireAuth, async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 100);
+
+    const [listResult, stats] = await Promise.all([
+      listPesquisaCulturaRespostas({
+        unidade: req.query.unidade,
+        area: req.query.area,
+        tempo: req.query.tempo,
+        search: req.query.search,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      }),
+      getPesquisaCulturaStats(),
+    ]);
+
+    res.json({
+      ok: true,
+      rows: listResult.rows,
+      total: listResult.total,
+      page,
+      pageSize,
+      stats,
+    });
+  } catch (err) {
+    console.error('[dashboard/pesquisa-cultura] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar respostas da pesquisa de cultura.' });
+  }
+});
+
+app.get('/api/dashboard/pesquisa-cultura/:id', requireAuth, async (req, res) => {
+  try {
+    const resposta = await getPesquisaCulturaById(req.params.id);
+    if (!resposta) return res.status(404).json({ ok: false, error: 'Resposta não encontrada.' });
+    res.json({ ok: true, resposta });
+  } catch (err) {
+    console.error('[dashboard/pesquisa-cultura/:id] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao obter detalhes da resposta.' });
+  }
+});
+
+app.get('/api/dashboard/export/pesquisa-cultura.csv', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await listPesquisaCulturaRespostas({
+      unidade: req.query.unidade,
+      area: req.query.area,
+      tempo: req.query.tempo,
+      search: req.query.search,
+      limit: 10000,
+      offset: 0,
+    });
+
+    sendCsv(res, 'pesquisa-cultura-revalle-anonima', [
+      { label: 'ID Resposta', get: (r) => '#' + String(r.id).padStart(5, '0') },
+      { label: 'Data Envio', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Unidade', get: (r) => r.unidade },
+      { label: 'Área / Departamento', get: (r) => r.area_departamento },
+      { label: 'Tempo de Empresa', get: (r) => r.tempo_empresa },
+      { label: '1. Pesa a favor e contra', get: (r) => r.pesa_favor_contra },
+      { label: '2. Futuro em 3 a 5 anos', get: (r) => r.futuro_3_5_anos },
+      { label: '3. Valores na prática', get: (r) => r.valores_empresa },
+      { label: '4. O que não mudar nunca', get: (r) => r.nao_mudar_nunca },
+      { label: '5. Dia difícil / motivo pra continuar', get: (r) => r.dia_dificil_motivo },
+      { label: '6. Espaço livre', get: (r) => r.algo_sem_dizer },
+      { label: '7. Liderança - Acompanhamento', get: (r) => r.lideranca_acompanhamento },
+      { label: '8. Liderança - Aprendizado / desafio', get: (r) => r.lideranca_aprendizado_desafio },
+      { label: '9. Liderança - Expectativa de entrega', get: (r) => r.lideranca_entrega_feedback },
+      { label: '10. Liderança - Último feedback', get: (r) => r.lideranca_ultimo_feedback },
+      { label: '11. Liderança - Exemplo / coerência', get: (r) => r.lideranca_exemplo_incoerencia },
+      { label: '12. Liderança - O que mais gosta e mudaria', get: (r) => r.lideranca_gosta_mudar },
+    ], rows);
+  } catch (err) {
+    console.error('[export/pesquisa-cultura] erro:', err);
+    res.status(500).send('Erro ao exportar CSV.');
   }
 });
 
