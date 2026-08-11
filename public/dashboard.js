@@ -869,24 +869,27 @@ async function openPesquisaCulturaDrawer(id) {
       </div>
 
       <div style="font-size: 15px; font-weight: 800; color: #0A3296; margin-top: 10px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
-        Continuidade Cultural & Engajamento
+        Bloco 1: Engajamento - NPS
       </div>
-      ${qBlock('4', 'O que pesa a favor e contra continuar na Revalle?', r.pesa_favor_contra)}
-      ${qBlock('5', 'Como imagina a empresa daqui a 3 a 5 anos?', r.futuro_3_5_anos)}
-      ${qBlock('6', 'Até 5 valores/palavras que representam a empresa no dia a dia', r.valores_empresa)}
-      ${qBlock('7', 'O que não gostaria que mudasse nunca?', r.nao_mudar_nunca)}
-      ${qBlock('8', 'Dia difícil / motivo pra continuar ou pensamento de sair', r.dia_dificil_motivo)}
-      ${qBlock('9', 'Ficou alguma coisa sem dizer? (Espaço livre)', r.algo_sem_dizer)}
+      ${qBlock('4', 'Imagine que um amigo pergunta se vale a pena trabalhar na Revalle. O que faz você querer continuar aqui? E o que faz você pensar em sair?', r.pesa_favor_contra)}
 
       <div style="font-size: 15px; font-weight: 800; color: #0A3296; margin-top: 24px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
-        Liderança Direta
+        Bloco 2: Continuidade Cultural e Cultura Desejada
       </div>
-      ${qBlock('10', 'Acompanhamento da liderança no dia a dia', r.lideranca_acompanhamento)}
-      ${qBlock('11', 'Liderança ajudou a aprender algo novo ou desafiou', r.lideranca_aprendizado_desafio)}
-      ${qBlock('12', 'Entrega e alinhamento de expectativas', r.lideranca_entrega_feedback)}
-      ${qBlock('13', 'Última vez que recebeu feedback', r.lideranca_ultimo_feedback)}
-      ${qBlock('14', 'Exemplo e coerência de postura/prazo/dedicação', r.lideranca_exemplo_incoerencia)}
-      ${qBlock('15', 'O que mais gosta e o que mudaria na liderança', r.lideranca_gosta_mudar)}
+      ${qBlock('5', 'Como você imagina a empresa daqui a 3 a 5 anos? O que ela teria que ter para estar no seu no melhor momento? O que ela teria que ter de diferente?', r.futuro_3_5_anos)}
+      ${qBlock('6', 'Escolha até 5 valores ou palavras que mostram como a empresa é de verdade no dia a dia.', r.valores_empresa)}
+      ${qBlock('7', 'O que existe aqui que você não quer que mude nunca?', r.nao_mudar_nunca)}
+      ${qBlock('8', 'Teve algum dia difícil em que você quase desistiu, mas encontrou um motivo para continuar? Ou algum dia em que pensou em sair da empresa? Conte para a gente.', r.dia_dificil_motivo)}
+      ${qBlock('9', 'Ficou alguma coisa que você gostaria de dizer? Este espaço é só seu.', r.algo_sem_dizer)}
+
+      <div style="font-size: 15px; font-weight: 800; color: #0A3296; margin-top: 24px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+        Bloco 3: Liderança Direta
+      </div>
+      ${qBlock('10', 'Alguma vez sua liderança direta ajudou você a aprender algo novo ou desafiou você de alguma forma? Conte como foi?', r.lideranca_aprendizado_desafio)}
+      ${qBlock('11', 'Alguma vez você fez um trabalho e depois viu que não era o que sua liderança queria? Ou alguma vez fez certo já na primeira vez? Como foi isso?', r.lideranca_entrega_feedback)}
+      ${qBlock('12', 'Quando foi a última vez que sua liderança direta falou com você sobre o seu trabalho, seja para elogiar ou para dizer o que poderia melhorar? Conte como foi.', r.lideranca_ultimo_feedback)}
+      ${qBlock('13', 'Alguma vez sua liderança pediu algo de você, como prazo, postura ou dedicação, mas você viu que ela não fazia o mesmo? Conte essa situação.', r.lideranca_exemplo_incoerencia)}
+      ${qBlock('14', 'O que você mais gosta na sua liderança direta? E, se pudesse mudar uma coisa, o que seria?', r.lideranca_gosta_mudar)}
     `;
   } catch (err) {
     $('#drawerBody').innerHTML = `<div style="padding:24px; color:#ef4444;">Erro ao carregar detalhes: ${esc(err.message)}</div>`;

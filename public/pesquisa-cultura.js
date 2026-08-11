@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  /* ── Live Progress Calculation ── */
+  /* ── Live Progress Calculation (14 perguntas) ── */
   function updateLiveProgress() {
     const requiredFields = [
       inputUnidade.value.trim(),
@@ -117,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('pNaoMudar').value.trim(),
       document.getElementById('pDiaDificil').value.trim(),
       document.getElementById('pAlgoSemDizer').value.trim(),
-      document.getElementById('pLidAcompanhamento').value.trim(),
       document.getElementById('pLidDesafio').value.trim(),
       document.getElementById('pLidEntrega').value.trim(),
       document.getElementById('pLidUltimoFeed').value.trim(),
@@ -126,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     const filledCount = requiredFields.filter((val) => val.length > 0).length;
-    const totalCount = 15;
+    const totalCount = 14;
     const percent = Math.round((filledCount / totalCount) * 100);
 
     if (progressCountText) {
@@ -185,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       verifiedCpf = cpfDigits;
       if (pesquisaGreeting) {
-        pesquisaGreeting.textContent = 'Pesquisa de Cultura Revalle';
+        pesquisaGreeting.textContent = 'Pesquisa de Cultura';
       }
 
       step1Card.hidden = true;
@@ -233,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
       nao_mudar_nunca: document.getElementById('pNaoMudar').value.trim(),
       dia_dificil_motivo: document.getElementById('pDiaDificil').value.trim(),
       algo_sem_dizer: document.getElementById('pAlgoSemDizer').value.trim(),
-      lideranca_acompanhamento: document.getElementById('pLidAcompanhamento').value.trim(),
       lideranca_aprendizado_desafio: document.getElementById('pLidDesafio').value.trim(),
       lideranca_entrega_feedback: document.getElementById('pLidEntrega').value.trim(),
       lideranca_ultimo_feedback: document.getElementById('pLidUltimoFeed').value.trim(),
@@ -241,10 +239,10 @@ document.addEventListener('DOMContentLoaded', () => {
       lideranca_gosta_mudar: document.getElementById('pLidGostaMudar').value.trim(),
     };
 
-    // Validação de todos os campos
+    // Validação de todos os 14 campos
     const emptyFields = Object.keys(payload).filter((k) => !payload[k]);
     if (emptyFields.length > 0) {
-      surveyError.textContent = `Atenção: Por favor, responda a todas as 15 perguntas da pesquisa antes de enviar (faltam ${emptyFields.length} resposta${emptyFields.length > 1 ? 's' : ''}).`;
+      surveyError.textContent = `Atenção: Por favor, responda a todas as 14 perguntas da pesquisa antes de enviar (faltam ${emptyFields.length} resposta${emptyFields.length > 1 ? 's' : ''}).`;
       surveyError.hidden = false;
 
       // Encontra o primeiro card não preenchido e rola até ele

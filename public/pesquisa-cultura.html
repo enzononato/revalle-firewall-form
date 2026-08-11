@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0A3296" />
-  <title>Revalle — Pesquisa de Cultura: Como a gente vive nosso dia a dia?</title>
+  <title>Revalle — Pesquisa de Cultura</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <meta name="description" content="Pesquisa de Cultura Revalle - Como a gente vive nosso dia a dia? Responda anonimamente e contribua para nossa evolução." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    /* ════════ Custom styling matching Revalle design system ════════ */
     .badge-anon-tag {
       display: inline-flex;
       align-items: center;
@@ -437,7 +436,7 @@
           </svg>
         </div>
         <div class="badge-anon-tag">100% Anônimo & Confidencial</div>
-        <h1>Pesquisa de Cultura Revalle</h1>
+        <h1>Pesquisa de Cultura</h1>
         <p class="lead">Como a gente vive nosso dia a dia? Sua voz constrói o nosso futuro.</p>
       </div>
 
@@ -477,14 +476,14 @@
       </form>
     </section>
 
-    <!-- ════════ ETAPA 2: Formulário das 15 Perguntas ════════ -->
+    <!-- ════════ ETAPA 2: Formulário das Perguntas ════════ -->
     <section id="step2Card" hidden>
       
       <!-- Live Sticky Progress Header -->
       <div class="sticky-progress" id="stickyProgress">
         <div class="progress-info">
           <span>Progresso da Pesquisa</span>
-          <span class="progress-badge-chip" id="progressCountText">0 de 15 respondidas (0%)</span>
+          <span class="progress-badge-chip" id="progressCountText">0 de 14 respondidas (0%)</span>
         </div>
         <div class="progress-bar-track">
           <div class="progress-bar-fill" id="progressFillBar"></div>
@@ -493,20 +492,30 @@
 
       <div class="card glass-panel" style="padding: 32px 36px;">
         <div class="form-hero" style="margin-bottom: 24px; text-align: left;">
-          <div class="badge-anon-tag">Respostas 100% Anônimas</div>
-          <h1 id="pesquisaGreeting" style="font-size: 25px; margin-bottom: 4px;">Pesquisa de Cultura Revalle</h1>
-          <p class="lead" style="font-size: 14.5px; margin: 0;">Responda com total sinceridade. Todas as 15 perguntas são obrigatórias.</p>
+          <div class="badge-anon-tag">100% Anônimo & Confidencial</div>
+          <h1 id="pesquisaGreeting" style="font-size: 26px; margin-bottom: 8px;">Pesquisa de Cultura</h1>
+          
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 18px; margin-bottom: 8px;">
+            <p style="font-weight: 700; color: #1e293b; font-size: 15px; margin-bottom: 6px;">Olá, time Revalle!</p>
+            <p style="font-size: 14px; color: #475569; line-height: 1.55; margin-bottom: 8px;">
+              Sua opinião sincera vai nos ajudar a construir um ambiente de trabalho cada vez melhor. Queremos ouvir você para entender como a nossa cultura acontece na prática, no dia a dia.
+            </p>
+            <p style="font-size: 13.5px; color: #166534; font-weight: 600; line-height: 1.5; margin-bottom: 6px;">
+              🔒 Esta pesquisa é anônima e leva só alguns minutos. Suas respostas são confidenciais e muito importantes para nós.
+            </p>
+            <p style="font-size: 14px; font-weight: 700; color: var(--brand-blue); margin: 0;">Vamos juntos!</p>
+          </div>
         </div>
 
         <form id="formSurvey" novalidate>
           
-          <!-- ════════ SEÇÃO 1: PERFIL INSTITUCIONAL ════════ -->
+          <!-- ════════ PERFIL ════════ -->
           <div class="section-banner">
             <div class="section-banner-icon">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             </div>
             <div class="section-banner-title">
-              <h3>1. Seu Perfil na Empresa</h3>
+              <h3>Seu Perfil na Empresa</h3>
               <p>Informações sobre seu local e área de atuação</p>
             </div>
           </div>
@@ -550,7 +559,7 @@
           <div class="survey-card" id="qcard-tempo">
             <div class="q-head">
               <span class="q-badge">3</span>
-              <span class="q-text">Há quanto tempo você está na empresa? <span class="req">*</span></span>
+              <span class="q-text">Há quanto tempo você trabalha na empresa? <span class="req">*</span></span>
             </div>
             <input type="hidden" name="tempo_empresa" id="inputTempo" required />
             <div class="chip-flex" id="optsTempo">
@@ -564,14 +573,14 @@
             </div>
           </div>
 
-          <!-- ════════ SEÇÃO 2: CONTINUIDADE CULTURAL & ENGAJAMENTO ════════ -->
+          <!-- ════════ BLOCO 1: ENGAJAMENTO - NPS ════════ -->
           <div class="section-banner">
             <div class="section-banner-icon" style="background: linear-gradient(135deg, #2563EB, #4f46e5);">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             </div>
             <div class="section-banner-title">
-              <h3>2. Continuidade Cultural e Cultura Desejada</h3>
-              <p>Sua visão sincera sobre valores, futuro e vivência</p>
+              <h3>Bloco 1: Engajamento - NPS</h3>
+              <p>O que te conecta à Revalle</p>
             </div>
           </div>
 
@@ -579,137 +588,138 @@
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">4</span>
-              <span class="q-text">Imagina que um amigo te pergunta se vale a pena vir trabalhar na Revalle. O que pesa a favor de você continuar aqui, e o que pesa contra? <span class="req">*</span></span>
+              <span class="q-text">Imagine que um amigo pergunta se vale a pena trabalhar na Revalle. O que faz você querer continuar aqui? E o que faz você pensar em sair? <span class="req">*</span></span>
             </div>
-            <textarea id="pPesaFavorContra" name="pesa_favor_contra" placeholder="Conte o que mais pesa a favor e o que pesa contra..." required></textarea>
+            <textarea id="pPesaFavorContra" name="pesa_favor_contra" placeholder="Conte o que faz você querer continuar e o que faz pensar em sair..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
+          </div>
+
+          <!-- ════════ BLOCO 2: CONTINUIDADE CULTURAL E CULTURA DESEJADA ════════ -->
+          <div class="section-banner">
+            <div class="section-banner-icon" style="background: linear-gradient(135deg, #0A3296, #2563EB);">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="section-banner-title">
+              <h3>Bloco 2: CONTINUIDADE CULTURAL E CULTURA DESEJADA</h3>
+              <p>Sua visão sobre os valores, o futuro e a vivência na empresa</p>
+            </div>
           </div>
 
           <!-- P5: Futuro em 3 a 5 anos -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">5</span>
-              <span class="q-text">Como você imagina essa empresa daqui a uns 3 a 5 anos, no seu melhor momento possível? O que ela teria de diferente de hoje em valores, em atitudes, ou em qualquer coisa que precisasse mudar pra chegar lá? <span class="req">*</span></span>
+              <span class="q-text">Como você imagina a empresa daqui a 3 a 5 anos? O que ela teria que ter para estar no seu no melhor momento? O que ela teria que ter de diferente? <span class="req">*</span></span>
             </div>
-            <textarea id="pFuturo" name="futuro_3_5_anos" placeholder="Descreva sua visão ideal de futuro para a Revalle..." required></textarea>
+            <textarea id="pFuturo" name="futuro_3_5_anos" placeholder="Descreva como você imagina a empresa e o que ela teria de diferente..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P6: 5 valores/palavras -->
+          <!-- P6: 5 valores ou palavras -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">6</span>
-              <span class="q-text">Escolha até 5 valores/palavras que representam como essa empresa age de verdade, no dia a dia. <span class="req">*</span></span>
+              <span class="q-text">Escolha até 5 valores ou palavras que mostram como a empresa é de verdade no dia a dia. <span class="req">*</span></span>
             </div>
             <textarea id="pValores" name="valores_empresa" placeholder="Ex: União, Respeito, Dedicação, Agilidade, Exigência..." rows="3" required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P7: O que não mudar nunca -->
+          <!-- P7: O que não quer que mude nunca -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">7</span>
-              <span class="q-text">O que tem aqui que você não gostaria que mudasse nunca? <span class="req">*</span></span>
+              <span class="q-text">O que existe aqui que você não quer que mude nunca? <span class="req">*</span></span>
             </div>
             <textarea id="pNaoMudar" name="nao_mudar_nunca" placeholder="O que a Revalle tem de mais valioso que deve continuar..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P8: Dia difícil / motivo pra continuar -->
+          <!-- P8: Dia difícil / motivo para continuar -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">8</span>
-              <span class="q-text">Teve algum dia difícil em que você quase desistiu, mas achou um motivo pra continuar? Ou um dia em que pensou em sair? Me conta. <span class="req">*</span></span>
+              <span class="q-text">Teve algum dia difícil em que você quase desistiu, mas encontrou um motivo para continuar? Ou algum dia em que pensou em sair da empresa? Conte para a gente. <span class="req">*</span></span>
             </div>
-            <textarea id="pDiaDificil" name="dia_dificil_motivo" placeholder="Conte esse momento e o que te deu forças para continuar..." required></textarea>
+            <textarea id="pDiaDificil" name="dia_dificil_motivo" placeholder="Conte esse momento e o que te fez continuar..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P9: Ficou algo sem dizer -->
+          <!-- P9: Ficou alguma coisa que gostaria de dizer -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">9</span>
-              <span class="q-text">Ficou alguma coisa sem dizer? Essa parte é só sua. <span class="req">*</span></span>
+              <span class="q-text">Ficou alguma coisa que você gostaria de dizer? Este espaço é só seu. <span class="req">*</span></span>
             </div>
-            <textarea id="pAlgoSemDizer" name="algo_sem_dizer" placeholder="Fique totalmente à vontade para qualquer outro comentário ou sugestão..." required></textarea>
+            <textarea id="pAlgoSemDizer" name="algo_sem_dizer" placeholder="Fique totalmente à vontade para qualquer comentário, desabafo ou sugestão..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- ════════ SEÇÃO 3: LIDERANÇA DIRETA ════════ -->
+          <!-- ════════ BLOCO 3: LIDERANÇA DIRETA ════════ -->
           <div class="section-banner">
             <div class="section-banner-icon" style="background: linear-gradient(135deg, #059669, #10B981);">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <div class="section-banner-title">
-              <h3>3. Liderança Direta</h3>
-              <p>Acompanhamento, feedback e relacionamento com sua liderança</p>
+              <h3>Bloco 3: LIDERANÇA DIRETA</h3>
+              <p>Acompanhamento, desenvolvimento e alinhamento com sua liderança</p>
             </div>
           </div>
 
-          <!-- P10: Acompanhamento -->
+          <!-- P10: Aprendizado / desafio -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">10</span>
-              <span class="q-text">Pensa numa semana comum recente. Seja de perto ou a distância, você sentiu que sua liderança direta estava acompanhando o que você fazia? Me conta uma situação que mostre isso. <span class="req">*</span></span>
+              <span class="q-text">Alguma vez sua liderança direta ajudou você a aprender algo novo ou desafiou você de alguma forma? Conte como foi? <span class="req">*</span></span>
             </div>
-            <textarea id="pLidAcompanhamento" name="lideranca_acompanhamento" placeholder="Descreva uma situação real recente..." required></textarea>
+            <textarea id="pLidDesafio" name="lideranca_aprendizado_desafio" placeholder="Descreva essa situação de aprendizado ou desafio..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P11: Aprendizado / desafio -->
+          <!-- P11: Entrega e expectativa -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">11</span>
-              <span class="q-text">Teve alguma vez em que sua liderança direta te ajudou a aprender algo novo, ou te desafiou de algum jeito? Me conta como foi. <span class="req">*</span></span>
+              <span class="q-text">Alguma vez você fez um trabalho e depois viu que não era o que sua liderança queria? Ou alguma vez fez certo já na primeira vez? Como foi isso? <span class="req">*</span></span>
             </div>
-            <textarea id="pLidDesafio" name="lideranca_aprendizado_desafio" placeholder="Descreva como foi esse aprendizado ou desafio..." required></textarea>
+            <textarea id="pLidEntrega" name="lideranca_entrega_feedback" placeholder="Conte como foi essa entrega e o retorno da liderança..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P12: Entrega e expectativa -->
+          <!-- P12: Último feedback -->
           <div class="survey-card">
             <div class="q-head">
               <span class="q-badge">12</span>
-              <span class="q-text">Teve alguma vez em que você entregou algo e descobriu que não era bem o que sua liderança esperava ou que acertou de primeira? Como foi? <span class="req">*</span></span>
-            </div>
-            <textarea id="pLidEntrega" name="lideranca_entrega_feedback" placeholder="Conte como foi o alinhamento dessa entrega..." required></textarea>
-            <div class="char-info"><span class="char-count">0 caracteres</span></div>
-          </div>
-
-          <!-- P13: Último feedback -->
-          <div class="survey-card">
-            <div class="q-head">
-              <span class="q-badge">13</span>
-              <span class="q-text">Quando foi a última vez que sua liderança direta te disse algo sobre o seu trabalho bom ou pra melhorar? Me conta como foi. <span class="req">*</span></span>
+              <span class="q-text">Quando foi a última vez que sua liderança direta falou com você sobre o seu trabalho, seja para elogiar ou para dizer o que poderia melhorar? Conte como foi. <span class="req">*</span></span>
             </div>
             <textarea id="pLidUltimoFeed" name="lideranca_ultimo_feedback" placeholder="Quando ocorreu e o que foi conversado..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P14: Exemplo / coerência -->
+          <!-- P13: Exemplo / coerência -->
           <div class="survey-card">
             <div class="q-head">
-              <span class="q-badge">14</span>
-              <span class="q-text">Teve alguma vez em que sua liderança pediu algo prazo, postura, dedicação e você viu ela não fazendo o mesmo? Me conta essa situação. <span class="req">*</span></span>
+              <span class="q-badge">13</span>
+              <span class="q-text">Alguma vez sua liderança pediu algo de você, como prazo, postura ou dedicação, mas você viu que ela não fazia o mesmo? Conte essa situação. <span class="req">*</span></span>
             </div>
-            <textarea id="pLidIncoerencia" name="lideranca_exemplo_incoerencia" placeholder="Compartilhe como foi com total sinceridade..." required></textarea>
+            <textarea id="pLidIncoerencia" name="lideranca_exemplo_incoerencia" placeholder="Compartilhe essa situação com total sinceridade..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
-          <!-- P15: O que mais gosta e o que mudaria -->
+          <!-- P14: O que mais gosta e o que mudaria -->
           <div class="survey-card">
             <div class="q-head">
-              <span class="q-badge">15</span>
+              <span class="q-badge">14</span>
               <span class="q-text">O que você mais gosta na sua liderança direta? E, se pudesse mudar uma coisa, o que seria? <span class="req">*</span></span>
             </div>
-            <textarea id="pLidGostaMudar" name="lideranca_gosta_mudar" placeholder="Pontos fortes marcantes e o que gostaria que melhorasse..." required></textarea>
+            <textarea id="pLidGostaMudar" name="lideranca_gosta_mudar" placeholder="Pontos fortes e o que gostaria que melhorasse..." required></textarea>
             <div class="char-info"><span class="char-count">0 caracteres</span></div>
           </div>
 
           <div id="surveyError" class="alert-box alert-error" hidden style="margin-top: 18px;"></div>
 
           <div style="margin-top: 32px; display: flex; gap: 14px;">
-            <button type="button" class="btn-submit" id="btnBackToCpf" style="flex: 1; background: transparent; color: #475569; border: 1.5px solid #cbd5e1; box-shadow: none;">
+            <button type="button" class="btn-submit btn-secondary-action" id="btnBackToCpf" style="flex: 1;">
               Voltar
             </button>
             <button type="submit" class="btn-submit" id="btnSubmitSurvey" style="flex: 2;">
@@ -730,10 +740,10 @@
         </svg>
       </div>
       <h2 style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
-        Obrigado pela sua contribuição!
+        Agradecemos pela sua participação!
       </h2>
-      <p style="color: var(--text-muted); font-size: 15.5px; line-height: 1.6; max-width: 480px; margin: 0 auto 24px;">
-        Sua resposta foi registrada <strong>100% anonimamente</strong>. Sua visão sincera e transparente é indispensável para continuarmos evoluindo a cultura da Revalle.
+      <p style="color: var(--text-muted); font-size: 16px; line-height: 1.6; max-width: 480px; margin: 0 auto 24px;">
+        Suas respostas vão nos ajudar a construir uma Revalle cada vez melhor.
       </p>
 
       <div class="confirm-box">
@@ -742,7 +752,7 @@
           Participação Confirmada
         </div>
         <p style="font-size: 13.5px; color: #64748b; margin: 6px 0 0; line-height: 1.45;">
-          Seu formulário foi computado no banco com total proteção de identidade e sigilo garantidos.
+          Seu formulário foi registrado anonimamente com sigilo absoluto garantido.
         </p>
       </div>
 
@@ -753,6 +763,6 @@
 
   </main>
 
-  <script src="/pesquisa-cultura.js?v=20260811v3"></script>
+  <script src="/pesquisa-cultura.js?v=20260811v4"></script>
 </body>
 </html>
