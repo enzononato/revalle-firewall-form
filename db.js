@@ -710,6 +710,7 @@ async function getColaboradorTableSchema() {
     const cargoCol = findCol(['cargo', 'funcao', 'cargo_funcao', 'role', 'posicao', 'cargo_descricao', 'des_funcao']);
     const setorCol = findCol(['setor', 'departamento', 'area', 'department', 'secao', 'lotacao', 'des_setor']);
     const unidadeCol = findCol(['unidade', 'revenda', 'filial', 'empresa', 'unit', 'loja', 'des_unidade']);
+    const statusCol = findCol(['status', 'situacao', 'ativo', 'status_colaborador', 'status_funcionario', 'fl_ativo', 'des_situacao', 'sit_afastamento', 'situacao_colaborador', 'condicao', 'active', 'state']);
 
     cachedColabSchema = {
       table,
@@ -719,6 +720,7 @@ async function getColaboradorTableSchema() {
       cargoCol,
       setorCol,
       unidadeCol,
+      statusCol,
     };
     return cachedColabSchema;
   } catch (err) {
@@ -731,6 +733,7 @@ async function getColaboradorTableSchema() {
       cargoCol: 'cargo',
       setorCol: 'setor',
       unidadeCol: 'unidade',
+      statusCol: 'status',
     };
     return cachedColabSchema;
   }
@@ -743,6 +746,31 @@ function mapColaboradorRow(row, schema) {
   const cargoVal = schema && schema.cargoCol ? row[schema.cargoCol] : (row.cargo || row.funcao || row.cargo_funcao || '');
   const setorVal = schema && schema.setorCol ? row[schema.setorCol] : (row.setor || row.departamento || row.area || '');
   const unidadeVal = schema && schema.unidadeCol ? row[schema.unidadeCol] : (row.unidade || row.revenda || row.filial || row.empresa || '');
+  const statusVal = (schema && schema.statusCol && row[schema.statusCol] !== undefined)
+    ? row[schema.statusCol]
+    : (row.status || row.situacao || row.ativo || row.status_colaborador || row.situacao_colaborador || row.fl_ativo || row.des_situacao || row.condicao || '');
+
+  const statusStr = String(statusVal ?? '').trim().toLowerCase();
+
+  // Verifica se o colaborador está marcado como inativo/desligado/afastado
+  const inativo = (
+    statusStr === 'inativo' ||
+    statusStr === 'inativa' ||
+    statusStr.startsWith('inativ') ||
+    statusStr === 'desligado' ||
+    statusStr === 'desligada' ||
+    statusStr === 'demitido' ||
+    statusStr === 'demitida' ||
+    statusStr === 'afastado' ||
+    statusStr === 'afastada' ||
+    statusStr === 'bloqueado' ||
+    statusStr === 'bloqueada' ||
+    statusStr === 'false' ||
+    statusStr === '0' ||
+    statusStr === 'não' ||
+    statusStr === 'nao' ||
+    statusStr === 'n'
+  );
 
   return {
     cpf: String(cpfVal || '').replace(/\D+/g, ''),
@@ -750,6 +778,9 @@ function mapColaboradorRow(row, schema) {
     cargo: String(cargoVal || '').trim(),
     setor: String(setorVal || '').trim(),
     unidade: String(unidadeVal || '').trim(),
+    status: String(statusVal || '').trim(),
+    inativo,
+    ativo: !inativo,
   };
 }
 
@@ -1063,6 +1094,14 @@ async function checkPesquisaCulturaCpf(cpf) {
       ok: false,
       not_found: true,
       error: 'CPF não localizado no cadastro de colaboradores da Revalle. Verifique o número digitado ou contate o DP.',
+    };
+  }
+
+  if (colab.inativo) {
+    return {
+      ok: false,
+      inativo: true,
+      error: 'Seu cadastro consta como inativo no sistema. A pesquisa de cultura é destinada exclusivamente a colaboradores ativos da Revalle.',
     };
   }
 

@@ -430,6 +430,15 @@ app.post('/api/treinamento-solides/check-cpf', async (req, res) => {
       });
     }
 
+    if (colab.inativo) {
+      return res.status(403).json({
+        ok: false,
+        inativo: true,
+        nome_completo: colab.nome_completo,
+        error: `Olá, ${colab.nome_completo}! Seu cadastro consta como inativo no sistema da Revalle. O acesso é restrito a colaboradores ativos.`,
+      });
+    }
+
     if (!colab.permitido) {
       return res.status(403).json({
         ok: false,
@@ -512,7 +521,8 @@ app.post('/api/pesquisa-cultura/check-cpf', async (req, res) => {
   try {
     const result = await checkPesquisaCulturaCpf(cpfDigits);
     if (!result.ok) {
-      return res.status(result.already_participated ? 409 : (result.not_found ? 404 : 400)).json(result);
+      const statusCode = result.already_participated ? 409 : (result.not_found ? 404 : (result.inativo ? 403 : 400));
+      return res.status(statusCode).json(result);
     }
     return res.json(result);
   } catch (err) {
