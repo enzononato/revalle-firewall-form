@@ -352,7 +352,7 @@ function buildFirewallWhere(filters = {}) {
 
 async function listFirewallRequests(filters = {}) {
   const { where, params } = buildFirewallWhere(filters);
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 200);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
   const offset = Math.max(Number(filters.offset) || 0, 0);
 
   const dataParams = params.slice();
@@ -455,7 +455,7 @@ function buildContractWhere(filters = {}) {
 
 async function listContracts(filters = {}) {
   const { where, params } = buildContractWhere(filters);
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 200);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
   const offset = Math.max(Number(filters.offset) || 0, 0);
 
   const dataParams = params.slice();
@@ -589,7 +589,7 @@ async function listImersaoTessRequests(filters = {}) {
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 500);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
   const offset = Math.max(Number(filters.offset) || 0, 0);
 
   const dataParams = params.slice();
@@ -971,7 +971,7 @@ async function listSolidesColaboradores(filters = {}) {
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 500);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
   const offset = Math.max(Number(filters.offset) || 0, 0);
 
   const dataParams = params.slice();
@@ -1234,7 +1234,7 @@ async function listPesquisaCulturaRespostas(filters = {}) {
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 500);
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
   const offset = Math.max(Number(filters.offset) || 0, 0);
 
   const dataParams = params.slice();

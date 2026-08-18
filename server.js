@@ -1148,7 +1148,7 @@ app.get('/api/dashboard/export/firewall.csv', requireRole(['admin']), async (req
   try {
     const { rows } = await listFirewallRequests({
       status: req.query.status, unidade: req.query.unidade, setor: req.query.setor,
-      search: req.query.search, from: req.query.from, to: req.query.to, limit: 5000, offset: 0,
+      search: req.query.search, from: req.query.from, to: req.query.to, limit: 50000, offset: 0,
     });
     const statusLabel = { pending: 'Pendente', approved: 'Aprovada', rejected: 'Reprovada' };
     sendCsv(res, 'solicitacoes-firewall', [
@@ -1176,7 +1176,7 @@ app.get('/api/dashboard/export/contratos.csv', requireRole(['admin']), async (re
   try {
     const { rows } = await listContracts({
       setor: req.query.setor, revenda: req.query.revenda, vigencia: req.query.vigencia,
-      search: req.query.search, limit: 5000, offset: 0,
+      search: req.query.search, limit: 50000, offset: 0,
     });
     sendCsv(res, 'contratos', [
       { label: 'Protocolo', get: (r) => '#' + String(r.id).padStart(5, '0') },
@@ -1219,7 +1219,7 @@ app.get('/api/dashboard/export/imersao-tess.csv', requireRole(['admin']), async 
   try {
     const { rows } = await listImersaoTessRequests({
       setor: req.query.setor, revenda: req.query.revenda,
-      search: req.query.search, limit: 5000, offset: 0,
+      search: req.query.search, limit: 50000, offset: 0,
     });
     sendCsv(res, 'inscritos-imersao-tess', [
       { label: 'Inscricao', get: (r) => '#IM-' + String(r.id).padStart(5, '0') },
@@ -1304,7 +1304,7 @@ app.get('/api/dashboard/export/solides.csv', requireRole(['admin']), async (req,
       setor: req.query.setor,
       unidade: req.query.unidade,
       search: req.query.search,
-      limit: 10000,
+      limit: 50000,
       offset: 0,
     });
 
@@ -1377,7 +1377,7 @@ app.get('/api/dashboard/export/pesquisa-cultura.csv', requireRole(['admin', 'mkt
       area: req.query.area,
       tempo: req.query.tempo,
       search: req.query.search,
-      limit: 10000,
+      limit: 50000,
       offset: 0,
     });
 
