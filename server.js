@@ -11,7 +11,7 @@ const {
   toggleSolidesPermissao, bulkSetSolidesPermissoes,
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
-  getPesquisaCulturaById, getPesquisaCulturaStats,
+  getPesquisaCulturaById, getPesquisaCulturaStats, listPesquisaCulturaAdesao,
   // dashboard users & auth
   hashUserPassword, verifyUserPassword, ensureDefaultAdminUser,
   findDashboardUserByEmail, findDashboardUserById, listDashboardUsers,
@@ -1428,6 +1428,60 @@ app.get('/api/dashboard/export/pesquisa-cultura.csv', requireRole(['admin', 'mkt
   } catch (err) {
     console.error('[export/pesquisa-cultura] erro:', err);
     res.status(500).send('Erro ao exportar CSV.');
+  }
+});
+
+app.get('/api/dashboard/pesquisa-cultura-adesao', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+
+    const result = await listPesquisaCulturaAdesao({
+      status: req.query.status,
+      unidade: req.query.unidade,
+      setor: req.query.setor,
+      search: req.query.search,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+
+    res.json({
+      ok: true,
+      rows: result.rows,
+      total: result.total,
+      page,
+      pageSize,
+      stats: result.stats,
+    });
+  } catch (err) {
+    console.error('[dashboard/pesquisa-cultura-adesao] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar adesão da pesquisa de cultura.' });
+  }
+});
+
+app.get('/api/dashboard/export/pesquisa-cultura-adesao.csv', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
+  try {
+    const { rows } = await listPesquisaCulturaAdesao({
+      status: req.query.status,
+      unidade: req.query.unidade,
+      setor: req.query.setor,
+      search: req.query.search,
+      limit: 50000,
+      offset: 0,
+    });
+
+    sendCsv(res, 'pesquisa-cultura-adesao-colaboradores', [
+      { label: 'Status Adesao', get: (r) => r.participou ? 'Respondido' : 'Pendente (Nao respondeu)' },
+      { label: 'Data Participacao', get: (r) => r.respondido_em ? formatDateTimeBr(r.respondido_em) : 'Pendente' },
+      { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+    ], rows);
+  } catch (err) {
+    console.error('[export/pesquisa-cultura-adesao] erro:', err);
+    res.status(500).send('Erro ao exportar CSV de adesão.');
   }
 });
 

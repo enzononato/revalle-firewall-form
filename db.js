@@ -1312,6 +1312,130 @@ async function getPesquisaCulturaStats() {
   }
 }
 
+async function listPesquisaCulturaAdesao(filters = {}) {
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+
+  try {
+    // 1. Busca todos os hashes de participantes registrados
+    const partRes = await pool.query(`SELECT cpf_hash, created_at FROM pesquisa_cultura_participantes`);
+    const participantesMap = new Map();
+    for (const r of partRes.rows) {
+      participantesMap.set(r.cpf_hash, r.created_at);
+    }
+
+    // 2. Busca os colaboradores da base
+    const colabRes = await pool.query(`SELECT * FROM ${table}`);
+    
+    const allColabs = colabRes.rows.map((row) => {
+      const mapped = mapColaboradorRow(row, schema);
+      const hash = hashPesquisaCpf(mapped.cpf);
+      const respondido_em = participantesMap.get(hash) || null;
+      const participou = Boolean(respondido_em);
+
+      return {
+        cpf: mapped.cpf,
+        nome_completo: mapped.nome_completo,
+        cargo: mapped.cargo,
+        setor: mapped.setor,
+        unidade: mapped.unidade,
+        status: mapped.status,
+        inativo: mapped.inativo,
+        participou,
+        respondido_em,
+      };
+    });
+
+    // Filtra apenas colaboradores ativos com CPF válido
+    const baseAtivos = allColabs.filter((c) => !c.inativo && c.cpf.length === 11);
+
+    // Calcula estatísticas globais
+    const total_base = baseAtivos.length;
+    const total_respondidos = baseAtivos.filter((c) => c.participou).length;
+    const total_pendentes = Math.max(total_base - total_respondidos, 0);
+    const taxa_adesao = total_base > 0 ? Number(((total_respondidos / total_base) * 100).toFixed(1)) : 0;
+
+    // Agrupamento por unidade para indicadores
+    const unidadeMap = new Map();
+    for (const c of baseAtivos) {
+      const u = c.unidade || 'Não informada';
+      if (!unidadeMap.has(u)) {
+        unidadeMap.set(u, { unidade: u, total: 0, respondidos: 0, pendentes: 0 });
+      }
+      const item = unidadeMap.get(u);
+      item.total++;
+      if (c.participou) item.respondidos++;
+      else item.pendentes++;
+    }
+    const byUnidadeAdesao = [...unidadeMap.values()].map((u) => ({
+      ...u,
+      taxa: u.total > 0 ? Number(((u.respondidos / u.total) * 100).toFixed(1)) : 0,
+    })).sort((a, b) => b.total - a.total);
+
+    // Aplica filtros do usuário
+    let filtered = baseAtivos;
+
+    if (filters.status === 'pendente') {
+      filtered = filtered.filter((c) => !c.participou);
+    } else if (filters.status === 'respondido') {
+      filtered = filtered.filter((c) => c.participou);
+    }
+
+    if (filters.unidade) {
+      const uFilter = filters.unidade.toLowerCase();
+      filtered = filtered.filter((c) => (c.unidade || '').toLowerCase().includes(uFilter));
+    }
+
+    if (filters.setor) {
+      const sFilter = filters.setor.toLowerCase();
+      filtered = filtered.filter((c) => (c.setor || '').toLowerCase() === sFilter);
+    }
+
+    if (filters.search) {
+      const term = filters.search.toLowerCase();
+      filtered = filtered.filter((c) =>
+        c.nome_completo.toLowerCase().includes(term) ||
+        c.cpf.includes(term) ||
+        c.cargo.toLowerCase().includes(term) ||
+        c.setor.toLowerCase().includes(term) ||
+        c.unidade.toLowerCase().includes(term)
+      );
+    }
+
+    // Ordenação: Pendentes primeiro, depois por nome
+    filtered.sort((a, b) => {
+      if (a.participou !== b.participou) {
+        return a.participou ? 1 : -1;
+      }
+      return a.nome_completo.localeCompare(b.nome_completo);
+    });
+
+    const total = filtered.length;
+    const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
+    const offset = Math.max(Number(filters.offset) || 0, 0);
+    const pagedRows = filtered.slice(offset, offset + limit);
+
+    return {
+      rows: pagedRows,
+      total,
+      stats: {
+        total_base,
+        total_respondidos,
+        total_pendentes,
+        taxa_adesao,
+        byUnidadeAdesao,
+      },
+    };
+  } catch (err) {
+    console.error('[db] erro ao listar adesão da pesquisa de cultura:', err);
+    return {
+      rows: [],
+      total: 0,
+      stats: { total_base: 0, total_respondidos: 0, total_pendentes: 0, taxa_adesao: 0, byUnidadeAdesao: [] },
+    };
+  }
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Gestão de Usuários e Perfis do Painel (/dashboard)
  * ────────────────────────────────────────────────────────────────────────── */
@@ -1499,7 +1623,7 @@ module.exports = {
   toggleSolidesPermissao, bulkSetSolidesPermissoes,
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
-  getPesquisaCulturaById, getPesquisaCulturaStats,
+  getPesquisaCulturaById, getPesquisaCulturaStats, listPesquisaCulturaAdesao,
   // dashboard users & auth
   hashUserPassword, verifyUserPassword, ensureDefaultAdminUser,
   findDashboardUserByEmail, findDashboardUserById, listDashboardUsers,

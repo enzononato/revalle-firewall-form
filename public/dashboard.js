@@ -11,7 +11,8 @@ const state = {
   ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
-  cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0 },
+  cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
+  culturaAdesao: { status: 'pendente', unidade: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   usuarios: { search: '', perfil: '', list: [] },
   charts: {},
   drawerKind: null,
@@ -944,6 +945,110 @@ async function openPesquisaCulturaDrawer(id) {
   }
 }
 
+function switchCulturaSubTab(subTab) {
+  state.cultura.subTab = subTab;
+  const isRespostas = subTab === 'respostas';
+
+  const tabResp = $('#tabCulturaRespostas');
+  const tabAdes = $('#tabCulturaAdesao');
+  const viewResp = $('#culturaSubViewRespostas');
+  const viewAdes = $('#culturaSubViewAdesao');
+
+  if (tabResp) {
+    tabResp.style.fontWeight = isRespostas ? '700' : '600';
+    tabResp.style.color = isRespostas ? '#0A3296' : '#64748b';
+    tabResp.style.borderBottom = isRespostas ? '3px solid #0A3296' : 'none';
+  }
+  if (tabAdes) {
+    tabAdes.style.fontWeight = !isRespostas ? '700' : '600';
+    tabAdes.style.color = !isRespostas ? '#0A3296' : '#64748b';
+    tabAdes.style.borderBottom = !isRespostas ? '3px solid #0A3296' : 'none';
+  }
+
+  if (viewResp) viewResp.hidden = !isRespostas;
+  if (viewAdes) viewAdes.hidden = isRespostas;
+
+  if (isRespostas) {
+    loadPesquisaCultura();
+  } else {
+    loadPesquisaCulturaAdesao();
+  }
+}
+
+async function loadPesquisaCulturaAdesao() {
+  const { status, unidade, setor, search, page, pageSize } = state.culturaAdesao;
+  const query = new URLSearchParams({ page, pageSize });
+  if (status) query.set('status', status);
+  if (unidade) query.set('unidade', unidade);
+  if (setor) query.set('setor', setor);
+  if (search) query.set('search', search);
+
+  if ($('#culturaAdesaoExport')) {
+    $('#culturaAdesaoExport').href = `${API}/export/pesquisa-cultura-adesao.csv?${query.toString()}`;
+  }
+  if ($('#culturaAdesaoBody')) $('#culturaAdesaoBody').innerHTML = skeletonRows(5, 6);
+  if ($('#culturaAdesaoEmpty')) $('#culturaAdesaoEmpty').hidden = true;
+
+  try {
+    const res = await api(`/pesquisa-cultura-adesao?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar adesão');
+    state.culturaAdesao.total = res.total;
+
+    if (res.stats) {
+      const s = res.stats;
+      if ($('#culturaAdesaoKpiBase')) $('#culturaAdesaoKpiBase').textContent = s.total_base || 0;
+      if ($('#culturaAdesaoKpiRespondidos')) $('#culturaAdesaoKpiRespondidos').textContent = s.total_respondidos || 0;
+      if ($('#culturaAdesaoKpiPendentes')) $('#culturaAdesaoKpiPendentes').textContent = s.total_pendentes || 0;
+      if ($('#culturaAdesaoKpiTaxa')) $('#culturaAdesaoKpiTaxa').textContent = `${s.taxa_adesao || 0}%`;
+
+      if ($('#badgeCulturaPendentes')) {
+        $('#badgeCulturaPendentes').textContent = `${s.total_pendentes || 0} pendentes`;
+        $('#badgeCulturaPendentes').hidden = (s.total_pendentes || 0) === 0;
+      }
+    }
+
+    renderPesquisaCulturaAdesao(res.rows, res.total);
+    renderPager('#culturaAdesaoPager', state.culturaAdesao, loadPesquisaCulturaAdesao);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar adesão da pesquisa', err.message);
+    emptyState('#culturaAdesaoEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os colaboradores.');
+  }
+}
+
+function renderPesquisaCulturaAdesao(rows, total) {
+  const tbody = $('#culturaAdesaoBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    emptyState('#culturaAdesaoEmpty', 'Nenhum colaborador encontrado', 'Tente ajustar os filtros ou termo de busca.');
+    return;
+  }
+  if ($('#culturaAdesaoEmpty')) $('#culturaAdesaoEmpty').hidden = true;
+
+  const html = rows.map((r) => {
+    const statusTag = r.participou
+      ? `<div><span class="chip font-medium" style="background:#f0fdf4; color:#16a34a; border: 1px solid #bbf7d0; font-weight:700;">✅ Respondido</span><small style="display:block; color:#64748b; font-size:11px; margin-top:2px;">${esc(fmtDateTime(r.respondido_em))}</small></div>`
+      : `<span class="chip font-medium" style="background:#fffbeb; color:#b45309; border: 1px solid #fde68a; font-weight:700;">⚠️ Pendente</span>`;
+
+    return `
+      <tr>
+        <td><strong>${esc(r.nome_completo)}</strong></td>
+        <td><span class="mono" style="font-size: 13px;">${esc(fmtCpf(r.cpf))}</span></td>
+        <td>${esc(r.unidade || '—')}</td>
+        <td><span class="chip">${esc(r.setor || '—')}</span></td>
+        <td><span class="chip font-medium">${esc(r.cargo || '—')}</span></td>
+        <td style="text-align: center;">
+          ${statusTag}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.innerHTML = html;
+}
+
 /* ════════════════════════════════════════════════════════════════
    Usuários & Acessos (Admin)
    ════════════════════════════════════════════════════════════════ */
@@ -1224,11 +1329,19 @@ function bind() {
   if ($('#solidesStatus')) $('#solidesStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#solidesStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.solides.status = s.dataset.val; state.solides.page = 1; loadSolides(); };
   if ($('#solidesSearch')) $('#solidesSearch').oninput = debounce((e) => { state.solides.search = e.target.value.trim(); state.solides.page = 1; loadSolides(); });
 
-  // filtros pesquisa cultura
+  // sub-tabs e filtros pesquisa cultura
+  if ($('#tabCulturaRespostas')) $('#tabCulturaRespostas').onclick = () => switchCulturaSubTab('respostas');
+  if ($('#tabCulturaAdesao')) $('#tabCulturaAdesao').onclick = () => switchCulturaSubTab('adesao');
+
   if ($('#culturaUnidade')) $('#culturaUnidade').onchange = (e) => { state.cultura.unidade = e.target.value; state.cultura.page = 1; loadPesquisaCultura(); };
   if ($('#culturaArea')) $('#culturaArea').onchange = (e) => { state.cultura.area = e.target.value; state.cultura.page = 1; loadPesquisaCultura(); };
   if ($('#culturaTempo')) $('#culturaTempo').onchange = (e) => { state.cultura.tempo = e.target.value; state.cultura.page = 1; loadPesquisaCultura(); };
   if ($('#culturaSearch')) $('#culturaSearch').oninput = debounce((e) => { state.cultura.search = e.target.value.trim(); state.cultura.page = 1; loadPesquisaCultura(); });
+
+  if ($('#culturaAdesaoStatus')) $('#culturaAdesaoStatus').onchange = (e) => { state.culturaAdesao.status = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
+  if ($('#culturaAdesaoUnidade')) $('#culturaAdesaoUnidade').onchange = (e) => { state.culturaAdesao.unidade = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
+  if ($('#culturaAdesaoSetor')) $('#culturaAdesaoSetor').onchange = (e) => { state.culturaAdesao.setor = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
+  if ($('#culturaAdesaoSearch')) $('#culturaAdesaoSearch').oninput = debounce((e) => { state.culturaAdesao.search = e.target.value.trim(); state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); });
 
   // Check all solides
   if ($('#solidesCheckAll')) {

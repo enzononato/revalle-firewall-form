@@ -325,79 +325,171 @@
 
       <!-- ─── VIEW: Pesquisa de Cultura ─── -->
       <section class="view" id="view-cultura" hidden>
-        <div class="kpi-grid" id="culturaKpis" style="margin-bottom: 20px;">
-          <article class="card kpi-card">
-            <div class="kpi-head"><span class="kpi-label">Total de Respostas</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div></div>
-            <div class="kpi-value" id="culturaKpiTotal">0</div>
-            <div class="kpi-sub">Respostas anônimas registradas</div>
-          </article>
-          <article class="card kpi-card">
-            <div class="kpi-head"><span class="kpi-label">Unidades Participantes</span><div class="kpi-icon teal"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div></div>
-            <div class="kpi-value" id="culturaKpiUnidades">0</div>
-            <div class="kpi-sub">Filiais com envio</div>
-          </article>
-          <article class="card kpi-card">
-            <div class="kpi-head"><span class="kpi-label">Áreas / Cargos Ativos</span><div class="kpi-icon violet"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div>
-            <div class="kpi-value" id="culturaKpiAreas">0</div>
-            <div class="kpi-sub">Níveis organizacionais</div>
-          </article>
+        <!-- Sub-navegação interna: Respostas vs Adesão -->
+        <div class="subnav-tabs" style="display: flex; gap: 8px; margin-bottom: 22px; border-bottom: 2px solid #e2e8f0; padding-bottom: 0;">
+          <button class="subnav-tab active" id="tabCulturaRespostas" type="button" style="background: none; border: none; font-size: 14.5px; font-weight: 700; color: #0A3296; padding: 10px 18px; border-bottom: 3px solid #0A3296; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Respostas Anônimas
+          </button>
+          <button class="subnav-tab" id="tabCulturaAdesao" type="button" style="background: none; border: none; font-size: 14.5px; font-weight: 600; color: #64748b; padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Controle de Adesão & Pendentes
+            <span class="chip font-medium" id="badgeCulturaPendentes" style="background: #fef3c7; color: #b45309; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px;" hidden>0</span>
+          </button>
         </div>
 
-        <div class="toolbar">
-          <select id="culturaUnidade" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
-            <option value="">Todas as unidades</option>
-            <option value="Revalle Juazeiro">Revalle Juazeiro</option>
-            <option value="Revalle Senhor do Bonfim">Revalle Senhor do Bonfim</option>
-            <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
-            <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
-            <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
-            <option value="Revalle Serrinha">Revalle Serrinha</option>
-            <option value="Revalle Pernambuco">Revalle Pernambuco</option>
-          </select>
-          <select id="culturaArea" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
-            <option value="">Todas as áreas</option>
-            <option value="Comercial">Comercial</option>
-            <option value="Logística">Logística</option>
-            <option value="Administrativo">Administrativo</option>
-          </select>
-          <select id="culturaTempo" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
-            <option value="">Todo tempo de casa</option>
-            <option value="Até 1 ano">Até 1 ano</option>
-            <option value="1 a 2 anos">1 a 2 anos</option>
-            <option value="2 a 5 anos">2 a 5 anos</option>
-            <option value="5 a 10 anos">5 a 10 anos</option>
-            <option value="10 a 15 anos">10 a 15 anos</option>
-            <option value="15 a 20 anos">15 a 20 anos</option>
-            <option value="20 anos ou mais">20 anos ou mais</option>
-          </select>
-          <div class="toolbar-spacer"></div>
-          <div class="search">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="text" id="culturaSearch" placeholder="Buscar nas respostas…" />
+        <!-- ══ Sub-view 1: Respostas Anônimas ══ -->
+        <div id="culturaSubViewRespostas">
+          <div class="kpi-grid" id="culturaKpis" style="margin-bottom: 20px;">
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Total de Respostas</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div></div>
+              <div class="kpi-value" id="culturaKpiTotal">0</div>
+              <div class="kpi-sub">Respostas anônimas registradas</div>
+            </article>
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Unidades Participantes</span><div class="kpi-icon teal"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div></div>
+              <div class="kpi-value" id="culturaKpiUnidades">0</div>
+              <div class="kpi-sub">Filiais com envio</div>
+            </article>
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Áreas / Cargos Ativos</span><div class="kpi-icon violet"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div>
+              <div class="kpi-value" id="culturaKpiAreas">0</div>
+              <div class="kpi-sub">Níveis organizacionais</div>
+            </article>
           </div>
 
-          <a class="btn-export" id="culturaExport" href="/api/dashboard/export/pesquisa-cultura.csv">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar CSV
-          </a>
+          <div class="toolbar">
+            <select id="culturaUnidade" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+              <option value="">Todas as unidades</option>
+              <option value="Revalle Juazeiro">Revalle Juazeiro</option>
+              <option value="Revalle Senhor do Bonfim">Revalle Senhor do Bonfim</option>
+              <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
+              <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
+              <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
+              <option value="Revalle Serrinha">Revalle Serrinha</option>
+              <option value="Revalle Pernambuco">Revalle Pernambuco</option>
+            </select>
+            <select id="culturaArea" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+              <option value="">Todas as áreas</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Logística">Logística</option>
+              <option value="Administrativo">Administrativo</option>
+            </select>
+            <select id="culturaTempo" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+              <option value="">Todo tempo de casa</option>
+              <option value="Até 1 ano">Até 1 ano</option>
+              <option value="1 a 2 anos">1 a 2 anos</option>
+              <option value="2 a 5 anos">2 a 5 anos</option>
+              <option value="5 a 10 anos">5 a 10 anos</option>
+              <option value="10 a 15 anos">10 a 15 anos</option>
+              <option value="15 a 20 anos">15 a 20 anos</option>
+              <option value="20 anos ou mais">20 anos ou mais</option>
+            </select>
+            <div class="toolbar-spacer"></div>
+            <div class="search">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="culturaSearch" placeholder="Buscar nas respostas…" />
+            </div>
+
+            <a class="btn-export" id="culturaExport" href="/api/dashboard/export/pesquisa-cultura.csv">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar CSV
+            </a>
+          </div>
+
+          <div class="table-wrap card">
+            <table class="data-table" id="culturaTable">
+              <thead><tr>
+                <th style="width: 100px;">Resposta</th>
+                <th style="width: 150px;">Data do Envio</th>
+                <th>Unidade</th>
+                <th>Área / Cargo</th>
+                <th>Tempo de Empresa</th>
+                <th>Destaque Engajamento</th>
+                <th style="width: 120px; text-align: center;">Ações</th>
+              </tr></thead>
+              <tbody id="culturaBody"></tbody>
+            </table>
+            <div class="table-empty" id="culturaEmpty" hidden>Nenhuma resposta encontrada</div>
+          </div>
+          <div class="pager" id="culturaPager"></div>
         </div>
 
-        <div class="table-wrap card">
-          <table class="data-table" id="culturaTable">
-            <thead><tr>
-              <th style="width: 100px;">Resposta</th>
-              <th style="width: 150px;">Data do Envio</th>
-              <th>Unidade</th>
-              <th>Área / Cargo</th>
-              <th>Tempo de Empresa</th>
-              <th>Destaque Engajamento</th>
-              <th style="width: 120px; text-align: center;">Ações</th>
-            </tr></thead>
-            <tbody id="culturaBody"></tbody>
-          </table>
-          <div class="table-empty" id="culturaEmpty" hidden>Nenhuma resposta encontrada</div>
+        <!-- ══ Sub-view 2: Controle de Adesão e Pendentes ══ -->
+        <div id="culturaSubViewAdesao" hidden>
+          <div class="kpi-grid" style="margin-bottom: 20px;">
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Colaboradores Ativos</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div>
+              <div class="kpi-value" id="culturaAdesaoKpiBase">0</div>
+              <div class="kpi-sub">Total apto a responder</div>
+            </article>
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Já Responderam</span><div class="kpi-icon teal"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div></div>
+              <div class="kpi-value" id="culturaAdesaoKpiRespondidos" style="color: #16a34a;">0</div>
+              <div class="kpi-sub">Pesquisas concluídas</div>
+            </article>
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Pendentes</span><div class="kpi-icon amber"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div></div>
+              <div class="kpi-value" id="culturaAdesaoKpiPendentes" style="color: #d97706;">0</div>
+              <div class="kpi-sub">Ainda não responderam</div>
+            </article>
+            <article class="card kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Taxa de Adesão</span><div class="kpi-icon violet"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div></div>
+              <div class="kpi-value" id="culturaAdesaoKpiTaxa">0%</div>
+              <div class="kpi-sub">Participação da base ativa</div>
+            </article>
+          </div>
+
+          <div class="toolbar">
+            <select id="culturaAdesaoStatus" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px; font-weight: 600;">
+              <option value="pendente">⚠️ Apenas Pendentes (Não responderam)</option>
+              <option value="respondido">✅ Já Responderam</option>
+              <option value="">Todos os colaboradores</option>
+            </select>
+            <select id="culturaAdesaoUnidade" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+              <option value="">Todas as unidades</option>
+              <option value="Revalle Juazeiro">Revalle Juazeiro</option>
+              <option value="Revalle Senhor do Bonfim">Revalle Senhor do Bonfim</option>
+              <option value="Revalle Ribeira do Pombal">Revalle Ribeira do Pombal</option>
+              <option value="Revalle Paulo Afonso">Revalle Paulo Afonso</option>
+              <option value="Revalle Alagoinhas">Revalle Alagoinhas</option>
+              <option value="Revalle Serrinha">Revalle Serrinha</option>
+              <option value="Revalle Pernambuco">Revalle Pernambuco</option>
+            </select>
+            <select id="culturaAdesaoSetor" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+              <option value="">Todos os setores</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Logística">Logística</option>
+              <option value="Administrativo">Administrativo</option>
+            </select>
+            <div class="toolbar-spacer"></div>
+            <div class="search">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="culturaAdesaoSearch" placeholder="Buscar por colaborador, CPF ou cargo…" />
+            </div>
+
+            <a class="btn-export" id="culturaAdesaoExport" href="/api/dashboard/export/pesquisa-cultura-adesao.csv?status=pendente">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar Lista (CSV)
+            </a>
+          </div>
+
+          <div class="table-wrap card">
+            <table class="data-table" id="culturaAdesaoTable">
+              <thead><tr>
+                <th>Colaborador</th>
+                <th>CPF</th>
+                <th>Unidade</th>
+                <th>Setor</th>
+                <th>Cargo</th>
+                <th style="width: 180px; text-align: center;">Status de Adesão</th>
+              </tr></thead>
+              <tbody id="culturaAdesaoBody"></tbody>
+            </table>
+            <div class="table-empty" id="culturaAdesaoEmpty" hidden>Nenhum colaborador encontrado</div>
+          </div>
+          <div class="pager" id="culturaAdesaoPager"></div>
         </div>
-        <div class="pager" id="culturaPager"></div>
       </section>
 
       <!-- ─── VIEW: Usuários & Acessos (Admin) ─── -->
