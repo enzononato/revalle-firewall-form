@@ -144,6 +144,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /* ── Desafio Criptográfico Anti-Bot ── */
+  let securityChallenge = null;
+
+  async function loadSecurityChallenge() {
+    try {
+      const res = await fetch('/api/security/challenge');
+      const data = await res.json();
+      if (data.ok) {
+        securityChallenge = data;
+      }
+    } catch (err) {
+      console.warn('[security] falha ao carregar desafio:', err);
+    }
+  }
+
+  // Carrega o desafio no background no momento em que a página abre
+  loadSecurityChallenge();
+
+  async function solveSecurityChallenge(challenge) {
+    if (!challenge) return { token: '', powNonce: 0 };
+    const nonce = challenge.nonce;
+    const encoder = new TextEncoder();
+    let n = 0;
+
+    if (window.crypto && window.crypto.subtle) {
+      while (n < 300000) {
+        const data = encoder.encode(nonce + String(n));
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const bytes = new Uint8Array(hashBuffer);
+        // Verifica 3 zeros hexadecimais (byte 0 = 0x00, nibble superior do byte 1 = 0)
+        if (bytes[0] === 0 && (bytes[1] >> 4) === 0) {
+          return { token: challenge.token, powNonce: n };
+        }
+        n++;
+      }
+    }
+    return { token: challenge.token, powNonce: 0 };
+  }
+
   /* ── Step 1: Verificar CPF ── */
   formCpf.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -167,18 +206,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (step1Error) step1Error.hidden = true;
 
     try {
-      const res = await fetch('/api/pesquisa-cultura/check-cpf', {
+      if (!securityChallenge) {
+        await loadSecurityChallenge();
+      }
+
+      const powResult = await solveSecurityChallenge(securityChallenge);
+      const hpInput = document.getElementById('website_url');
+      const hpVal = hpInput ? hpInput.value : '';
+
+      let res = await fetch('/api/pesquisa-cultura/check-cpf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cpfDigits }),
+        body: JSON.stringify({
+          cpf: cpfDigits,
+          challengeToken: powResult.token,
+          powNonce: powResult.powNonce,
+          website_url: hpVal,
+        }),
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      // Se o token expirou (inatividade), renova automaticamente e tenta mais uma vez
+      if (!res.ok && data.expired) {
+        await loadSecurityChallenge();
+        const retryPow = await solveSecurityChallenge(securityChallenge);
+        res = await fetch('/api/pesquisa-cultura/check-cpf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cpf: cpfDigits,
+            challengeToken: retryPow.token,
+            powNonce: retryPow.powNonce,
+            website_url: hpVal,
+          }),
+        });
+        data = await res.json();
+      }
 
       if (!res.ok || !data.ok) {
         step1Error.className = data.already_participated ? 'alert-box alert-warn' : 'alert-box alert-error';
         step1Error.textContent = data.error || 'CPF não localizado. Verifique os dados ou contate o Departamento Pessoal.';
         step1Error.hidden = false;
+        // Atualiza desafio para a próxima tentativa
+        loadSecurityChallenge();
         return;
       }
 
@@ -198,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       step1Error.className = 'alert-box alert-error';
       step1Error.textContent = 'Erro de conexão com o servidor. Verifique sua internet e tente novamente.';
       step1Error.hidden = false;
+      loadSecurityChallenge();
     } finally {
       btnCheckCpf.disabled = false;
       btnCheckText.textContent = 'Acessar Pesquisa Anônima';

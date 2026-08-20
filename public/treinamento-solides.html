@@ -372,6 +372,12 @@
       </div>
 
       <form id="formCpf" novalidate>
+        <!-- Campo Honeypot Invisível para Bloqueio de Robôs -->
+        <div style="position: absolute; opacity: 0; pointer-events: none; left: -9999px; height: 0; width: 0; overflow: hidden;" aria-hidden="true" tabindex="-1">
+          <label for="website_url">Não preencher este campo</label>
+          <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off" />
+        </div>
+
         <div class="field full">
           <label for="cpfInput">CPF do Colaborador <span class="req">*</span></label>
           <div class="input-wrapper">

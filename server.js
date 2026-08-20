@@ -24,6 +24,11 @@ const {
   sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail,
   sendImersaoTessParticipantEmail, sendImersaoTessAdminEmail,
 } = require('./mailer');
+const {
+  createSecurityChallenge,
+  verifySecurityChallenge,
+  antiBotRateLimiter,
+} = require('./security');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -409,9 +414,25 @@ app.post('/api/imersao-tess/submit', async (req, res) => {
   }
 });
 
-/* ── Treinamento Sólides APIs ── */
+/* ── Desafio Anti-Bot / Anti-Scraping ── */
+app.get('/api/security/challenge', (req, res) => {
+  try {
+    const challenge = createSecurityChallenge(req);
+    res.json({ ok: true, ...challenge });
+  } catch (err) {
+    console.error('[security/challenge] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao gerar desafio de segurança.' });
+  }
+});
 
-app.post('/api/treinamento-solides/check-cpf', async (req, res) => {
+/* ── Treinamento Gestão de Ponto (Sólides) APIs ── */
+
+app.post('/api/treinamento-solides/check-cpf', antiBotRateLimiter({ maxPerMinute: 20, cooldownMinutes: 3 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
   const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
   if (!cpfDigits) {
     return res.status(400).json({ ok: false, error: 'Informe o número do CPF.' });
@@ -513,7 +534,12 @@ app.post('/api/treinamento-solides/assinar', async (req, res) => {
 
 /* ── Pesquisa de Cultura Revalle APIs (100% Anônima) ── */
 
-app.post('/api/pesquisa-cultura/check-cpf', async (req, res) => {
+app.post('/api/pesquisa-cultura/check-cpf', antiBotRateLimiter({ maxPerMinute: 20, cooldownMinutes: 3 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
   const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
   if (!cpfDigits) return res.status(400).json({ ok: false, error: 'Informe o número do seu CPF.' });
   if (!isValidCpf(cpfDigits)) return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
