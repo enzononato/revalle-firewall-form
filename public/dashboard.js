@@ -1029,7 +1029,7 @@ function renderPesquisaCulturaAdesao(rows, total) {
 
   const html = rows.map((r) => {
     const statusTag = r.participou
-      ? `<div><span class="chip font-medium" style="background:#f0fdf4; color:#16a34a; border: 1px solid #bbf7d0; font-weight:700;">✅ Respondido</span><small style="display:block; color:#64748b; font-size:11px; margin-top:2px;">${esc(fmtDateTime(r.respondido_em))}</small></div>`
+      ? `<span class="chip font-medium" style="background:#f0fdf4; color:#16a34a; border: 1px solid #bbf7d0; font-weight:700;">✅ Respondido</span>`
       : `<span class="chip font-medium" style="background:#fffbeb; color:#b45309; border: 1px solid #fde68a; font-weight:700;">⚠️ Pendente</span>`;
 
     return `

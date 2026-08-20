@@ -1472,7 +1472,6 @@ app.get('/api/dashboard/export/pesquisa-cultura-adesao.csv', requireRole(['admin
 
     sendCsv(res, 'pesquisa-cultura-adesao-colaboradores', [
       { label: 'Status Adesao', get: (r) => r.participou ? 'Respondido' : 'Pendente (Nao respondeu)' },
-      { label: 'Data Participacao', get: (r) => r.respondido_em ? formatDateTimeBr(r.respondido_em) : 'Pendente' },
       { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
       { label: 'CPF', get: (r) => formatCpf(r.cpf) },
       { label: 'Unidade', get: (r) => r.unidade || '' },

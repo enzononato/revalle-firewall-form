@@ -1318,11 +1318,8 @@ async function listPesquisaCulturaAdesao(filters = {}) {
 
   try {
     // 1. Busca todos os hashes de participantes registrados
-    const partRes = await pool.query(`SELECT cpf_hash, created_at FROM pesquisa_cultura_participantes`);
-    const participantesMap = new Map();
-    for (const r of partRes.rows) {
-      participantesMap.set(r.cpf_hash, r.created_at);
-    }
+    const partRes = await pool.query(`SELECT cpf_hash FROM pesquisa_cultura_participantes`);
+    const participantesSet = new Set(partRes.rows.map((r) => r.cpf_hash));
 
     // 2. Busca os colaboradores da base
     const colabRes = await pool.query(`SELECT * FROM ${table}`);
@@ -1330,8 +1327,7 @@ async function listPesquisaCulturaAdesao(filters = {}) {
     const allColabs = colabRes.rows.map((row) => {
       const mapped = mapColaboradorRow(row, schema);
       const hash = hashPesquisaCpf(mapped.cpf);
-      const respondido_em = participantesMap.get(hash) || null;
-      const participou = Boolean(respondido_em);
+      const participou = participantesSet.has(hash);
 
       return {
         cpf: mapped.cpf,
@@ -1342,7 +1338,6 @@ async function listPesquisaCulturaAdesao(filters = {}) {
         status: mapped.status,
         inativo: mapped.inativo,
         participou,
-        respondido_em,
       };
     });
 
