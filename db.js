@@ -739,16 +739,72 @@ async function getColaboradorTableSchema() {
   }
 }
 
+function getRowValue(row, explicitCol, candidates) {
+  if (!row || typeof row !== 'object') return '';
+
+  // 1. Se tem coluna explícita do schema e ela tem valor não vazio
+  if (explicitCol && row[explicitCol] !== undefined && row[explicitCol] !== null) {
+    const val = String(row[explicitCol]).trim();
+    if (val) return val;
+  }
+
+  const entries = Object.entries(row);
+
+  // 2. Procura match exato (case-insensitive, sem espaços/underline)
+  for (const cand of candidates) {
+    const c = cand.toLowerCase().replace(/[\s_-]+/g, '');
+    for (const [k, v] of entries) {
+      if (v === null || v === undefined) continue;
+      const cleanKey = k.toLowerCase().replace(/[\s_-]+/g, '');
+      if (cleanKey === c) {
+        const val = String(v).trim();
+        if (val) return val;
+      }
+    }
+  }
+
+  // 3. Procura match parcial / substring
+  for (const cand of candidates) {
+    const c = cand.toLowerCase().replace(/[\s_-]+/g, '');
+    for (const [k, v] of entries) {
+      if (v === null || v === undefined) continue;
+      const cleanKey = k.toLowerCase().replace(/[\s_-]+/g, '');
+      if (cleanKey.includes(c)) {
+        const val = String(v).trim();
+        if (val) return val;
+      }
+    }
+  }
+
+  return '';
+}
+
 function mapColaboradorRow(row, schema) {
   if (!row) return null;
-  const cpfVal = schema && schema.cpfCol ? row[schema.cpfCol] : (row.cpf || row.nr_cpf || row.documento || '');
-  const nomeVal = schema && schema.nomeCol ? row[schema.nomeCol] : (row.nome_completo || row.nome || row.colaborador || row.nome_funcionario || row.name || '');
-  const cargoVal = schema && schema.cargoCol ? row[schema.cargoCol] : (row.cargo || row.funcao || row.cargo_funcao || '');
-  const setorVal = schema && schema.setorCol ? row[schema.setorCol] : (row.setor || row.departamento || row.area || '');
-  const unidadeVal = schema && schema.unidadeCol ? row[schema.unidadeCol] : (row.unidade || row.revenda || row.filial || row.empresa || '');
-  const statusVal = (schema && schema.statusCol && row[schema.statusCol] !== undefined)
-    ? row[schema.statusCol]
-    : (row.status || row.situacao || row.ativo || row.status_colaborador || row.situacao_colaborador || row.fl_ativo || row.des_situacao || row.condicao || '');
+
+  const cpfVal = getRowValue(row, schema && schema.cpfCol, [
+    'cpf', 'nr_cpf', 'cpf_cnpj', 'documento', 'doc', 'nu_cpf', 'num_cpf',
+  ]);
+
+  const nomeVal = getRowValue(row, schema && schema.nomeCol, [
+    'nome_completo', 'nome', 'colaborador', 'nome_funcionario', 'funcionario', 'name', 'nom_funcionario', 'nome_colaborador', 'pessoa',
+  ]);
+
+  const cargoVal = getRowValue(row, schema && schema.cargoCol, [
+    'cargo', 'funcao', 'cargo_funcao', 'role', 'posicao', 'cargo_descricao', 'des_funcao', 'des_cargo', 'nome_cargo', 'nom_cargo', 'ocupacao', 'titulo_cargo', 'funcao_colaborador',
+  ]);
+
+  const setorVal = getRowValue(row, schema && schema.setorCol, [
+    'setor', 'departamento', 'area', 'department', 'secao', 'lotacao', 'des_setor', 'des_departamento', 'des_area', 'nom_setor', 'centro_custo', 'ccusto', 'desc_centro_custo',
+  ]);
+
+  const unidadeVal = getRowValue(row, schema && schema.unidadeCol, [
+    'unidade', 'revenda', 'filial', 'empresa', 'unit', 'loja', 'des_unidade', 'nom_unidade', 'nom_filial', 'unidade_negocio', 'unidade_operacional', 'cidade', 'polo', 'estabelecimento', 'local', 'local_trabalho', 'des_empresa', 'razao_social', 'fantasia',
+  ]);
+
+  const statusVal = getRowValue(row, schema && schema.statusCol, [
+    'status', 'situacao', 'ativo', 'status_colaborador', 'status_funcionario', 'fl_ativo', 'des_situacao', 'sit_afastamento', 'situacao_colaborador', 'condicao', 'active', 'state',
+  ]);
 
   const statusStr = String(statusVal ?? '').trim().toLowerCase();
 
@@ -1367,6 +1423,11 @@ async function listPesquisaCulturaAdesao(filters = {}) {
       taxa: u.total > 0 ? Number(((u.respondidos / u.total) * 100).toFixed(1)) : 0,
     })).sort((a, b) => b.total - a.total);
 
+    // Listas únicas para filtros dinâmicos na interface
+    const unidades = [...new Set(baseAtivos.map((c) => c.unidade).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const setores = [...new Set(baseAtivos.map((c) => c.setor).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const cargos = [...new Set(baseAtivos.map((c) => c.cargo).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
     // Aplica filtros do usuário
     let filtered = baseAtivos;
 
@@ -1378,12 +1439,17 @@ async function listPesquisaCulturaAdesao(filters = {}) {
 
     if (filters.unidade) {
       const uFilter = filters.unidade.toLowerCase();
-      filtered = filtered.filter((c) => (c.unidade || '').toLowerCase().includes(uFilter));
+      filtered = filtered.filter((c) => (c.unidade || '').toLowerCase() === uFilter || (c.unidade || '').toLowerCase().includes(uFilter));
     }
 
     if (filters.setor) {
       const sFilter = filters.setor.toLowerCase();
-      filtered = filtered.filter((c) => (c.setor || '').toLowerCase() === sFilter);
+      filtered = filtered.filter((c) => (c.setor || '').toLowerCase() === sFilter || (c.setor || '').toLowerCase().includes(sFilter));
+    }
+
+    if (filters.cargo) {
+      const cFilter = filters.cargo.toLowerCase();
+      filtered = filtered.filter((c) => (c.cargo || '').toLowerCase() === cFilter || (c.cargo || '').toLowerCase().includes(cFilter));
     }
 
     if (filters.search) {
@@ -1419,6 +1485,9 @@ async function listPesquisaCulturaAdesao(filters = {}) {
         total_pendentes,
         taxa_adesao,
         byUnidadeAdesao,
+        unidades,
+        setores,
+        cargos,
       },
     };
   } catch (err) {
@@ -1426,7 +1495,16 @@ async function listPesquisaCulturaAdesao(filters = {}) {
     return {
       rows: [],
       total: 0,
-      stats: { total_base: 0, total_respondidos: 0, total_pendentes: 0, taxa_adesao: 0, byUnidadeAdesao: [] },
+      stats: {
+        total_base: 0,
+        total_respondidos: 0,
+        total_pendentes: 0,
+        taxa_adesao: 0,
+        byUnidadeAdesao: [],
+        unidades: [],
+        setores: [],
+        cargos: [],
+      },
     };
   }
 }

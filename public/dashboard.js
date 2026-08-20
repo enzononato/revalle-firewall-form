@@ -12,7 +12,7 @@ const state = {
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
-  culturaAdesao: { status: 'pendente', unidade: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
+  culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   usuarios: { search: '', perfil: '', list: [] },
   charts: {},
   drawerKind: null,
@@ -975,12 +975,31 @@ function switchCulturaSubTab(subTab) {
   }
 }
 
+function populateSelectOptions(selectEl, items, currentVal, defaultLabel) {
+  if (!selectEl || !Array.isArray(items) || !items.length) return;
+  const currentOptions = selectEl.querySelectorAll('option');
+  // Se já foi populado com a mesma quantidade de itens, apenas atualiza a seleção
+  if (currentOptions.length === items.length + 1 && selectEl.dataset.populated === 'true') {
+    selectEl.value = currentVal || '';
+    return;
+  }
+  const opts = [`<option value="">${defaultLabel}</option>`];
+  for (const item of items) {
+    if (!item) continue;
+    const isSelected = String(item).toLowerCase() === String(currentVal || '').toLowerCase() ? 'selected' : '';
+    opts.push(`<option value="${esc(item)}" ${isSelected}>${esc(item)}</option>`);
+  }
+  selectEl.innerHTML = opts.join('');
+  selectEl.dataset.populated = 'true';
+}
+
 async function loadPesquisaCulturaAdesao() {
-  const { status, unidade, setor, search, page, pageSize } = state.culturaAdesao;
+  const { status, unidade, setor, cargo, search, page, pageSize } = state.culturaAdesao;
   const query = new URLSearchParams({ page, pageSize });
   if (status) query.set('status', status);
   if (unidade) query.set('unidade', unidade);
   if (setor) query.set('setor', setor);
+  if (cargo) query.set('cargo', cargo);
   if (search) query.set('search', search);
 
   if ($('#culturaAdesaoExport')) {
@@ -1004,6 +1023,17 @@ async function loadPesquisaCulturaAdesao() {
       if ($('#badgeCulturaPendentes')) {
         $('#badgeCulturaPendentes').textContent = `${s.total_pendentes || 0} pendentes`;
         $('#badgeCulturaPendentes').hidden = (s.total_pendentes || 0) === 0;
+      }
+
+      // Popula dinamicamente os filtros com os valores reais da base
+      if (s.unidades && s.unidades.length) {
+        populateSelectOptions($('#culturaAdesaoUnidade'), s.unidades, state.culturaAdesao.unidade, 'Todas as unidades');
+      }
+      if (s.setores && s.setores.length) {
+        populateSelectOptions($('#culturaAdesaoSetor'), s.setores, state.culturaAdesao.setor, 'Todos os setores');
+      }
+      if (s.cargos && s.cargos.length) {
+        populateSelectOptions($('#culturaAdesaoCargo'), s.cargos, state.culturaAdesao.cargo, 'Todos os cargos');
       }
     }
 
@@ -1341,6 +1371,7 @@ function bind() {
   if ($('#culturaAdesaoStatus')) $('#culturaAdesaoStatus').onchange = (e) => { state.culturaAdesao.status = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
   if ($('#culturaAdesaoUnidade')) $('#culturaAdesaoUnidade').onchange = (e) => { state.culturaAdesao.unidade = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
   if ($('#culturaAdesaoSetor')) $('#culturaAdesaoSetor').onchange = (e) => { state.culturaAdesao.setor = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
+  if ($('#culturaAdesaoCargo')) $('#culturaAdesaoCargo').onchange = (e) => { state.culturaAdesao.cargo = e.target.value; state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); };
   if ($('#culturaAdesaoSearch')) $('#culturaAdesaoSearch').oninput = debounce((e) => { state.culturaAdesao.search = e.target.value.trim(); state.culturaAdesao.page = 1; loadPesquisaCulturaAdesao(); });
 
   // Check all solides
