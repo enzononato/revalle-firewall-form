@@ -140,7 +140,38 @@ function verifySecurityChallenge(req) {
     };
   }
 
-  // 5. Validação do Proof-of-Work (SHA-256)
+  // 5. Validação de Biometria Comportamental e Detecção de Robôs de Clique / Automação
+  const behavior = body.behavior || {};
+
+  // Se navigator.webdriver estiver ativo (Selenium, Puppeteer, Playwright)
+  if (behavior.webdriver === true) {
+    return {
+      ok: false,
+      error: 'Navegador automatizado detectado. Acesso permitido apenas através de navegadores convencionais.',
+      isBot: true,
+    };
+  }
+
+  // Se o clique foi disparado por script sintético sem hardware físico
+  if (behavior.isTrusted === false) {
+    return {
+      ok: false,
+      error: 'Clique sintético ou automatizado detectado. Acesso rejeitado.',
+      isBot: true,
+    };
+  }
+
+  // Se não houve nenhuma interação humana na tela (sem movimentos, toques ou digitação)
+  const totalInteractions = (Number(behavior.moves) || 0) + (Number(behavior.touches) || 0) + (Number(behavior.keyEvents) || 0);
+  if (totalInteractions < 2) {
+    return {
+      ok: false,
+      error: 'Interação humana insuficiente detectada na tela antes do envio.',
+      isBot: true,
+    };
+  }
+
+  // 6. Validação do Proof-of-Work (SHA-256)
   const hash = crypto.createHash('sha256').update(nonce + powNonce).digest('hex');
   const targetPrefix = '0'.repeat(difficulty);
 

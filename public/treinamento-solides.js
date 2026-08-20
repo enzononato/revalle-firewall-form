@@ -71,6 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  /* ── Telemetria Comportamental Anti-Robô de Cliques ── */
+  let userInteractions = { moves: 0, touches: 0, keyEvents: 0 };
+  window.addEventListener('mousemove', () => { userInteractions.moves++; }, { passive: true });
+  window.addEventListener('touchmove', () => { userInteractions.touches++; }, { passive: true });
+  window.addEventListener('touchstart', () => { userInteractions.touches++; }, { passive: true });
+  window.addEventListener('keydown', () => { userInteractions.keyEvents++; }, { passive: true });
+
   /* ── Desafio Criptográfico Anti-Bot ── */
   let securityChallenge = null;
 
@@ -140,6 +147,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const hpInput = document.getElementById('website_url');
       const hpVal = hpInput ? hpInput.value : '';
 
+      const behaviorPayload = {
+        isTrusted: e.isTrusted !== false,
+        webdriver: Boolean(navigator.webdriver),
+        moves: userInteractions.moves,
+        touches: userInteractions.touches,
+        keyEvents: userInteractions.keyEvents,
+      };
+
       let res = await fetch('/api/treinamento-solides/check-cpf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
           challengeToken: powResult.token,
           powNonce: powResult.powNonce,
           website_url: hpVal,
+          behavior: behaviorPayload,
         }),
       });
 
@@ -164,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
             challengeToken: retryPow.token,
             powNonce: retryPow.powNonce,
             website_url: hpVal,
+            behavior: behaviorPayload,
           }),
         });
         data = await res.json();
