@@ -58,6 +58,11 @@
           <span>Gestão de Ponto (Sólides)</span>
           <em class="nav-badge amber" id="navSolidesPending" hidden>0</em>
         </button>
+        <button class="nav-item" data-view="treinamento-ia" data-roles="admin">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-4 4 4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z"/><circle cx="12" cy="12" r="3"/><path d="M12 17v5"/><path d="M8 22h8"/></svg>
+          <span>Treinamento IA & Intranet</span>
+          <em class="nav-badge purple" id="navIaPending" hidden>0</em>
+        </button>
         <button class="nav-item" data-view="cultura" data-roles="admin,mkt_cultura">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Pesquisa de Cultura</span>
@@ -321,6 +326,99 @@
           <div class="table-empty" id="solidesEmpty" hidden>Nenhum colaborador encontrado</div>
         </div>
         <div class="pager" id="solidesPager"></div>
+      </section>
+
+      <!-- ─── VIEW: Treinamento IA & Intranet ─── -->
+      <section class="view" id="view-treinamento-ia" hidden>
+        <div class="kpi-grid" id="iaKpis">
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Colaboradores na Base</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div>
+            <div class="kpi-value" id="iaKpiBase">0</div>
+            <div class="kpi-sub">Total de funcionários ativos</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Habilitados</span><div class="kpi-icon blue"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div></div>
+            <div class="kpi-value" id="iaKpiPermitidos">0</div>
+            <div class="kpi-sub">Liberados para assinatura</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Termos Assinados</span><div class="kpi-icon green"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+            <div class="kpi-value" id="iaKpiAssinados">0</div>
+            <div class="kpi-sub">Assinaturas registradas</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Pendentes</span><div class="kpi-icon amber"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div></div>
+            <div class="kpi-value" id="iaKpiPendentes">0</div>
+            <div class="kpi-sub">Habilitados aguardando</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Taxa de Adesão</span><div class="kpi-icon violet"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div></div>
+            <div class="kpi-value" id="iaKpiTaxa">0%</div>
+            <div class="kpi-sub">Dos colaboradores habilitados</div>
+          </article>
+        </div>
+
+        <div class="toolbar">
+          <div class="seg-group" id="iaStatus">
+            <button type="button" class="seg active" data-val="">Todos</button>
+            <button type="button" class="seg" data-val="permitido">Habilitados</button>
+            <button type="button" class="seg" data-val="pendente">Pendentes</button>
+            <button type="button" class="seg" data-val="assinado">Assinados</button>
+            <button type="button" class="seg" data-val="nao_permitido">Não Habilitados</button>
+          </div>
+          <select id="iaUnidade" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todas as unidades</option>
+          </select>
+          <select id="iaSetor" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os setores</option>
+          </select>
+          <select id="iaCargo" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os cargos</option>
+          </select>
+          <div class="toolbar-spacer"></div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="iaSearch" placeholder="Buscar por colaborador, CPF ou cargo…" />
+          </div>
+
+          <a class="btn-export" id="iaExport" href="/api/dashboard/export/treinamento-ia.csv">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </a>
+        </div>
+
+        <!-- Barra de Ações em Lote IA -->
+        <div class="bulk-bar card" id="iaBulkBar" hidden style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-bottom: 16px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: var(--radius-md);">
+          <div style="font-size: 14px; font-weight: 600; color: #6b21a8;">
+            <span id="iaSelectedCount">0</span> colaboradores selecionados
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-sm" id="btnIaBulkAllow" style="background: #16a34a; color: #fff; font-size: 13px; padding: 6px 16px;">
+              ✓ Habilitar Selecionados
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="btnIaBulkDisallow" style="color: #dc2626; border-color: #fca5a5; font-size: 13px; padding: 6px 16px;">
+              ✕ Desabilitar Selecionados
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap card">
+          <table class="data-table" id="iaTable">
+            <thead><tr>
+              <th style="width: 36px; text-align: center;"><input type="checkbox" id="iaCheckAll" title="Selecionar todos da página" /></th>
+              <th style="width: 90px; text-align: center;">Permissão</th>
+              <th>Status</th>
+              <th>Nome do Colaborador</th>
+              <th>CPF</th>
+              <th>Cargo / Setor</th>
+              <th>Unidade</th>
+              <th>Data da Assinatura</th>
+            </tr></thead>
+            <tbody id="iaBody"></tbody>
+          </table>
+          <div class="table-empty" id="iaEmpty" hidden>Nenhum colaborador encontrado</div>
+        </div>
+        <div class="pager" id="iaPager"></div>
       </section>
 
       <!-- ─── VIEW: Pesquisa de Cultura ─── -->

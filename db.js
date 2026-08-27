@@ -158,6 +158,35 @@ async function initDb() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_solides_perm_cpf ON solides_treinamento_permissoes (cpf)`);
 
+    // ── treinamento_ia_assinaturas ──────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS treinamento_ia_assinaturas (
+        id             SERIAL PRIMARY KEY,
+        cpf            VARCHAR(11) UNIQUE NOT NULL,
+        nome_completo  VARCHAR(200) NOT NULL,
+        cargo          VARCHAR(150) NOT NULL DEFAULT '',
+        setor          VARCHAR(100) NOT NULL DEFAULT '',
+        unidade        VARCHAR(100) NOT NULL DEFAULT '',
+        assinado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        ip             VARCHAR(45) DEFAULT NULL,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ia_assinaturas_cpf ON treinamento_ia_assinaturas (cpf)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ia_assinaturas_data ON treinamento_ia_assinaturas (assinado_em DESC)`);
+
+    // ── treinamento_ia_permissoes ───────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS treinamento_ia_permissoes (
+        cpf           VARCHAR(11) PRIMARY KEY,
+        permitido     BOOLEAN NOT NULL DEFAULT FALSE,
+        permitido_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ia_perm_cpf ON treinamento_ia_permissoes (cpf)`);
+
+    console.log('[db] tabelas de treinamento IA & Intranet prontas');
+
     // ── pesquisa_cultura_participantes & pesquisa_cultura_respostas ─────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS pesquisa_cultura_participantes (
@@ -1130,6 +1159,268 @@ async function getSolidesStats() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Treinamento de IA, LGPD e Intranet
+ * ────────────────────────────────────────────────────────────────────────── */
+
+async function findIaColaboradorByCpf(cpf) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits || digits.length !== 11) return null;
+
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfCol = schema.cpfCol ? `"${schema.cpfCol}"` : 'cpf';
+
+  let colabRow = null;
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM ${table}
+       WHERE regexp_replace(${cpfCol}::text, '\\D', '', 'g') = $1
+          OR ${cpfCol}::text = $1
+       LIMIT 1`,
+      [digits]
+    );
+    colabRow = rows[0] || null;
+  } catch (err) {
+    console.error(`[db] erro ao consultar colaborador em ${table}:`, err.message);
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM ${table} WHERE ${cpfCol}::text LIKE $1 LIMIT 1`,
+        [`%${digits}%`]
+      );
+      colabRow = rows[0] || null;
+    } catch (e2) {
+      console.error('[db] erro fallback:', e2.message);
+    }
+  }
+
+  if (!colabRow) return null;
+
+  const mapped = mapColaboradorRow(colabRow, schema);
+
+  // Consulta se tem permissão e se já assinou
+  const [sigRes, permRes] = await Promise.all([
+    pool.query(`SELECT id, assinado_em, ip FROM treinamento_ia_assinaturas WHERE cpf = $1 LIMIT 1`, [digits]),
+    pool.query(`SELECT permitido FROM treinamento_ia_permissoes WHERE cpf = $1 LIMIT 1`, [digits]),
+  ]);
+
+  const sig = sigRes.rows[0] || null;
+  const perm = permRes.rows[0];
+  const permitido = perm ? Boolean(perm.permitido) : false;
+
+  return {
+    ...mapped,
+    id: sig ? sig.id : null,
+    assinado: Boolean(sig),
+    assinado_em: sig ? sig.assinado_em : null,
+    protocolo: sig ? '#TIA-' + String(sig.id).padStart(5, '0') : null,
+    permitido,
+  };
+}
+
+async function toggleIaPermissao(cpf, permitido) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits) return null;
+
+  const { rows } = await pool.query(
+    `INSERT INTO treinamento_ia_permissoes (cpf, permitido, permitido_em)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (cpf) DO UPDATE SET
+       permitido = EXCLUDED.permitido,
+       permitido_em = NOW()
+     RETURNING cpf, permitido, permitido_em`,
+    [digits, Boolean(permitido)]
+  );
+  return rows[0] || null;
+}
+
+async function bulkSetIaPermissoes(cpfs, permitido) {
+  if (!Array.isArray(cpfs) || !cpfs.length) return { count: 0 };
+  const cleanCpfs = cpfs.map((c) => String(c || '').replace(/\D+/g, '')).filter((c) => c.length === 11);
+  if (!cleanCpfs.length) return { count: 0 };
+
+  const { rowCount } = await pool.query(
+    `INSERT INTO treinamento_ia_permissoes (cpf, permitido, permitido_em)
+     SELECT unnest($1::text[]), $2, NOW()
+     ON CONFLICT (cpf) DO UPDATE SET
+       permitido = EXCLUDED.permitido,
+       permitido_em = NOW()`,
+    [cleanCpfs, Boolean(permitido)]
+  );
+  return { count: rowCount };
+}
+
+async function assinarTermoIa(cpf, ip = '') {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (!digits) return null;
+
+  const colab = await findIaColaboradorByCpf(digits);
+  if (!colab) return null;
+  if (!colab.permitido) {
+    throw new Error('Colaborador não está habilitado para responder ao treinamento de IA e Intranet.');
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO treinamento_ia_assinaturas
+       (cpf, nome_completo, cargo, setor, unidade, assinado_em, ip)
+     VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+     ON CONFLICT (cpf) DO UPDATE SET
+       assinado_em = EXCLUDED.assinado_em,
+       ip = EXCLUDED.ip
+     RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado_em`,
+    [digits, colab.nome_completo, colab.cargo, colab.setor, colab.unidade, ip]
+  );
+
+  return rows[0] ? { ...rows[0], assinado: true } : null;
+}
+
+async function listIaColaboradores(filters = {}) {
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
+
+  const conds = [];
+  const params = [];
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+
+  if (filters.status === 'permitido') {
+    conds.push(`COALESCE(p.permitido, FALSE) = TRUE`);
+  } else if (filters.status === 'nao_permitido') {
+    conds.push(`COALESCE(p.permitido, FALSE) = FALSE`);
+  } else if (filters.status === 'assinado') {
+    conds.push(`s.id IS NOT NULL`);
+  } else if (filters.status === 'pendente') {
+    conds.push(`s.id IS NULL AND COALESCE(p.permitido, FALSE) = TRUE`);
+  }
+
+  if (filters.setor && schema.setorCol) {
+    conds.push(`c."${schema.setorCol}" = ${add(filters.setor)}`);
+  }
+  if (filters.unidade && schema.unidadeCol) {
+    conds.push(`c."${schema.unidadeCol}" = ${add(filters.unidade)}`);
+  }
+  if (filters.cargo && schema.cargoCol) {
+    conds.push(`c."${schema.cargoCol}" = ${add(filters.cargo)}`);
+  }
+
+  if (filters.search) {
+    const term = `%${filters.search.toLowerCase()}%`;
+    const p = add(term);
+    const searchParts = [];
+    if (schema.nomeCol) searchParts.push(`LOWER(c."${schema.nomeCol}"::text) LIKE ${p}`);
+    if (schema.cpfCol) searchParts.push(`regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g') LIKE ${p}`);
+    if (schema.cargoCol) searchParts.push(`LOWER(c."${schema.cargoCol}"::text) LIKE ${p}`);
+    if (schema.setorCol) searchParts.push(`LOWER(c."${schema.setorCol}"::text) LIKE ${p}`);
+
+    if (searchParts.length > 0) {
+      conds.push(`(${searchParts.join(' OR ')})`);
+    }
+  }
+
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const dataParams = params.slice();
+  dataParams.push(limit); const limIdx = dataParams.length;
+  dataParams.push(offset); const offIdx = dataParams.length;
+
+  const orderExpr = schema.nomeCol ? `c."${schema.nomeCol}" ASC` : `c.ctid ASC`;
+
+  const dataSql = `
+    SELECT
+      c.*,
+      s.id AS assinatura_id,
+      s.assinado_em,
+      s.ip,
+      (s.id IS NOT NULL) AS assinado,
+      COALESCE(p.permitido, FALSE) AS permitido
+    FROM ${table} c
+    LEFT JOIN treinamento_ia_permissoes p
+      ON ${cpfExpr} = p.cpf
+    LEFT JOIN treinamento_ia_assinaturas s
+      ON ${cpfExpr} = s.cpf
+    ${where}
+    ORDER BY
+      CASE WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL THEN 0
+           WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NOT NULL THEN 1
+           ELSE 2 END,
+      ${orderExpr}
+    LIMIT $${limIdx} OFFSET $${offIdx}
+  `;
+
+  const countSql = `
+    SELECT COUNT(*)::int AS total
+    FROM ${table} c
+    LEFT JOIN treinamento_ia_permissoes p
+      ON ${cpfExpr} = p.cpf
+    LEFT JOIN treinamento_ia_assinaturas s
+      ON ${cpfExpr} = s.cpf
+    ${where}
+  `;
+
+  try {
+    const [dataRes, countRes] = await Promise.all([
+      pool.query(dataSql, dataParams),
+      pool.query(countSql, params),
+    ]);
+
+    const formattedRows = dataRes.rows.map((row) => {
+      const mapped = mapColaboradorRow(row, schema);
+      return {
+        id: row.assinatura_id || row.id || null,
+        cpf: mapped.cpf,
+        nome_completo: mapped.nome_completo,
+        cargo: mapped.cargo,
+        setor: mapped.setor,
+        unidade: mapped.unidade,
+        permitido: Boolean(row.permitido),
+        assinado: Boolean(row.assinado),
+        assinado_em: row.assinado_em,
+        ip: row.ip,
+      };
+    });
+
+    return { rows: formattedRows, total: countRes.rows[0].total };
+  } catch (err) {
+    console.error(`[db] erro ao listar colaboradores de IA em ${table}:`, err);
+    return { rows: [], total: 0 };
+  }
+}
+
+async function getIaStats() {
+  const schema = await getColaboradorTableSchema();
+  const table = schema.table;
+  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(c.*)::int AS total_base,
+        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::int AS total_permitidos,
+        COUNT(s.id)::int AS assinados,
+        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL)::int AS pendentes,
+        CASE
+          WHEN COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE) > 0
+          THEN ROUND((COUNT(s.id)::numeric / COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::numeric) * 100, 1)
+          ELSE 0
+        END::float AS taxa_adesao
+      FROM ${table} c
+      LEFT JOIN treinamento_ia_permissoes p
+        ON ${cpfExpr} = p.cpf
+      LEFT JOIN treinamento_ia_assinaturas s
+        ON ${cpfExpr} = s.cpf
+    `);
+    return rows[0] || { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
+  } catch (err) {
+    console.error(`[db] erro ao calcular estatisticas de ${table} para IA:`, err);
+    const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM treinamento_ia_assinaturas`).catch(() => ({ rows: [{ assinados: 0 }] }));
+    const assinados = fallbackRes.rows[0] ? fallbackRes.rows[0].assinados : 0;
+    return { total_base: assinados, total_permitidos: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Pesquisa de Cultura Revalle (Respostas 100% Anônimas)
  * ────────────────────────────────────────────────────────────────────────── */
 
@@ -1694,6 +1985,9 @@ module.exports = {
   // treinamento solides
   findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
   toggleSolidesPermissao, bulkSetSolidesPermissoes,
+  // treinamento ia e intranet
+  findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
+  toggleIaPermissao, bulkSetIaPermissoes,
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
   getPesquisaCulturaById, getPesquisaCulturaStats, listPesquisaCulturaAdesao,

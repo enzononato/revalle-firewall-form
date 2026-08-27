@@ -11,6 +11,7 @@ const state = {
   ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
+  ia: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   usuarios: { search: '', perfil: '', list: [] },
@@ -81,6 +82,7 @@ const TITLES = {
   contratos: ['Contratos', 'Carteira de contratos e controle de vigência'],
   tess: ['Imersão Tess', 'Lista de inscritos e detalhes da Imersão Tess'],
   solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
+  'treinamento-ia': ['Treinamento IA & Intranet', 'Colaboradores participantes e controle de assinatura do termo'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
   usuarios: ['Usuários & Acessos', 'Gerenciamento de acessos e perfis de usuários do painel'],
 };
@@ -99,6 +101,7 @@ function switchView(view) {
   if (view === 'contratos') loadContratos();
   if (view === 'tess') loadTess();
   if (view === 'solides') loadSolides();
+  if (view === 'treinamento-ia') loadTreinamentoIa();
   if (view === 'cultura') loadPesquisaCultura();
   if (view === 'usuarios') loadUsuarios();
 }
@@ -232,6 +235,13 @@ function updateNavBadges(data) {
     if ($('#navSolidesPending')) {
       $('#navSolidesPending').textContent = p > 0 ? p : 0;
       $('#navSolidesPending').hidden = p <= 0;
+    }
+  }
+  if (data.treinamento_ia) {
+    const p = data.treinamento_ia.pendentes != null ? data.treinamento_ia.pendentes : (data.treinamento_ia.total_permitidos - data.treinamento_ia.assinados);
+    if ($('#navIaPending')) {
+      $('#navIaPending').textContent = p > 0 ? p : 0;
+      $('#navIaPending').hidden = p <= 0;
     }
   }
   if (data.cultura) {
@@ -811,6 +821,151 @@ function renderSolides(rows, total) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Treinamento IA, LGPD e Intranet Dashboard
+   ════════════════════════════════════════════════════════════════ */
+const selectedIaCpfs = new Set();
+
+async function loadTreinamentoIa() {
+  const { status, unidade, setor, cargo, search, page, pageSize } = state.ia;
+  const query = new URLSearchParams({ page, pageSize });
+  if (status) query.set('status', status);
+  if (unidade) query.set('unidade', unidade);
+  if (setor) query.set('setor', setor);
+  if (cargo) query.set('cargo', cargo);
+  if (search) query.set('search', search);
+
+  if ($('#iaExport')) $('#iaExport').href = `${API}/export/treinamento-ia.csv?${query.toString()}`;
+  if ($('#iaBody')) $('#iaBody').innerHTML = skeletonRows(5, 8);
+  if ($('#iaEmpty')) $('#iaEmpty').hidden = true;
+
+  try {
+    const res = await api(`/treinamento-ia?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.ia.total = res.total;
+
+    if (res.stats) {
+      if ($('#iaKpiBase')) $('#iaKpiBase').textContent = res.stats.total_base || 0;
+      if ($('#iaKpiPermitidos')) $('#iaKpiPermitidos').textContent = res.stats.total_permitidos || 0;
+      if ($('#iaKpiAssinados')) $('#iaKpiAssinados').textContent = res.stats.assinados || 0;
+      if ($('#iaKpiTaxa')) $('#iaKpiTaxa').textContent = `${res.stats.taxa_adesao || 0}% de adesão`;
+      if ($('#iaKpiPendentes')) $('#iaKpiPendentes').textContent = res.stats.pendentes || 0;
+      if ($('#navIaPending')) {
+        $('#navIaPending').textContent = res.stats.pendentes || 0;
+        $('#navIaPending').hidden = (res.stats.pendentes || 0) === 0;
+      }
+    }
+
+    renderTreinamentoIa(res.rows, res.total);
+    renderPager('#iaPager', state.ia, loadTreinamentoIa);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar lista de treinamento IA', err.message);
+    emptyState('#iaEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function updateIaBulkBar() {
+  const bar = $('#iaBulkBar');
+  const countEl = $('#iaSelectedCount');
+  if (!bar) return;
+  const count = selectedIaCpfs.size;
+  if (count > 0) {
+    bar.style.display = 'flex';
+    if (countEl) countEl.textContent = count;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function renderTreinamentoIa(rows, total) {
+  const tbody = $('#iaBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  selectedIaCpfs.clear();
+  updateIaBulkBar();
+  const checkAll = $('#iaCheckAll');
+  if (checkAll) checkAll.checked = false;
+
+  if (!rows.length) {
+    emptyState('#iaEmpty', 'Nenhum colaborador encontrado', 'Tente ajustar a busca ou filtros.');
+    return;
+  }
+  if ($('#iaEmpty')) $('#iaEmpty').hidden = true;
+
+  const html = rows.map((r) => {
+    let statusHtml = '';
+    if (r.assinado) {
+      statusHtml = `<span class="badge badge-ok"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Assinado</span>`;
+    } else if (r.permitido) {
+      statusHtml = `<span class="badge badge-warn"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pendente</span>`;
+    } else {
+      statusHtml = `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/></svg> Não Habilitado</span>`;
+    }
+
+    return `
+    <tr data-cpf="${esc(r.cpf)}">
+      <td style="text-align: center;">
+        <input type="checkbox" class="ia-row-check" data-cpf="${esc(r.cpf)}" />
+      </td>
+      <td style="text-align: center;">
+        <label class="toggle-switch" title="${r.permitido ? 'Permitido para responder' : 'Desabilitado'}">
+          <input type="checkbox" class="ia-perm-toggle" data-cpf="${esc(r.cpf)}" ${r.permitido ? 'checked' : ''} />
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>${statusHtml}</td>
+      <td><strong>${esc(r.nome_completo)}</strong></td>
+      <td><span class="mono">${esc(fmtCpf(r.cpf))}</span></td>
+      <td>
+        <span class="chip">${esc(r.cargo || '—')}</span>
+        ${r.setor ? `<span class="chip font-medium">${esc(r.setor)}</span>` : ''}
+      </td>
+      <td><span class="chip font-medium">${esc(r.unidade || '—')}</span></td>
+      <td>
+        ${r.assinado_em 
+          ? `<span class="date-tag">${esc(fmtDateTime(r.assinado_em))}</span>` 
+          : `<span style="color: #94a3b8; font-size: 13px;">—</span>`
+        }
+      </td>
+    </tr>
+  `;
+  }).join('');
+
+  tbody.innerHTML = html;
+
+  // Bind individual toggle switch change
+  $$('.ia-perm-toggle', tbody).forEach((toggle) => {
+    toggle.onchange = async (e) => {
+      const cpf = e.target.dataset.cpf;
+      const permitido = e.target.checked;
+      try {
+        const res = await api('/treinamento-ia/toggle-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpf, permitido }),
+        }).then((r) => r.json());
+
+        if (!res.ok) throw new Error(res.error || 'Erro ao atualizar');
+        toast('success', `Permissão ${permitido ? 'habilitada' : 'desabilitada'} com sucesso.`);
+        loadTreinamentoIa();
+      } catch (err) {
+        e.target.checked = !permitido;
+        toast('error', 'Erro ao alterar permissão', err.message);
+      }
+    };
+  });
+
+  // Bind checkboxes
+  $$('.ia-row-check', tbody).forEach((cb) => {
+    cb.onchange = (e) => {
+      const cpf = e.target.dataset.cpf;
+      if (e.target.checked) selectedIaCpfs.add(cpf);
+      else selectedIaCpfs.delete(cpf);
+      updateIaBulkBar();
+    };
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
    Pesquisa de Cultura Revalle Dashboard
    ════════════════════════════════════════════════════════════════ */
 async function loadPesquisaCultura() {
@@ -1358,6 +1513,66 @@ function bind() {
   // filtros treinamento solides
   if ($('#solidesStatus')) $('#solidesStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#solidesStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.solides.status = s.dataset.val; state.solides.page = 1; loadSolides(); };
   if ($('#solidesSearch')) $('#solidesSearch').oninput = debounce((e) => { state.solides.search = e.target.value.trim(); state.solides.page = 1; loadSolides(); });
+
+  // filtros treinamento IA
+  if ($('#iaStatus')) $('#iaStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#iaStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.ia.status = s.dataset.val; state.ia.page = 1; loadTreinamentoIa(); };
+  if ($('#iaUnidade')) $('#iaUnidade').onchange = (e) => { state.ia.unidade = e.target.value; state.ia.page = 1; loadTreinamentoIa(); };
+  if ($('#iaSetor')) $('#iaSetor').onchange = (e) => { state.ia.setor = e.target.value; state.ia.page = 1; loadTreinamentoIa(); };
+  if ($('#iaCargo')) $('#iaCargo').onchange = (e) => { state.ia.cargo = e.target.value; state.ia.page = 1; loadTreinamentoIa(); };
+  if ($('#iaSearch')) $('#iaSearch').oninput = debounce((e) => { state.ia.search = e.target.value.trim(); state.ia.page = 1; loadTreinamentoIa(); });
+
+  // Check all IA
+  if ($('#iaCheckAll')) {
+    $('#iaCheckAll').onchange = (e) => {
+      const checked = e.target.checked;
+      $$('.ia-row-check', $('#iaBody')).forEach((cb) => {
+        cb.checked = checked;
+        const cpf = cb.dataset.cpf;
+        if (checked) selectedIaCpfs.add(cpf);
+        else selectedIaCpfs.delete(cpf);
+      });
+      updateIaBulkBar();
+    };
+  }
+
+  // Ações em lote IA
+  if ($('#btnIaBulkAllow')) {
+    $('#btnIaBulkAllow').onclick = async () => {
+      const cpfs = [...selectedIaCpfs];
+      if (!cpfs.length) return;
+      try {
+        const res = await api('/treinamento-ia/bulk-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpfs, permitido: true }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Erro');
+        toast('success', `${cpfs.length} colaborador${cpfs.length > 1 ? 'es habilitados' : ' habilitado'} com sucesso!`);
+        selectedIaCpfs.clear();
+        loadTreinamentoIa();
+      } catch (err) {
+        toast('error', 'Erro ao habilitar em lote', err.message);
+      }
+    };
+  }
+
+  if ($('#btnIaBulkDisallow')) {
+    $('#btnIaBulkDisallow').onclick = async () => {
+      const cpfs = [...selectedIaCpfs];
+      if (!cpfs.length) return;
+      try {
+        const res = await api('/treinamento-ia/bulk-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpfs, permitido: false }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Erro');
+        toast('success', `${cpfs.length} colaborador${cpfs.length > 1 ? 'es desabilitados' : ' desabilitado'} com sucesso!`);
+        selectedIaCpfs.clear();
+        loadTreinamentoIa();
+      } catch (err) {
+        toast('error', 'Erro ao desabilitar em lote', err.message);
+      }
+    };
+  }
 
   // sub-tabs e filtros pesquisa cultura
   if ($('#tabCulturaRespostas')) $('#tabCulturaRespostas').onclick = () => switchCulturaSubTab('respostas');

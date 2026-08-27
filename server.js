@@ -9,6 +9,9 @@ const {
   // treinamento solides
   findSolidesColaboradorByCpf, assinarTermoSolides, listSolidesColaboradores, getSolidesStats,
   toggleSolidesPermissao, bulkSetSolidesPermissoes,
+  // treinamento ia e intranet
+  findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
+  toggleIaPermissao, bulkSetIaPermissoes,
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
   getPesquisaCulturaById, getPesquisaCulturaStats, listPesquisaCulturaAdesao,
@@ -102,6 +105,10 @@ app.get('/imersao-tess-form', (_req, res) => {
 
 app.get('/treinamento-solides', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'treinamento-solides.html'));
+});
+
+app.get(['/treinamento-ia', '/treinamento-ia-intranet', '/termo-ia'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'treinamento-ia.html'));
 });
 
 app.get('/pesquisa-cultura', (_req, res) => {
@@ -528,6 +535,113 @@ app.post('/api/treinamento-solides/assinar', async (req, res) => {
     });
   } catch (err) {
     console.error('[treinamento-solides/assinar] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
+  }
+});
+
+/* ── Treinamento de IA, LGPD e Intranet APIs ── */
+
+app.post('/api/treinamento-ia/check-cpf', antiBotRateLimiter({ maxPerMinute: 20, cooldownMinutes: 3 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits) {
+    return res.status(400).json({ ok: false, error: 'Informe o número do CPF.' });
+  }
+  if (!isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+  }
+
+  try {
+    const colab = await findIaColaboradorByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({
+        ok: false,
+        not_found: true,
+        error: 'CPF não localizado no cadastro da Revalle. Verifique o número digitado ou contate o setor de TI / RH.',
+      });
+    }
+
+    if (colab.inativo) {
+      return res.status(403).json({
+        ok: false,
+        inativo: true,
+        nome_completo: colab.nome_completo,
+        error: `Olá, ${colab.nome_completo}! Seu cadastro consta como inativo no sistema da Revalle. O acesso é restrito a colaboradores ativos.`,
+      });
+    }
+
+    if (!colab.permitido) {
+      return res.status(403).json({
+        ok: false,
+        not_permitted: true,
+        nome_completo: colab.nome_completo,
+        error: `Olá, ${colab.nome_completo}! Seu cadastro foi localizado, porém você ainda não foi liberado no painel para responder ao Treinamento de IA, LGPD e Intranet. Solicite a liberação ao seu gestor ou ao setor de TI/RH.`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      colaborador: {
+        id: colab.id,
+        nome_completo: colab.nome_completo,
+        cargo: colab.cargo,
+        setor: colab.setor,
+        unidade: colab.unidade,
+        assinado: colab.assinado,
+        assinado_em: colab.assinado_em,
+        protocolo: '#TIA-' + String(colab.id).padStart(5, '0'),
+      },
+    });
+  } catch (err) {
+    console.error('[treinamento-ia/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao consultar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/treinamento-ia/assinar', async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+
+  const aceitou = Boolean(req.body && req.body.aceitou_termos);
+  if (!aceitou) {
+    return res.status(400).json({ ok: false, error: 'É necessário declarar ciência e concordância com os termos para assinar.' });
+  }
+
+  try {
+    const colab = await findIaColaboradorByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({ ok: false, error: 'Colaborador não encontrado.' });
+    }
+    if (!colab.permitido) {
+      return res.status(403).json({ ok: false, error: 'Colaborador não está habilitado para responder a este treinamento.' });
+    }
+    if (colab.assinado) {
+      return res.status(409).json({
+        ok: false,
+        already_signed: true,
+        error: 'Este termo já foi assinado anteriormente.',
+        assinado_em: colab.assinado_em,
+        protocolo: '#TIA-' + String(colab.id).padStart(5, '0'),
+      });
+    }
+
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').slice(0, 45);
+    const updated = await assinarTermoIa(cpfDigits, ip);
+
+    return res.json({
+      ok: true,
+      protocolo: '#TIA-' + String(updated.id).padStart(5, '0'),
+      nome_completo: updated.nome_completo,
+      assinado_em: updated.assinado_em,
+    });
+  } catch (err) {
+    console.error('[treinamento-ia/assinar] erro:', err);
     return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
   }
 });
@@ -1052,11 +1166,12 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       });
     }
 
-    const [firewall, contratos, tess, solides, cultura] = await Promise.all([
+    const [firewall, contratos, tess, solides, treinamento_ia, cultura] = await Promise.all([
       getFirewallStats(),
       getContractStats(),
       getImersaoTessStats().catch(() => ({ total: 0 })),
       getSolidesStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0 })),
+      getIaStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0 })),
       getPesquisaCulturaStats().catch(() => ({ total: 0 })),
     ]);
     res.json({
@@ -1065,6 +1180,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       contratos,
       tess,
       solides,
+      treinamento_ia,
       cultura,
       generated_at: new Date().toISOString(),
     });
@@ -1348,6 +1464,98 @@ app.get('/api/dashboard/export/solides.csv', requireRole(['admin']), async (req,
     ], rows);
   } catch (err) {
     console.error('[export/solides] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
+});
+
+/* ── Dashboard Treinamento IA, LGPD e Intranet ── */
+app.get('/api/dashboard/treinamento-ia', requireRole(['admin']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const [listResult, stats] = await Promise.all([
+      listIaColaboradores({
+        status: req.query.status,
+        setor: req.query.setor,
+        unidade: req.query.unidade,
+        cargo: req.query.cargo,
+        search: req.query.search,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      }),
+      getIaStats(),
+    ]);
+
+    res.json({
+      ok: true,
+      rows: listResult.rows,
+      total: listResult.total,
+      page,
+      pageSize,
+      stats,
+    });
+  } catch (err) {
+    console.error('[dashboard/treinamento-ia] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar colaboradores do treinamento de IA.' });
+  }
+});
+
+app.post('/api/dashboard/treinamento-ia/toggle-permission', requireRole(['admin']), async (req, res) => {
+  const cpf = onlyDigits(req.body ? req.body.cpf : '');
+  const permitido = Boolean(req.body && req.body.permitido);
+  if (!cpf || cpf.length !== 11) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+  try {
+    const result = await toggleIaPermissao(cpf, permitido);
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error('[dashboard/treinamento-ia/toggle-permission] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao alterar permissão.' });
+  }
+});
+
+app.post('/api/dashboard/treinamento-ia/bulk-permission', requireRole(['admin']), async (req, res) => {
+  const cpfs = Array.isArray(req.body ? req.body.cpfs : null) ? req.body.cpfs : [];
+  const permitido = Boolean(req.body && req.body.permitido);
+  if (!cpfs.length) {
+    return res.status(400).json({ ok: false, error: 'Nenhum CPF informado.' });
+  }
+  try {
+    const result = await bulkSetIaPermissoes(cpfs, permitido);
+    res.json({ ok: true, count: result.count });
+  } catch (err) {
+    console.error('[dashboard/treinamento-ia/bulk-permission] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao aplicar permissões em lote.' });
+  }
+});
+
+app.get('/api/dashboard/export/treinamento-ia.csv', requireRole(['admin']), async (req, res) => {
+  try {
+    const { rows } = await listIaColaboradores({
+      status: req.query.status,
+      setor: req.query.setor,
+      unidade: req.query.unidade,
+      cargo: req.query.cargo,
+      search: req.query.search,
+      limit: 50000,
+      offset: 0,
+    });
+
+    sendCsv(res, 'treinamento-ia-lgpd-intranet', [
+      { label: 'Protocolo', get: (r) => r.assinado ? '#TIA-' + String(r.id).padStart(5, '0') : '' },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
+      { label: 'Permissao', get: (r) => r.permitido ? 'Habilitado' : 'Nao Habilitado' },
+      { label: 'Status Assinatura', get: (r) => r.assinado ? 'Assinado' : 'Pendente' },
+      { label: 'Data Assinatura', get: (r) => r.assinado_em ? formatDateTimeBr(r.assinado_em) : '' },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'IP Assinatura', get: (r) => r.ip || '' },
+    ], rows);
+  } catch (err) {
+    console.error('[export/treinamento-ia] erro:', err);
     res.status(500).send('Erro ao exportar.');
   }
 });
