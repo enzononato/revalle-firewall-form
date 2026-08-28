@@ -8,9 +8,9 @@ const state = {
   user: null,
   summary: null,
   fw: { status: '', unidade: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
-  ct: { vigencia: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
+  ct: { vigencia: '', setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
-  solides: { status: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
+  solides: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ia: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
@@ -365,10 +365,43 @@ function renderContratoMiniKpis(k) {
 }
 
 function populateFilters(d) {
-  const fwU = $('#fwUnidade'), fwS = $('#fwSetor'), ctS = $('#ctSetor');
-  if (fwU.options.length <= 1) d.firewall.byUnidade.forEach((r) => fwU.add(new Option(r.unidade, r.unidade)));
-  if (fwS.options.length <= 1) d.firewall.bySetor.forEach((r) => fwS.add(new Option(r.setor, r.setor)));
-  if (ctS.options.length <= 1) d.contratos.bySetor.forEach((r) => ctS.add(new Option(r.setor, r.setor)));
+  const fwU = $('#fwUnidade'), fwS = $('#fwSetor');
+  const ctS = $('#ctSetor'), ctR = $('#ctRevenda');
+  const tessS = $('#tessSetor'), tessR = $('#tessRevenda');
+  const solU = $('#solidesUnidade'), solS = $('#solidesSetor'), solC = $('#solidesCargo');
+  const iaU = $('#iaUnidade'), iaS = $('#iaSetor'), iaC = $('#iaCargo');
+  const cultU = $('#culturaUnidade'), cultA = $('#culturaArea');
+  const cultAdU = $('#culturaAdesaoUnidade'), cultAdS = $('#culturaAdesaoSetor'), cultAdC = $('#culturaAdesaoCargo');
+
+  const unidades = (d.filterOptions && d.filterOptions.unidades) || d.unidades_validas || [];
+  const setores = (d.filterOptions && d.filterOptions.setores) || d.setores_validos || [];
+  const cargos = (d.filterOptions && d.filterOptions.cargos) || [];
+  const revendas = d.revendas_validas || unidades;
+  const setoresContratos = d.setores_contratos_validos || setores;
+
+  populateSelectOptions(fwU, unidades, state.fw.unidade, 'Todas as unidades');
+  populateSelectOptions(fwS, setores, state.fw.setor, 'Todos os setores');
+
+  populateSelectOptions(ctS, setoresContratos, state.ct.setor, 'Todos os setores');
+  populateSelectOptions(ctR, revendas, state.ct.revenda, 'Todas as revendas');
+
+  populateSelectOptions(tessS, setores, state.tess.setor, 'Todos os setores');
+  populateSelectOptions(tessR, revendas, state.tess.revenda, 'Todas as revendas');
+
+  populateSelectOptions(solU, unidades, state.solides.unidade, 'Todas as unidades');
+  populateSelectOptions(solS, setores, state.solides.setor, 'Todos os setores');
+  populateSelectOptions(solC, cargos, state.solides.cargo, 'Todos os cargos');
+
+  populateSelectOptions(iaU, unidades, state.ia.unidade, 'Todas as unidades');
+  populateSelectOptions(iaS, setores, state.ia.setor, 'Todos os setores');
+  populateSelectOptions(iaC, cargos, state.ia.cargo, 'Todos os cargos');
+
+  populateSelectOptions(cultU, unidades, state.cultura.unidade, 'Todas as unidades');
+  populateSelectOptions(cultA, setores, state.cultura.area, 'Todas as áreas');
+
+  populateSelectOptions(cultAdU, unidades, state.culturaAdesao.unidade, 'Todas as unidades');
+  populateSelectOptions(cultAdS, setores, state.culturaAdesao.setor, 'Todos os setores');
+  populateSelectOptions(cultAdC, cargos, state.culturaAdesao.cargo, 'Todos os cargos');
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -497,6 +530,7 @@ function ctQuery() {
   const f = state.ct; const p = new URLSearchParams();
   if (f.vigencia) p.set('vigencia', f.vigencia);
   if (f.setor) p.set('setor', f.setor);
+  if (f.revenda) p.set('revenda', f.revenda);
   if (f.search) p.set('search', f.search);
   return p;
 }
@@ -683,10 +717,12 @@ function renderTess(rows, total) {
 const selectedSolidesCpfs = new Set();
 
 async function loadSolides() {
-  const { status, setor, search, page, pageSize } = state.solides;
+  const { status, unidade, setor, cargo, search, page, pageSize } = state.solides;
   const query = new URLSearchParams({ page, pageSize });
   if (status) query.set('status', status);
+  if (unidade) query.set('unidade', unidade);
   if (setor) query.set('setor', setor);
+  if (cargo) query.set('cargo', cargo);
   if (search) query.set('search', search);
 
   if ($('#solidesExport')) $('#solidesExport').href = `${API}/export/solides.csv?${query.toString()}`;
@@ -708,6 +744,9 @@ async function loadSolides() {
         $('#navSolidesPending').textContent = res.stats.pendentes || 0;
         $('#navSolidesPending').hidden = (res.stats.pendentes || 0) === 0;
       }
+      if (res.stats.unidades) populateSelectOptions($('#solidesUnidade'), res.stats.unidades, state.solides.unidade, 'Todas as unidades');
+      if (res.stats.setores) populateSelectOptions($('#solidesSetor'), res.stats.setores, state.solides.setor, 'Todos os setores');
+      if (res.stats.cargos) populateSelectOptions($('#solidesCargo'), res.stats.cargos, state.solides.cargo, 'Todos os cargos');
     }
 
     renderSolides(res.rows, res.total);
@@ -853,6 +892,9 @@ async function loadTreinamentoIa() {
         $('#navIaPending').textContent = res.stats.pendentes || 0;
         $('#navIaPending').hidden = (res.stats.pendentes || 0) === 0;
       }
+      if (res.stats.unidades) populateSelectOptions($('#iaUnidade'), res.stats.unidades, state.ia.unidade, 'Todas as unidades');
+      if (res.stats.setores) populateSelectOptions($('#iaSetor'), res.stats.setores, state.ia.setor, 'Todos os setores');
+      if (res.stats.cargos) populateSelectOptions($('#iaCargo'), res.stats.cargos, state.ia.cargo, 'Todos os cargos');
     }
 
     renderTreinamentoIa(res.rows, res.total);
@@ -1131,21 +1173,28 @@ function switchCulturaSubTab(subTab) {
 }
 
 function populateSelectOptions(selectEl, items, currentVal, defaultLabel) {
-  if (!selectEl || !Array.isArray(items) || !items.length) return;
-  const currentOptions = selectEl.querySelectorAll('option');
-  // Se já foi populado com a mesma quantidade de itens, apenas atualiza a seleção
-  if (currentOptions.length === items.length + 1 && selectEl.dataset.populated === 'true') {
-    selectEl.value = currentVal || '';
-    return;
+  if (!selectEl) return;
+  const list = Array.isArray(items) ? items : [];
+  const cleanCurrent = String(currentVal || '').trim();
+
+  // Deduplica preservando valores únicos
+  const uniqueItems = Array.from(new Set(list.map((i) => typeof i === 'object' && i !== null ? (i.label || i.unidade || i.setor || i.revenda || '') : String(i || '').trim()))).filter(Boolean);
+
+  if (!uniqueItems.length) return;
+
+  const currentOpts = Array.from(selectEl.querySelectorAll('option')).map((o) => o.value);
+  const sameItems = currentOpts.length === uniqueItems.length + 1 && uniqueItems.every((it) => currentOpts.includes(it));
+
+  if (!sameItems) {
+    const opts = [`<option value="">${defaultLabel || 'Todos'}</option>`];
+    for (const item of uniqueItems) {
+      const isSelected = item.toLowerCase() === cleanCurrent.toLowerCase() ? 'selected' : '';
+      opts.push(`<option value="${esc(item)}" ${isSelected}>${esc(item)}</option>`);
+    }
+    selectEl.innerHTML = opts.join('');
   }
-  const opts = [`<option value="">${defaultLabel}</option>`];
-  for (const item of items) {
-    if (!item) continue;
-    const isSelected = String(item).toLowerCase() === String(currentVal || '').toLowerCase() ? 'selected' : '';
-    opts.push(`<option value="${esc(item)}" ${isSelected}>${esc(item)}</option>`);
-  }
-  selectEl.innerHTML = opts.join('');
-  selectEl.dataset.populated = 'true';
+
+  selectEl.value = cleanCurrent;
 }
 
 async function loadPesquisaCulturaAdesao() {
@@ -1450,6 +1499,7 @@ function bind() {
     if (state.view === 'contratos') await loadContratos();
     if (state.view === 'tess') await loadTess();
     if (state.view === 'solides') await loadSolides();
+    if (state.view === 'treinamento-ia') await loadTreinamentoIa();
     if (state.view === 'cultura') await loadPesquisaCultura();
     if (state.view === 'usuarios') await loadUsuarios();
     setTimeout(() => b.classList.remove('refreshing'), 500);
@@ -1503,6 +1553,7 @@ function bind() {
   // filtros contratos
   $('#ctVigencia').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#ctVigencia .seg').forEach((x) => x.classList.toggle('active', x === s)); state.ct.vigencia = s.dataset.val; state.ct.page = 1; loadContratos(); };
   $('#ctSetor').onchange = (e) => { state.ct.setor = e.target.value; state.ct.page = 1; loadContratos(); };
+  if ($('#ctRevenda')) $('#ctRevenda').onchange = (e) => { state.ct.revenda = e.target.value; state.ct.page = 1; loadContratos(); };
   $('#ctSearch').oninput = debounce((e) => { state.ct.search = e.target.value.trim(); state.ct.page = 1; loadContratos(); });
 
   // filtros imersão tess
@@ -1512,6 +1563,9 @@ function bind() {
 
   // filtros treinamento solides
   if ($('#solidesStatus')) $('#solidesStatus').onclick = (e) => { const s = e.target.closest('.seg'); if (!s) return; $$('#solidesStatus .seg').forEach((x) => x.classList.toggle('active', x === s)); state.solides.status = s.dataset.val; state.solides.page = 1; loadSolides(); };
+  if ($('#solidesUnidade')) $('#solidesUnidade').onchange = (e) => { state.solides.unidade = e.target.value; state.solides.page = 1; loadSolides(); };
+  if ($('#solidesSetor')) $('#solidesSetor').onchange = (e) => { state.solides.setor = e.target.value; state.solides.page = 1; loadSolides(); };
+  if ($('#solidesCargo')) $('#solidesCargo').onchange = (e) => { state.solides.cargo = e.target.value; state.solides.page = 1; loadSolides(); };
   if ($('#solidesSearch')) $('#solidesSearch').oninput = debounce((e) => { state.solides.search = e.target.value.trim(); state.solides.page = 1; loadSolides(); });
 
   // filtros treinamento IA

@@ -206,9 +206,10 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="text" id="ctSearch" placeholder="Buscar razão social, CNPJ…" />
           </div>
-          <select class="select" id="ctSetor"><option value="">Todos setores</option></select>
+          <select class="select" id="ctSetor"><option value="">Todos os setores</option></select>
+          <select class="select" id="ctRevenda"><option value="">Todas as revendas</option></select>
           <a class="btn-export" id="ctExport" href="#">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             CSV
           </a>
         </div>
@@ -232,10 +233,10 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="text" id="tessSearch" placeholder="Buscar nome, e-mail, telefone…" />
           </div>
-          <select class="select" id="tessSetor"><option value="">Todos setores</option></select>
-          <select class="select" id="tessRevenda"><option value="">Todas revendas</option></select>
+          <select class="select" id="tessSetor"><option value="">Todos os setores</option></select>
+          <select class="select" id="tessRevenda"><option value="">Todas as revendas</option></select>
           <a class="btn-export" id="tessExport" href="/api/dashboard/export/imersao-tess.csv">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar CSV
           </a>
         </div>
@@ -284,6 +285,15 @@
             <button class="seg" data-val="assinado">Assinados</button>
             <button class="seg" data-val="pendente">Pendentes</button>
           </div>
+          <select class="filter-select" id="solidesUnidade" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todas as unidades</option>
+          </select>
+          <select class="filter-select" id="solidesSetor" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os setores</option>
+          </select>
+          <select class="filter-select" id="solidesCargo" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os cargos</option>
+          </select>
           <div class="toolbar-spacer"></div>
           <div class="search">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>

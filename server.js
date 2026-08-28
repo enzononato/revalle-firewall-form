@@ -12,6 +12,8 @@ const {
   // treinamento ia e intranet
   findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
   toggleIaPermissao, bulkSetIaPermissoes,
+  // utilitários de filtros
+  getColaboradoresFilterOptions,
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
   getPesquisaCulturaById, getPesquisaCulturaStats, listPesquisaCulturaAdesao,
@@ -1166,13 +1168,14 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       });
     }
 
-    const [firewall, contratos, tess, solides, treinamento_ia, cultura] = await Promise.all([
+    const [firewall, contratos, tess, solides, treinamento_ia, cultura, filterOptions] = await Promise.all([
       getFirewallStats(),
       getContractStats(),
-      getImersaoTessStats().catch(() => ({ total: 0 })),
-      getSolidesStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0 })),
-      getIaStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0 })),
+      getImersaoTessStats().catch(() => ({ total: 0, byRevenda: [], bySetor: [] })),
+      getSolidesStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0, unidades: [], setores: [], cargos: [] })),
+      getIaStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0, unidades: [], setores: [], cargos: [] })),
       getPesquisaCulturaStats().catch(() => ({ total: 0 })),
+      getColaboradoresFilterOptions().catch(() => ({ unidades: [], setores: [], cargos: [] })),
     ]);
     res.json({
       ok: true,
@@ -1182,6 +1185,11 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       solides,
       treinamento_ia,
       cultura,
+      filterOptions,
+      unidades_validas: UNIDADES_VALIDAS,
+      setores_validos: SETORES_VALIDOS,
+      revendas_validas: REVENDAS_CONTRATOS_VALIDAS,
+      setores_contratos_validos: SETORES_CONTRATOS_VALIDOS,
       generated_at: new Date().toISOString(),
     });
   } catch (err) {
@@ -1388,6 +1396,7 @@ app.get('/api/dashboard/solides', requireRole(['admin']), async (req, res) => {
         status: req.query.status,
         setor: req.query.setor,
         unidade: req.query.unidade,
+        cargo: req.query.cargo,
         search: req.query.search,
         limit: pageSize,
         offset: (page - 1) * pageSize,
@@ -1445,6 +1454,7 @@ app.get('/api/dashboard/export/solides.csv', requireRole(['admin']), async (req,
       status: req.query.status,
       setor: req.query.setor,
       unidade: req.query.unidade,
+      cargo: req.query.cargo,
       search: req.query.search,
       limit: 50000,
       offset: 0,

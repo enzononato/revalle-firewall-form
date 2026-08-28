@@ -1015,146 +1015,195 @@ async function assinarTermoSolides(cpf, ip = '') {
   return rows[0] ? { ...rows[0], assinado: true } : null;
 }
 
+async function getColaboradoresFilterOptions() {
+  try {
+    const schema = await getColaboradorTableSchema();
+    const table = schema.table;
+    const { rows } = await pool.query(`SELECT * FROM ${table}`);
+
+    const unidadesSet = new Set();
+    const setoresSet = new Set();
+    const cargosSet = new Set();
+
+    for (const r of rows) {
+      const mapped = mapColaboradorRow(r, schema);
+      if (mapped.unidade) unidadesSet.add(mapped.unidade);
+      if (mapped.setor) setoresSet.add(mapped.setor);
+      if (mapped.cargo) cargosSet.add(mapped.cargo);
+    }
+
+    const defaultUnidades = [
+      'Revalle Juazeiro', 'Revalle Petrolina', 'Revalle Paulo Afonso',
+      'Revalle Serrinha', 'Revalle Alagoinhas', 'Revalle Ribeira do Pombal',
+      'Revalle Senhor do Bonfim', 'Revalle Pernambuco',
+    ];
+    defaultUnidades.forEach((u) => unidadesSet.add(u));
+
+    const defaultSetores = [
+      'Comercial', 'Logística', 'Administrativo', 'Financeiro',
+      'TI', 'DP', 'RH', 'Diretoria', 'Marketing', 'Controladoria',
+      'Contabilidade', 'Armazém', 'Puxada', 'Distribuição', 'Processos', 'Compras', 'TST',
+    ];
+    defaultSetores.forEach((s) => setoresSet.add(s));
+
+    const unidades = [...unidadesSet].sort((a, b) => a.localeCompare(b));
+    const setores = [...setoresSet].sort((a, b) => a.localeCompare(b));
+    const cargos = [...cargosSet].sort((a, b) => a.localeCompare(b));
+
+    return { unidades, setores, cargos };
+  } catch (err) {
+    console.error('[db] erro ao obter opcoes de filtros de colaboradores:', err.message);
+    return {
+      unidades: [
+        'Revalle Juazeiro', 'Revalle Petrolina', 'Revalle Paulo Afonso',
+        'Revalle Serrinha', 'Revalle Alagoinhas', 'Revalle Ribeira do Pombal',
+        'Revalle Senhor do Bonfim', 'Revalle Pernambuco',
+      ],
+      setores: [
+        'Comercial', 'Logística', 'Administrativo', 'Financeiro',
+        'TI', 'DP', 'RH', 'Diretoria', 'Marketing', 'Controladoria',
+        'Contabilidade', 'Armazém', 'Puxada', 'Distribuição', 'Processos', 'Compras', 'TST',
+      ],
+      cargos: [],
+    };
+  }
+}
+
 async function listSolidesColaboradores(filters = {}) {
   const schema = await getColaboradorTableSchema();
   const table = schema.table;
-  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
-
-  const conds = [];
-  const params = [];
-  const add = (val) => { params.push(val); return `$${params.length}`; };
-
-  if (filters.status === 'permitido') {
-    conds.push(`COALESCE(p.permitido, FALSE) = TRUE`);
-  } else if (filters.status === 'nao_permitido') {
-    conds.push(`COALESCE(p.permitido, FALSE) = FALSE`);
-  } else if (filters.status === 'assinado') {
-    conds.push(`s.id IS NOT NULL`);
-  } else if (filters.status === 'pendente') {
-    conds.push(`s.id IS NULL AND COALESCE(p.permitido, FALSE) = TRUE`);
-  }
-
-  if (filters.setor && schema.setorCol) {
-    conds.push(`c."${schema.setorCol}" = ${add(filters.setor)}`);
-  }
-  if (filters.unidade && schema.unidadeCol) {
-    conds.push(`c."${schema.unidadeCol}" = ${add(filters.unidade)}`);
-  }
-
-  if (filters.search) {
-    const term = `%${filters.search.toLowerCase()}%`;
-    const p = add(term);
-    const searchParts = [];
-    if (schema.nomeCol) searchParts.push(`LOWER(c."${schema.nomeCol}"::text) LIKE ${p}`);
-    if (schema.cpfCol) searchParts.push(`regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g') LIKE ${p}`);
-    if (schema.cargoCol) searchParts.push(`LOWER(c."${schema.cargoCol}"::text) LIKE ${p}`);
-    if (schema.setorCol) searchParts.push(`LOWER(c."${schema.setorCol}"::text) LIKE ${p}`);
-
-    if (searchParts.length > 0) {
-      conds.push(`(${searchParts.join(' OR ')})`);
-    }
-  }
-
-  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
-  const offset = Math.max(Number(filters.offset) || 0, 0);
-
-  const dataParams = params.slice();
-  dataParams.push(limit); const limIdx = dataParams.length;
-  dataParams.push(offset); const offIdx = dataParams.length;
-
-  const orderExpr = schema.nomeCol ? `c."${schema.nomeCol}" ASC` : `c.ctid ASC`;
-
-  const dataSql = `
-    SELECT
-      c.*,
-      s.id AS assinatura_id,
-      s.assinado_em,
-      s.ip,
-      (s.id IS NOT NULL) AS assinado,
-      COALESCE(p.permitido, FALSE) AS permitido
-    FROM ${table} c
-    LEFT JOIN solides_treinamento_permissoes p
-      ON ${cpfExpr} = p.cpf
-    LEFT JOIN solides_treinamento_assinaturas s
-      ON ${cpfExpr} = s.cpf
-    ${where}
-    ORDER BY
-      CASE WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL THEN 0
-           WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NOT NULL THEN 1
-           ELSE 2 END,
-      ${orderExpr}
-    LIMIT $${limIdx} OFFSET $${offIdx}
-  `;
-
-  const countSql = `
-    SELECT COUNT(*)::int AS total
-    FROM ${table} c
-    LEFT JOIN solides_treinamento_permissoes p
-      ON ${cpfExpr} = p.cpf
-    LEFT JOIN solides_treinamento_assinaturas s
-      ON ${cpfExpr} = s.cpf
-    ${where}
-  `;
 
   try {
-    const [dataRes, countRes] = await Promise.all([
-      pool.query(dataSql, dataParams),
-      pool.query(countSql, params),
+    const [colabRes, permRes, sigRes] = await Promise.all([
+      pool.query(`SELECT * FROM ${table}`),
+      pool.query(`SELECT cpf, permitido FROM solides_treinamento_permissoes`),
+      pool.query(`SELECT id, cpf, assinado_em, ip FROM solides_treinamento_assinaturas`),
     ]);
 
-    const formattedRows = dataRes.rows.map((row) => {
+    const permMap = new Map();
+    for (const p of permRes.rows) permMap.set(p.cpf, Boolean(p.permitido));
+
+    const sigMap = new Map();
+    for (const s of sigRes.rows) sigMap.set(s.cpf, s);
+
+    const allColabs = colabRes.rows.map((row) => {
       const mapped = mapColaboradorRow(row, schema);
+      const sig = sigMap.get(mapped.cpf) || null;
+      const permitido = permMap.has(mapped.cpf) ? permMap.get(mapped.cpf) : false;
+      const assinado = Boolean(sig);
+
       return {
-        id: row.assinatura_id || row.id || null,
+        id: sig ? sig.id : null,
         cpf: mapped.cpf,
         nome_completo: mapped.nome_completo,
         cargo: mapped.cargo,
         setor: mapped.setor,
         unidade: mapped.unidade,
-        permitido: Boolean(row.permitido),
-        assinado: Boolean(row.assinado),
-        assinado_em: row.assinado_em,
-        ip: row.ip,
+        status: mapped.status,
+        inativo: mapped.inativo,
+        permitido,
+        assinado,
+        assinado_em: sig ? sig.assinado_em : null,
+        ip: sig ? sig.ip : null,
       };
     });
 
-    return { rows: formattedRows, total: countRes.rows[0].total };
+    const baseAtivos = allColabs.filter((c) => !c.inativo && c.cpf.length === 11);
+
+    const total_base = baseAtivos.length;
+    const total_permitidos = baseAtivos.filter((c) => c.permitido).length;
+    const assinados = baseAtivos.filter((c) => c.assinado).length;
+    const pendentes = baseAtivos.filter((c) => c.permitido && !c.assinado).length;
+    const taxa_adesao = total_permitidos > 0 ? Number(((assinados / total_permitidos) * 100).toFixed(1)) : 0;
+
+    const unidades = [...new Set(baseAtivos.map((c) => c.unidade).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const setores = [...new Set(baseAtivos.map((c) => c.setor).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const cargos = [...new Set(baseAtivos.map((c) => c.cargo).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+    let filtered = baseAtivos;
+
+    if (filters.status === 'permitido') {
+      filtered = filtered.filter((c) => c.permitido);
+    } else if (filters.status === 'nao_permitido') {
+      filtered = filtered.filter((c) => !c.permitido);
+    } else if (filters.status === 'assinado') {
+      filtered = filtered.filter((c) => c.assinado);
+    } else if (filters.status === 'pendente') {
+      filtered = filtered.filter((c) => c.permitido && !c.assinado);
+    }
+
+    if (filters.unidade) {
+      const uFilter = filters.unidade.toLowerCase();
+      filtered = filtered.filter((c) => (c.unidade || '').toLowerCase() === uFilter || (c.unidade || '').toLowerCase().includes(uFilter));
+    }
+
+    if (filters.setor) {
+      const sFilter = filters.setor.toLowerCase();
+      filtered = filtered.filter((c) => (c.setor || '').toLowerCase() === sFilter || (c.setor || '').toLowerCase().includes(sFilter));
+    }
+
+    if (filters.cargo) {
+      const cFilter = filters.cargo.toLowerCase();
+      filtered = filtered.filter((c) => (c.cargo || '').toLowerCase() === cFilter || (c.cargo || '').toLowerCase().includes(cFilter));
+    }
+
+    if (filters.search) {
+      const term = filters.search.toLowerCase();
+      filtered = filtered.filter((c) =>
+        c.nome_completo.toLowerCase().includes(term) ||
+        c.cpf.includes(term) ||
+        c.cargo.toLowerCase().includes(term) ||
+        c.setor.toLowerCase().includes(term) ||
+        c.unidade.toLowerCase().includes(term)
+      );
+    }
+
+    filtered.sort((a, b) => {
+      const aPend = a.permitido && !a.assinado;
+      const bPend = b.permitido && !b.assinado;
+      if (aPend !== bPend) return aPend ? -1 : 1;
+      const aAss = a.permitido && a.assinado;
+      const bAss = b.permitido && b.assinado;
+      if (aAss !== bAss) return aAss ? -1 : 1;
+      return a.nome_completo.localeCompare(b.nome_completo);
+    });
+
+    const total = filtered.length;
+    const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
+    const offset = Math.max(Number(filters.offset) || 0, 0);
+    const pagedRows = filtered.slice(offset, offset + limit);
+
+    return {
+      rows: pagedRows,
+      total,
+      stats: {
+        total_base,
+        total_permitidos,
+        assinados,
+        pendentes,
+        taxa_adesao,
+        unidades,
+        setores,
+        cargos,
+      },
+    };
   } catch (err) {
-    console.error(`[db] erro ao listar colaboradores de ${table}:`, err);
-    return { rows: [], total: 0 };
+    console.error(`[db] erro ao listar colaboradores de Sólides em ${table}:`, err);
+    return {
+      rows: [],
+      total: 0,
+      stats: { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0, unidades: [], setores: [], cargos: [] },
+    };
   }
 }
 
 async function getSolidesStats() {
-  const schema = await getColaboradorTableSchema();
-  const table = schema.table;
-  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
-
   try {
-    const { rows } = await pool.query(`
-      SELECT
-        COUNT(c.*)::int AS total_base,
-        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::int AS total_permitidos,
-        COUNT(s.id)::int AS assinados,
-        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL)::int AS pendentes,
-        CASE
-          WHEN COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE) > 0
-          THEN ROUND((COUNT(s.id)::numeric / COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::numeric) * 100, 1)
-          ELSE 0
-        END::float AS taxa_adesao
-      FROM ${table} c
-      LEFT JOIN solides_treinamento_permissoes p
-        ON ${cpfExpr} = p.cpf
-      LEFT JOIN solides_treinamento_assinaturas s
-        ON ${cpfExpr} = s.cpf
-    `);
-    return rows[0] || { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
+    const res = await listSolidesColaboradores({ limit: 1, offset: 0 });
+    return res.stats;
   } catch (err) {
-    console.error(`[db] erro ao calcular estatisticas de ${table}:`, err);
-    const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM solides_treinamento_assinaturas`).catch(() => ({ rows: [{ assinados: 0 }] }));
-    const assinados = fallbackRes.rows[0] ? fallbackRes.rows[0].assinados : 0;
-    return { total_base: assinados, total_permitidos: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
+    console.error('[db] erro getSolidesStats:', err);
+    return { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0, unidades: [], setores: [], cargos: [] };
   }
 }
 
@@ -1277,146 +1326,138 @@ async function assinarTermoIa(cpf, ip = '') {
 async function listIaColaboradores(filters = {}) {
   const schema = await getColaboradorTableSchema();
   const table = schema.table;
-  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
-
-  const conds = [];
-  const params = [];
-  const add = (val) => { params.push(val); return `$${params.length}`; };
-
-  if (filters.status === 'permitido') {
-    conds.push(`COALESCE(p.permitido, FALSE) = TRUE`);
-  } else if (filters.status === 'nao_permitido') {
-    conds.push(`COALESCE(p.permitido, FALSE) = FALSE`);
-  } else if (filters.status === 'assinado') {
-    conds.push(`s.id IS NOT NULL`);
-  } else if (filters.status === 'pendente') {
-    conds.push(`s.id IS NULL AND COALESCE(p.permitido, FALSE) = TRUE`);
-  }
-
-  if (filters.setor && schema.setorCol) {
-    conds.push(`c."${schema.setorCol}" = ${add(filters.setor)}`);
-  }
-  if (filters.unidade && schema.unidadeCol) {
-    conds.push(`c."${schema.unidadeCol}" = ${add(filters.unidade)}`);
-  }
-  if (filters.cargo && schema.cargoCol) {
-    conds.push(`c."${schema.cargoCol}" = ${add(filters.cargo)}`);
-  }
-
-  if (filters.search) {
-    const term = `%${filters.search.toLowerCase()}%`;
-    const p = add(term);
-    const searchParts = [];
-    if (schema.nomeCol) searchParts.push(`LOWER(c."${schema.nomeCol}"::text) LIKE ${p}`);
-    if (schema.cpfCol) searchParts.push(`regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g') LIKE ${p}`);
-    if (schema.cargoCol) searchParts.push(`LOWER(c."${schema.cargoCol}"::text) LIKE ${p}`);
-    if (schema.setorCol) searchParts.push(`LOWER(c."${schema.setorCol}"::text) LIKE ${p}`);
-
-    if (searchParts.length > 0) {
-      conds.push(`(${searchParts.join(' OR ')})`);
-    }
-  }
-
-  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
-  const offset = Math.max(Number(filters.offset) || 0, 0);
-
-  const dataParams = params.slice();
-  dataParams.push(limit); const limIdx = dataParams.length;
-  dataParams.push(offset); const offIdx = dataParams.length;
-
-  const orderExpr = schema.nomeCol ? `c."${schema.nomeCol}" ASC` : `c.ctid ASC`;
-
-  const dataSql = `
-    SELECT
-      c.*,
-      s.id AS assinatura_id,
-      s.assinado_em,
-      s.ip,
-      (s.id IS NOT NULL) AS assinado,
-      COALESCE(p.permitido, FALSE) AS permitido
-    FROM ${table} c
-    LEFT JOIN treinamento_ia_permissoes p
-      ON ${cpfExpr} = p.cpf
-    LEFT JOIN treinamento_ia_assinaturas s
-      ON ${cpfExpr} = s.cpf
-    ${where}
-    ORDER BY
-      CASE WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL THEN 0
-           WHEN COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NOT NULL THEN 1
-           ELSE 2 END,
-      ${orderExpr}
-    LIMIT $${limIdx} OFFSET $${offIdx}
-  `;
-
-  const countSql = `
-    SELECT COUNT(*)::int AS total
-    FROM ${table} c
-    LEFT JOIN treinamento_ia_permissoes p
-      ON ${cpfExpr} = p.cpf
-    LEFT JOIN treinamento_ia_assinaturas s
-      ON ${cpfExpr} = s.cpf
-    ${where}
-  `;
 
   try {
-    const [dataRes, countRes] = await Promise.all([
-      pool.query(dataSql, dataParams),
-      pool.query(countSql, params),
+    const [colabRes, permRes, sigRes] = await Promise.all([
+      pool.query(`SELECT * FROM ${table}`),
+      pool.query(`SELECT cpf, permitido FROM treinamento_ia_permissoes`),
+      pool.query(`SELECT id, cpf, assinado_em, ip FROM treinamento_ia_assinaturas`),
     ]);
 
-    const formattedRows = dataRes.rows.map((row) => {
+    const permMap = new Map();
+    for (const p of permRes.rows) permMap.set(p.cpf, Boolean(p.permitido));
+
+    const sigMap = new Map();
+    for (const s of sigRes.rows) sigMap.set(s.cpf, s);
+
+    const allColabs = colabRes.rows.map((row) => {
       const mapped = mapColaboradorRow(row, schema);
+      const sig = sigMap.get(mapped.cpf) || null;
+      const permitido = permMap.has(mapped.cpf) ? permMap.get(mapped.cpf) : false;
+      const assinado = Boolean(sig);
+
       return {
-        id: row.assinatura_id || row.id || null,
+        id: sig ? sig.id : null,
         cpf: mapped.cpf,
         nome_completo: mapped.nome_completo,
         cargo: mapped.cargo,
         setor: mapped.setor,
         unidade: mapped.unidade,
-        permitido: Boolean(row.permitido),
-        assinado: Boolean(row.assinado),
-        assinado_em: row.assinado_em,
-        ip: row.ip,
+        status: mapped.status,
+        inativo: mapped.inativo,
+        permitido,
+        assinado,
+        assinado_em: sig ? sig.assinado_em : null,
+        ip: sig ? sig.ip : null,
       };
     });
 
-    return { rows: formattedRows, total: countRes.rows[0].total };
+    const baseAtivos = allColabs.filter((c) => !c.inativo && c.cpf.length === 11);
+
+    const total_base = baseAtivos.length;
+    const total_permitidos = baseAtivos.filter((c) => c.permitido).length;
+    const assinados = baseAtivos.filter((c) => c.assinado).length;
+    const pendentes = baseAtivos.filter((c) => c.permitido && !c.assinado).length;
+    const taxa_adesao = total_permitidos > 0 ? Number(((assinados / total_permitidos) * 100).toFixed(1)) : 0;
+
+    const unidades = [...new Set(baseAtivos.map((c) => c.unidade).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const setores = [...new Set(baseAtivos.map((c) => c.setor).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const cargos = [...new Set(baseAtivos.map((c) => c.cargo).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+    let filtered = baseAtivos;
+
+    if (filters.status === 'permitido') {
+      filtered = filtered.filter((c) => c.permitido);
+    } else if (filters.status === 'nao_permitido') {
+      filtered = filtered.filter((c) => !c.permitido);
+    } else if (filters.status === 'assinado') {
+      filtered = filtered.filter((c) => c.assinado);
+    } else if (filters.status === 'pendente') {
+      filtered = filtered.filter((c) => c.permitido && !c.assinado);
+    }
+
+    if (filters.unidade) {
+      const uFilter = filters.unidade.toLowerCase();
+      filtered = filtered.filter((c) => (c.unidade || '').toLowerCase() === uFilter || (c.unidade || '').toLowerCase().includes(uFilter));
+    }
+
+    if (filters.setor) {
+      const sFilter = filters.setor.toLowerCase();
+      filtered = filtered.filter((c) => (c.setor || '').toLowerCase() === sFilter || (c.setor || '').toLowerCase().includes(sFilter));
+    }
+
+    if (filters.cargo) {
+      const cFilter = filters.cargo.toLowerCase();
+      filtered = filtered.filter((c) => (c.cargo || '').toLowerCase() === cFilter || (c.cargo || '').toLowerCase().includes(cFilter));
+    }
+
+    if (filters.search) {
+      const term = filters.search.toLowerCase();
+      filtered = filtered.filter((c) =>
+        c.nome_completo.toLowerCase().includes(term) ||
+        c.cpf.includes(term) ||
+        c.cargo.toLowerCase().includes(term) ||
+        c.setor.toLowerCase().includes(term) ||
+        c.unidade.toLowerCase().includes(term)
+      );
+    }
+
+    filtered.sort((a, b) => {
+      const aPend = a.permitido && !a.assinado;
+      const bPend = b.permitido && !b.assinado;
+      if (aPend !== bPend) return aPend ? -1 : 1;
+      const aAss = a.permitido && a.assinado;
+      const bAss = b.permitido && b.assinado;
+      if (aAss !== bAss) return aAss ? -1 : 1;
+      return a.nome_completo.localeCompare(b.nome_completo);
+    });
+
+    const total = filtered.length;
+    const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
+    const offset = Math.max(Number(filters.offset) || 0, 0);
+    const pagedRows = filtered.slice(offset, offset + limit);
+
+    return {
+      rows: pagedRows,
+      total,
+      stats: {
+        total_base,
+        total_permitidos,
+        assinados,
+        pendentes,
+        taxa_adesao,
+        unidades,
+        setores,
+        cargos,
+      },
+    };
   } catch (err) {
     console.error(`[db] erro ao listar colaboradores de IA em ${table}:`, err);
-    return { rows: [], total: 0 };
+    return {
+      rows: [],
+      total: 0,
+      stats: { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0, unidades: [], setores: [], cargos: [] },
+    };
   }
 }
 
 async function getIaStats() {
-  const schema = await getColaboradorTableSchema();
-  const table = schema.table;
-  const cpfExpr = schema.cpfCol ? `regexp_replace(c."${schema.cpfCol}"::text, '\\D', '', 'g')` : `c.cpf::text`;
-
   try {
-    const { rows } = await pool.query(`
-      SELECT
-        COUNT(c.*)::int AS total_base,
-        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::int AS total_permitidos,
-        COUNT(s.id)::int AS assinados,
-        COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE AND s.id IS NULL)::int AS pendentes,
-        CASE
-          WHEN COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE) > 0
-          THEN ROUND((COUNT(s.id)::numeric / COUNT(c.*) FILTER (WHERE COALESCE(p.permitido, FALSE) = TRUE)::numeric) * 100, 1)
-          ELSE 0
-        END::float AS taxa_adesao
-      FROM ${table} c
-      LEFT JOIN treinamento_ia_permissoes p
-        ON ${cpfExpr} = p.cpf
-      LEFT JOIN treinamento_ia_assinaturas s
-        ON ${cpfExpr} = s.cpf
-    `);
-    return rows[0] || { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 };
+    const res = await listIaColaboradores({ limit: 1, offset: 0 });
+    return res.stats;
   } catch (err) {
-    console.error(`[db] erro ao calcular estatisticas de ${table} para IA:`, err);
-    const fallbackRes = await pool.query(`SELECT COUNT(*)::int AS assinados FROM treinamento_ia_assinaturas`).catch(() => ({ rows: [{ assinados: 0 }] }));
-    const assinados = fallbackRes.rows[0] ? fallbackRes.rows[0].assinados : 0;
-    return { total_base: assinados, total_permitidos: assinados, assinados, pendentes: 0, taxa_adesao: 100 };
+    console.error('[db] erro getIaStats:', err);
+    return { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0, unidades: [], setores: [], cargos: [] };
   }
 }
 
@@ -1988,6 +2029,8 @@ module.exports = {
   // treinamento ia e intranet
   findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
   toggleIaPermissao, bulkSetIaPermissoes,
+  // utilitários de filtros
+  getColaboradoresFilterOptions,
   // pesquisa cultura revalle
   checkPesquisaCulturaCpf, insertPesquisaCulturaResposta, listPesquisaCulturaRespostas,
   getPesquisaCulturaById, getPesquisaCulturaStats, listPesquisaCulturaAdesao,
