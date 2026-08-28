@@ -855,6 +855,10 @@ function renderSolides(rows, total) {
       if (e.target.checked) selectedSolidesCpfs.add(cpf);
       else selectedSolidesCpfs.delete(cpf);
       updateBulkBar();
+
+      const allCbs = $$('.solides-row-check', tbody);
+      const allChecked = allCbs.length > 0 && allCbs.every((c) => c.checked);
+      if ($('#solidesCheckAll')) $('#solidesCheckAll').checked = allChecked;
     };
   });
 }
@@ -913,7 +917,7 @@ function updateIaBulkBar() {
   const count = selectedIaCpfs.size;
   if (count > 0) {
     bar.style.display = 'flex';
-    if (countEl) countEl.textContent = count;
+    if (countEl) countEl.textContent = `${count} colaborador${count > 1 ? 'es' : ''} selecionado${count > 1 ? 's' : ''}`;
   } else {
     bar.style.display = 'none';
   }
@@ -1003,6 +1007,10 @@ function renderTreinamentoIa(rows, total) {
       if (e.target.checked) selectedIaCpfs.add(cpf);
       else selectedIaCpfs.delete(cpf);
       updateIaBulkBar();
+
+      const allCbs = $$('.ia-row-check', tbody);
+      const allChecked = allCbs.length > 0 && allCbs.every((c) => c.checked);
+      if ($('#iaCheckAll')) $('#iaCheckAll').checked = allChecked;
     };
   });
 }

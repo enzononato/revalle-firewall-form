@@ -117,6 +117,9 @@ app.get('/pesquisa-cultura', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'pesquisa-cultura.html'));
 });
 
+/* ── Status de bloqueio da Pesquisa de Cultura ── */
+const PESQUISA_CULTURA_ENCERRADA = process.env.PESQUISA_CULTURA_ENCERRADA !== 'false';
+
 function onlyDigits(s) {
   return String(s || '').replace(/\D+/g, '');
 }
@@ -651,6 +654,14 @@ app.post('/api/treinamento-ia/assinar', async (req, res) => {
 /* ── Pesquisa de Cultura Revalle APIs (100% Anônima) ── */
 
 app.post('/api/pesquisa-cultura/check-cpf', antiBotRateLimiter({ maxPerMinute: 20, cooldownMinutes: 3 }), async (req, res) => {
+  if (PESQUISA_CULTURA_ENCERRADA) {
+    return res.status(423).json({
+      ok: false,
+      locked: true,
+      error: 'O período de respostas da Pesquisa de Cultura foi encerrado. Agradecemos a participação!',
+    });
+  }
+
   const verification = verifySecurityChallenge(req);
   if (!verification.ok) {
     return res.status(403).json(verification);
@@ -674,6 +685,14 @@ app.post('/api/pesquisa-cultura/check-cpf', antiBotRateLimiter({ maxPerMinute: 2
 });
 
 app.post('/api/pesquisa-cultura/submit', async (req, res) => {
+  if (PESQUISA_CULTURA_ENCERRADA) {
+    return res.status(423).json({
+      ok: false,
+      locked: true,
+      errors: ['O período de respostas da Pesquisa de Cultura foi encerrado. Não é mais possível registrar novas respostas.'],
+    });
+  }
+
   const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
   if (!cpfDigits || !isValidCpf(cpfDigits)) {
     return res.status(400).json({ ok: false, errors: ['CPF inválido. Preencha seu CPF corretamente.'] });
