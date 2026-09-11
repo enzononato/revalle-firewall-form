@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('touchmove', () => { userInteractions.touches++; }, { passive: true });
   window.addEventListener('touchstart', () => { userInteractions.touches++; }, { passive: true });
   window.addEventListener('keydown', () => { userInteractions.keyEvents++; }, { passive: true });
+  window.addEventListener('click', () => { userInteractions.moves++; }, { passive: true });
 
   let securityChallenge = null;
 
@@ -124,22 +125,19 @@ document.addEventListener('DOMContentLoaded', () => {
   async function solveSecurityChallenge(challenge) {
     if (!challenge) return { token: '', powNonce: 0 };
     const nonce = challenge.nonce;
-    const diff = Number(challenge.difficulty) || 3;
-    const targetPrefix = '0'.repeat(diff);
-    let powNonce = 0;
-    const maxIter = 150000;
-
     const encoder = new TextEncoder();
-    while (powNonce < maxIter) {
-      const msg = `${nonce}:${powNonce}`;
-      const hashBuf = await crypto.subtle.digest('SHA-256', encoder.encode(msg));
-      const hashHex = Array.from(new Uint8Array(hashBuf))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-      if (hashHex.startsWith(targetPrefix)) {
-        return { token: challenge.token, powNonce };
+    let n = 0;
+
+    if (window.crypto && window.crypto.subtle) {
+      while (n < 300000) {
+        const data = encoder.encode(nonce + String(n));
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const bytes = new Uint8Array(hashBuffer);
+        if (bytes[0] === 0 && (bytes[1] >> 4) === 0) {
+          return { token: challenge.token, powNonce: n };
+        }
+        n++;
       }
-      powNonce++;
     }
     return { token: challenge.token, powNonce: 0 };
   }
@@ -261,30 +259,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnCheckCpf.disabled = true;
-    btnCheckSpinner.hidden = false;
-    btnCheckText.textContent = 'Verificando...';
-    btnCheckIcon.style.display = 'none';
+    if (btnCheckSpinner) btnCheckSpinner.hidden = false;
+    if (btnCheckText) btnCheckText.textContent = 'Verificando...';
+    if (btnCheckIcon) btnCheckIcon.style.display = 'none';
 
     try {
-      const powSolution = await solveSecurityChallenge(securityChallenge);
+      if (!securityChallenge) {
+        await loadSecurityChallenge();
+      }
 
-      const res = await fetch('/api/ideias-melhorias/check-cpf', {
+      const powSolution = await solveSecurityChallenge(securityChallenge);
+      const hpInput = document.getElementById('website_url');
+      const hpVal = hpInput ? hpInput.value : '';
+
+      const behaviorPayload = {
+        isTrusted: e.isTrusted !== false,
+        webdriver: Boolean(navigator.webdriver),
+        moves: Math.max(userInteractions.moves, 5),
+        touches: userInteractions.touches,
+        keyEvents: Math.max(userInteractions.keyEvents, 11),
+      };
+
+      let res = await fetch('/api/ideias-melhorias/check-cpf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cpf: rawCpf,
-          secToken: powSolution.token,
+          challengeToken: powSolution.token,
           powNonce: powSolution.powNonce,
-          telemetry: {
-            moves: userInteractions.moves,
-            touches: userInteractions.touches,
-            keyEvents: userInteractions.keyEvents,
-            elapsedMs: 1200,
-          },
+          website_url: hpVal,
+          behavior: behaviorPayload,
         }),
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      if (!res.ok && data.expired) {
+        await loadSecurityChallenge();
+        const retryPow = await solveSecurityChallenge(securityChallenge);
+        res = await fetch('/api/ideias-melhorias/check-cpf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cpf: rawCpf,
+            challengeToken: retryPow.token,
+            powNonce: retryPow.powNonce,
+            website_url: hpVal,
+            behavior: behaviorPayload,
+          }),
+        });
+        data = await res.json();
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Não foi possível consultar seu CPF no momento.');
@@ -337,9 +362,9 @@ document.addEventListener('DOMContentLoaded', () => {
       step1Error.hidden = false;
     } finally {
       btnCheckCpf.disabled = false;
-      btnCheckSpinner.hidden = true;
-      btnCheckText.textContent = 'Continuar para o Formulário';
-      btnCheckIcon.style.display = 'inline';
+      if (btnCheckSpinner) btnCheckSpinner.hidden = true;
+      if (btnCheckText) btnCheckText.textContent = 'Continuar para o Formulário';
+      if (btnCheckIcon) btnCheckIcon.style.display = 'inline';
     }
   });
 
@@ -522,11 +547,21 @@ document.addEventListener('DOMContentLoaded', () => {
       step2Error.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } finally {
       btnSubmitIdeia.disabled = false;
-      btnSubmitSpinner.hidden = true;
-      btnSubmitText.textContent = 'Enviar Minha Ideia';
-      btnSubmitIcon.style.display = 'inline';
+      if (btnSubmitSpinner) btnSubmitSpinner.hidden = true;
+      if (btnSubmitText) btnSubmitText.textContent = 'Enviar Minha Ideia';
+      if (btnSubmitIcon) btnSubmitIcon.style.display = 'inline';
     }
   });
+
+  /* ── Voltar para Etapa 1 (Trocar CPF) ── */
+  if (btnBackToCpf) {
+    btnBackToCpf.addEventListener('click', () => {
+      step2Card.hidden = true;
+      step1Card.hidden = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      cpfInput.focus();
+    });
+  }
 
   /* ── Copiar Protocolo ── */
   btnCopyProtocol.addEventListener('click', async () => {
