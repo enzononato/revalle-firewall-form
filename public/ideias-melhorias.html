@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <title>Revalle — Formulário de Ideias e Melhorias</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <meta name="description" content="Transforme sua ideia em projeto real. Formulário do Programa de Ideias e Melhorias Revalle." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    :root {
+      --ideia-amber: #d97706;
+      --ideia-amber-light: #fef3c7;
+      --ideia-amber-dark: #b45309;
+      --ideia-purple: #6366f1;
+    }
+
+    .badge-ideia {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, rgba(217, 119, 6, 0.12) 0%, rgba(245, 158, 11, 0.18) 100%);
+      color: #b45309;
+      border: 1px solid rgba(217, 119, 6, 0.3);
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .form-hero {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .form-hero h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+
+    .form-hero .lead {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 580px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    .icon-wrapper.ideia-icon {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #ffffff;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(217, 119, 6, 0.25);
+      margin: 0 auto 16px;
+    }
+
+    /* Opening Callout Box */
+    .opening-callout {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1.5px solid #fde68a;
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .opening-callout svg {
+      flex-shrink: 0;
+      color: #d97706;
+      margin-top: 2px;
+    }
+
+    .opening-callout-text {
+      font-size: 14px;
+      color: #92400e;
+      line-height: 1.55;
+      font-weight: 500;
+    }
+
+    /* Colab Greeting */
+    .colab-greeting-box {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .colab-greeting-info h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0 0 4px;
+    }
+
+    .colab-greeting-info p {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+    }
+
+    .colab-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .colab-chip {
+      padding: 4px 10px;
+      background: #ffffff;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brand-blue);
+      border: 1px solid #cbd5e1;
+    }
+
+    /* Question Sections */
+    .question-section {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 22px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .question-section:focus-within {
+      border-color: #93c5fd;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.06);
+    }
+
+    .question-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .q-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #eff6ff;
+      color: var(--brand-blue);
+      font-weight: 800;
+      font-size: 13px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .q-title-wrap {
+      flex: 1;
+    }
+
+    .q-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+
+    .q-required {
+      color: var(--error);
+      margin-left: 2px;
+      font-weight: 700;
+    }
+
+    .q-optional {
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-left: 6px;
+    }
+
+    .q-support {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.45;
+      font-style: italic;
+    }
+
+    /* Option Grid / Radio Chips */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .options-grid-2 {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+
+    .options-grid-3 {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    .option-pill {
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #334155;
+      transition: all 0.16s ease;
+      user-select: none;
+    }
+
+    .option-pill input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .option-pill:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .option-pill.active {
+      background: #eff6ff;
+      border-color: var(--brand-blue-light);
+      color: var(--brand-blue);
+      font-weight: 600;
+      box-shadow: 0 0 0 1px var(--brand-blue-light);
+    }
+
+    .option-pill .radio-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid #cbd5e1;
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: #ffffff;
+      transition: all 0.15s ease;
+    }
+
+    .option-pill.active .radio-indicator {
+      border-color: var(--brand-blue);
+      background: var(--brand-blue);
+    }
+
+    .option-pill.active .radio-indicator::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ffffff;
+    }
+
+    /* Conditional input wrapper */
+    .conditional-field {
+      margin-top: 14px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      border-left: 3px solid var(--brand-blue-light);
+      border-radius: 0 8px 8px 0;
+      animation: fadeIn 0.25s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .char-counter {
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    /* Impact Badge Colors */
+    .impact-pill.impact-baixo.active {
+      background: #ecfdf5;
+      border-color: #10b981;
+      color: #047857;
+      box-shadow: 0 0 0 1px #10b981;
+    }
+    .impact-pill.impact-baixo.active .radio-indicator {
+      background: #10b981;
+      border-color: #10b981;
+    }
+
+    .impact-pill.impact-medio.active {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+
+    .impact-pill.impact-alto.active {
+      background: #fffbeb;
+      border-color: #f59e0b;
+      color: #b45309;
+      box-shadow: 0 0 0 1px #f59e0b;
+    }
+    .impact-pill.impact-alto.active .radio-indicator {
+      background: #f59e0b;
+      border-color: #f59e0b;
+    }
+
+    .impact-pill.impact-muito-alto.active {
+      background: #fef2f2;
+      border-color: #ef4444;
+      color: #b91c1c;
+      box-shadow: 0 0 0 1px #ef4444;
+    }
+    .impact-pill.impact-muito-alto.active .radio-indicator {
+      background: #ef4444;
+      border-color: #ef4444;
+    }
+
+    /* Print styles */
+    @media print {
+      body { background: #fff; }
+      .bg-elements, .topbar, .btn, .opening-callout, .footer { display: none !important; }
+      .form-card { box-shadow: none; border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-elements">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/logo.png" alt="Revalle Logo" class="brand-logo-img" />
+        <div class="brand-text">
+          <span class="brand-name">revalle</span>
+          <span class="brand-sub">Inovação & Melhoria Contínua</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="form-card" id="mainCard">
+
+      <!-- ========================================== -->
+      <!-- ETAPA 1: Identificação por CPF -->
+      <!-- ========================================== -->
+      <section id="step1Card" class="form-step">
+        <div class="form-hero">
+          <div class="icon-wrapper ideia-icon">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18h6"></path>
+              <path d="M10 22h4"></path>
+              <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path>
+            </svg>
+          </div>
+          <span class="badge-ideia">💡 Programa de Ideias e Melhorias</span>
+          <h1>Ideias e Melhorias Revalle</h1>
+          <p class="lead">Transformando ideias em projetos práticos que otimizam nosso dia a dia.</p>
+        </div>
+
+        <div class="opening-callout">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <div class="opening-callout-text">
+            <strong>Toda ideia é bem-vinda</strong>, mesmo que ainda não esteja totalmente amadurecida. Leva menos de 5 minutos para preencher. Quanto mais detalhes você der, mais fácil será avaliar e transformar sua ideia em um projeto real.
+          </div>
+        </div>
+
+        <form id="formCpf" novalidate>
+          <div class="field-group">
+            <label for="cpfInput" class="field-label">
+              Informe seu CPF para iniciar <span class="required">*</span>
+            </label>
+            <div class="input-icon-wrapper">
+              <svg class="input-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="16" rx="3"></rect>
+                <circle cx="9" cy="10" r="2"></circle>
+                <line x1="15" y1="8" x2="17" y2="8"></line>
+                <line x1="15" y1="12" x2="17" y2="12"></line>
+                <line x1="7" y1="16" x2="17" y2="16"></line>
+              </svg>
+              <input
+                type="text"
+                id="cpfInput"
+                name="cpf"
+                class="form-control with-icon"
+                placeholder="000.000.000-00"
+                inputmode="numeric"
+                maxlength="14"
+                autocomplete="off"
+                required
+              />
+            </div>
+            <span class="error-msg" id="err-cpf"></span>
+          </div>
+
+          <div id="step1Error" class="alert-box alert-error" hidden></div>
+
+          <button type="submit" id="btnCheckCpf" class="btn btn-primary btn-block">
+            <span id="btnCheckSpinner" class="spinner" hidden></span>
+            <span id="btnCheckText">Continuar para o Formulário</span>
+            <svg id="btnCheckIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ETAPA 2: Formulário das 12 Perguntas -->
+      <!-- ========================================== -->
+      <section id="step2Card" class="form-step" hidden>
+        <div class="colab-greeting-box">
+          <div class="colab-greeting-info">
+            <h3 id="colabNome">Colaborador Revalle</h3>
+            <p id="colabCpf">CPF: 000.000.000-00</p>
+          </div>
+          <div class="colab-chips" id="colabChips"></div>
+          <button type="button" id="btnBackToCpf" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px;">
+            Trocar CPF
+          </button>
+        </div>
+
+        <form id="formIdeia" novalidate>
+          
+          <!-- Q1: Área -->
+          <div class="question-section" id="section-q1">
+            <div class="question-header">
+              <span class="q-number">1</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Qual área você pertence?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid" id="q1-options">
+              <label class="option-pill"><input type="radio" name="area" value="Gente" required><span class="radio-indicator"></span>Gente</label>
+              <label class="option-pill"><input type="radio" name="area" value="Vendas"><span class="radio-indicator"></span>Vendas</label>
+              <label class="option-pill"><input type="radio" name="area" value="Financeiro"><span class="radio-indicator"></span>Financeiro</label>
+              <label class="option-pill"><input type="radio" name="area" value="Contabilidade"><span class="radio-indicator"></span>Contabilidade</label>
+              <label class="option-pill"><input type="radio" name="area" value="Logística"><span class="radio-indicator"></span>Logística</label>
+              <label class="option-pill"><input type="radio" name="area" value="TI"><span class="radio-indicator"></span>TI</label>
+              <label class="option-pill"><input type="radio" name="area" value="Compras"><span class="radio-indicator"></span>Compras</label>
+              <label class="option-pill"><input type="radio" name="area" value="Diretoria"><span class="radio-indicator"></span>Diretoria</label>
+              <label class="option-pill"><input type="radio" name="area" value="Outra"><span class="radio-indicator"></span>Outra</label>
+            </div>
+            <div id="q1-outro-wrap" class="conditional-field" hidden>
+              <label for="areaOutroInput" class="field-label">Especifique a sua área: <span class="q-required">*</span></label>
+              <input type="text" id="areaOutroInput" name="area_outro" class="form-control" placeholder="Ex.: Marketing, Frota, DP..." maxlength="150">
+            </div>
+            <span class="error-msg" id="err-q1"></span>
+          </div>
+
+          <!-- Q2: Processo a melhorar -->
+          <div class="question-section" id="section-q2">
+            <div class="question-header">
+              <span class="q-number">2</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Qual processo você gostaria de melhorar?<span class="q-required">*</span></div>
+                <div class="q-support">Ex.: "Fechamento de caixa", "Cadastro de novos fornecedores", "Entrega de mercadorias".</div>
+              </div>
+            </div>
+            <input type="text" id="processoInput" name="processo" class="form-control" placeholder="Informe o nome ou tipo de processo" required maxlength="255">
+            <span class="error-msg" id="err-q2"></span>
+          </div>
+
+          <!-- Q3: Problema ou dificuldade atual -->
+          <div class="question-section" id="section-q3">
+            <div class="question-header">
+              <span class="q-number">3</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Qual é o problema ou dificuldade atual?<span class="q-required">*</span></div>
+                <div class="q-support">Conte de forma simples o que acontece hoje. Não precisa ser técnico.</div>
+              </div>
+            </div>
+            <textarea id="problemaInput" name="problema" class="form-control" rows="4" placeholder="Descreva o que acontece hoje e por que isso causa dificuldade..." required maxlength="4000"></textarea>
+            <div class="char-counter"><span id="count-problema">0</span> / 4000</div>
+            <span class="error-msg" id="err-q3"></span>
+          </div>
+
+          <!-- Q4: Como é realizado hoje -->
+          <div class="question-section" id="section-q4">
+            <div class="question-header">
+              <span class="q-number">4</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Como esse processo é realizado atualmente?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid options-grid-2" id="q4-options">
+              <label class="option-pill"><input type="radio" name="como_realizado_hoje" value="Manualmente" required><span class="radio-indicator"></span>Manualmente</label>
+              <label class="option-pill"><input type="radio" name="como_realizado_hoje" value="Planilha"><span class="radio-indicator"></span>Planilha</label>
+              <label class="option-pill"><input type="radio" name="como_realizado_hoje" value="Sistema"><span class="radio-indicator"></span>Sistema</label>
+              <label class="option-pill"><input type="radio" name="como_realizado_hoje" value="WhatsApp/e-mail"><span class="radio-indicator"></span>WhatsApp/e-mail</label>
+              <label class="option-pill"><input type="radio" name="como_realizado_hoje" value="Mais de uma ferramenta"><span class="radio-indicator"></span>Mais de uma ferramenta</label>
+              <label class="option-pill"><input type="radio" name="como_realizado_hoje" value="Outro"><span class="radio-indicator"></span>Outro</label>
+            </div>
+            <div id="q4-outro-wrap" class="conditional-field" hidden>
+              <label for="comoRealizadoOutroInput" class="field-label">Especifique como é realizado: <span class="q-required">*</span></label>
+              <input type="text" id="comoRealizadoOutroInput" name="como_realizado_outro" class="form-control" placeholder="Descreva como o processo é executado atualmente" maxlength="200">
+            </div>
+            <span class="error-msg" id="err-q4"></span>
+          </div>
+
+          <!-- Q5: Ideia resumida -->
+          <div class="question-section" id="section-q5">
+            <div class="question-header">
+              <span class="q-number">5</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Qual é a sua ideia, resumidamente?<span class="q-required">*</span></div>
+                <div class="q-support">Em uma ou duas frases, o que poderia ser melhorado ou automatizado?</div>
+              </div>
+            </div>
+            <input type="text" id="ideiaResumoInput" name="ideia_resumo" class="form-control" placeholder="Ex.: Criar um formulário digital para validar as notas antes do envio..." required maxlength="500">
+            <span class="error-msg" id="err-q5"></span>
+          </div>
+
+          <!-- Q6: Principal benefício -->
+          <div class="question-section" id="section-q6">
+            <div class="question-header">
+              <span class="q-number">6</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Qual seria o principal benefício?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid options-grid-2" id="q6-options">
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Economizar tempo" required><span class="radio-indicator"></span>⏱️ Economizar tempo</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Reduzir custos"><span class="radio-indicator"></span>💰 Reduzir custos</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Reduzir erros"><span class="radio-indicator"></span>🎯 Reduzir erros</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Melhorar o controle"><span class="radio-indicator"></span>📊 Melhorar o controle</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Melhorar a experiência do cliente/colaborador"><span class="radio-indicator"></span>🤝 Melhorar a experiência</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Gerar informações/dados"><span class="radio-indicator"></span>📈 Gerar informações/dados</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Automatizar uma atividade"><span class="radio-indicator"></span>⚙️ Automatizar uma atividade</label>
+              <label class="option-pill"><input type="radio" name="principal_beneficio" value="Outro"><span class="radio-indicator"></span>Outro</label>
+            </div>
+            <div id="q6-outro-wrap" class="conditional-field" hidden>
+              <label for="beneficioOutroInput" class="field-label">Especifique o benefício esperado: <span class="q-required">*</span></label>
+              <input type="text" id="beneficioOutroInput" name="beneficio_outro" class="form-control" placeholder="Descreva o benefício que esta melhoria trará" maxlength="200">
+            </div>
+            <span class="error-msg" id="err-q6"></span>
+          </div>
+
+          <!-- Q7: Frequência -->
+          <div class="question-section" id="section-q7">
+            <div class="question-header">
+              <span class="q-number">7</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Com que frequência esse problema acontece?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid options-grid-3" id="q7-options">
+              <label class="option-pill"><input type="radio" name="frequencia" value="Todos os dias" required><span class="radio-indicator"></span>Todos os dias</label>
+              <label class="option-pill"><input type="radio" name="frequencia" value="Toda semana"><span class="radio-indicator"></span>Toda semana</label>
+              <label class="option-pill"><input type="radio" name="frequencia" value="Todo mês"><span class="radio-indicator"></span>Todo mês</label>
+              <label class="option-pill"><input type="radio" name="frequencia" value="Eventualmente"><span class="radio-indicator"></span>Eventualmente</label>
+            </div>
+            <span class="error-msg" id="err-q7"></span>
+          </div>
+
+          <!-- Q8: Impacto -->
+          <div class="question-section" id="section-q8">
+            <div class="question-header">
+              <span class="q-number">8</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Qual o impacto desse problema?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid options-grid-3" id="q8-options">
+              <label class="option-pill impact-pill impact-baixo"><input type="radio" name="impacto" value="Baixo" required><span class="radio-indicator"></span>Baixo</label>
+              <label class="option-pill impact-pill impact-medio"><input type="radio" name="impacto" value="Médio"><span class="radio-indicator"></span>Médio</label>
+              <label class="option-pill impact-pill impact-alto"><input type="radio" name="impacto" value="Alto"><span class="radio-indicator"></span>Alto</label>
+              <label class="option-pill impact-pill impact-muito-alto"><input type="radio" name="impacto" value="Muito alto"><span class="radio-indicator"></span>Muito alto</label>
+            </div>
+            <span class="error-msg" id="err-q8"></span>
+          </div>
+
+          <!-- Q9: Abrangência -->
+          <div class="question-section" id="section-q9">
+            <div class="question-header">
+              <span class="q-number">9</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Essa melhoria poderia beneficiar outras áreas ou revendas?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid options-grid-2" id="q9-options">
+              <label class="option-pill"><input type="radio" name="abrangencia" value="Somente minha atividade" required><span class="radio-indicator"></span>Somente minha atividade</label>
+              <label class="option-pill"><input type="radio" name="abrangencia" value="Minha área"><span class="radio-indicator"></span>Minha área</label>
+              <label class="option-pill"><input type="radio" name="abrangencia" value="Mais de uma área"><span class="radio-indicator"></span>Mais de uma área</label>
+              <label class="option-pill"><input type="radio" name="abrangencia" value="Todas as revendas"><span class="radio-indicator"></span>Todas as revendas</label>
+              <label class="option-pill"><input type="radio" name="abrangencia" value="Toda a Revalle"><span class="radio-indicator"></span>Toda a Revalle</label>
+              <label class="option-pill"><input type="radio" name="abrangencia" value="Não sei"><span class="radio-indicator"></span>Não sei</label>
+            </div>
+            <span class="error-msg" id="err-q9"></span>
+          </div>
+
+          <!-- Q10: Dado ou sistema existente -->
+          <div class="question-section" id="section-q10">
+            <div class="question-header">
+              <span class="q-number">10</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Existe algum sistema, planilha ou dado que já possa ser utilizado?<span class="q-required">*</span></div>
+              </div>
+            </div>
+            <div class="options-grid options-grid-3" id="q10-options">
+              <label class="option-pill"><input type="radio" name="tem_sistema_dado" value="Sim" required><span class="radio-indicator"></span>Sim</label>
+              <label class="option-pill"><input type="radio" name="tem_sistema_dado" value="Não"><span class="radio-indicator"></span>Não</label>
+              <label class="option-pill"><input type="radio" name="tem_sistema_dado" value="Não sei"><span class="radio-indicator"></span>Não sei</label>
+            </div>
+            <div id="q10-qual-wrap" class="conditional-field" hidden>
+              <label for="sistemaDadoQualInput" class="field-label">Qual sistema, planilha ou dado pode ser utilizado? <span class="q-required">*</span></label>
+              <input type="text" id="sistemaDadoQualInput" name="sistema_dado_qual" class="form-control" placeholder="Ex.: Planilha de vendas no SharePoint, ERP Protheus, Banco SQL..." maxlength="255">
+            </div>
+            <span class="error-msg" id="err-q10"></span>
+          </div>
+
+          <!-- Q11: Solução imaginada (opcional) -->
+          <div class="question-section" id="section-q11">
+            <div class="question-header">
+              <span class="q-number">11</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Se quiser, explique como você imagina a solução<span class="q-optional">(Opcional)</span></div>
+                <div class="q-support">Espaço livre para detalhar tecnicamente, sugerir um fluxo, ou descrever como você imagina que isso funcionaria na prática.</div>
+              </div>
+            </div>
+            <textarea id="solucaoImaginadaInput" name="solucao_imaginada" class="form-control" rows="4" placeholder="Fique à vontade para sugerir telas, passos, relatórios ou ideias de automação..." maxlength="4000"></textarea>
+            <div class="char-counter"><span id="count-solucao">0</span> / 4000</div>
+          </div>
+
+          <!-- Q12: Nome e contato (opcional) -->
+          <div class="question-section" id="section-q12">
+            <div class="question-header">
+              <span class="q-number">12</span>
+              <div class="q-title-wrap">
+                <div class="q-title">Nome e área/contato<span class="q-optional">(Opcional)</span></div>
+                <div class="q-support">Preencha se quiser que possamos te procurar para tirar dúvidas sobre a ideia. Pode deixar em branco se preferir enviar de forma anônima.</div>
+              </div>
+            </div>
+            <input type="text" id="contatoOpcionalInput" name="contato_opcional" class="form-control" placeholder="Ex.: Seu nome, telefone, WhatsApp ou e-mail" maxlength="255">
+          </div>
+
+          <div id="step2Error" class="alert-box alert-error" hidden></div>
+
+          <div style="margin-top: 24px;">
+            <button type="submit" id="btnSubmitIdeia" class="btn btn-primary btn-block btn-lg">
+              <span id="btnSubmitSpinner" class="spinner" hidden></span>
+              <span id="btnSubmitText">Enviar Minha Ideia</span>
+              <svg id="btnSubmitIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ETAPA 3: Confirmação & Protocolo -->
+      <!-- ========================================== -->
+      <section id="successCard" class="form-step" hidden>
+        <div class="success-screen">
+          <div class="success-icon-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #10b981 100%);">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h2 id="successTitle" style="font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+            Ideia Registrada com Sucesso!
+          </h2>
+          <p id="successSub" style="color: var(--text-muted); font-size: 15px; max-width: 480px; margin: 0 auto 24px; line-height: 1.5;">
+            Muito obrigado pela sua contribuição! Nossa equipe irá avaliar sua proposta com carinho para transformar em oportunidade de projeto.
+          </p>
+
+          <div class="receipt-box" style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 14px;">
+              <span style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Protocolo de Envio</span>
+              <span id="successProto" style="font-size: 18px; font-weight: 800; color: #d97706;">#IDEIA-00000</span>
+            </div>
+            
+            <div class="receipt-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13.5px;">
+              <div>
+                <span style="color: #64748b; display: block; font-size: 12px;">Colaborador</span>
+                <strong id="summaryNome" style="color: #0f172a;">—</strong>
+              </div>
+              <div>
+                <span style="color: #64748b; display: block; font-size: 12px;">Processo</span>
+                <strong id="summaryProcesso" style="color: #0f172a;">—</strong>
+              </div>
+              <div>
+                <span style="color: #64748b; display: block; font-size: 12px;">Área</span>
+                <strong id="summaryArea" style="color: #0f172a;">—</strong>
+              </div>
+              <div>
+                <span style="color: #64748b; display: block; font-size: 12px;">Data de Registro</span>
+                <strong id="summaryData" style="color: #0f172a;">—</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" id="btnCopyProtocol" class="btn btn-outline">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copiar Protocolo
+            </button>
+            <button type="button" id="btnPrintReceipt" class="btn btn-outline" onclick="window.print()">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+              </svg>
+              Imprimir Comprovante
+            </button>
+            <button type="button" id="btnNewIdeia" class="btn btn-primary">
+              Enviar Outra Ideia
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Revalle — Revenda e Distribuição Ambev. Todos os direitos reservados.</p>
+  </footer>
+
+  <script src="/ideias-melhorias.js"></script>
+</body>
+</html>

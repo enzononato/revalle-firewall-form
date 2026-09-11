@@ -14,6 +14,7 @@ const state = {
   ia: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
+  ideias: { status: '', area: '', impacto: '', frequencia: '', search: '', page: 1, pageSize: 20, total: 0 },
   usuarios: { search: '', perfil: '', list: [] },
   charts: {},
   drawerKind: null,
@@ -84,11 +85,14 @@ const TITLES = {
   solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
   'treinamento-ia': ['Treinamento IA & Intranet', 'Colaboradores participantes e controle de assinatura do termo'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
+  ideias: ['Ideias e Melhorias', 'Programa de ideias, melhorias e sugestões de projetos da Revalle'],
   usuarios: ['Usuários & Acessos', 'Gerenciamento de acessos e perfis de usuários do painel'],
 };
 function switchView(view) {
   if (state.user && state.user.perfil === 'mkt_cultura') {
-    view = 'cultura';
+    if (view !== 'cultura' && view !== 'ideias') {
+      view = 'cultura';
+    }
   }
   state.view = view;
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
@@ -103,6 +107,7 @@ function switchView(view) {
   if (view === 'solides') loadSolides();
   if (view === 'treinamento-ia') loadTreinamentoIa();
   if (view === 'cultura') loadPesquisaCultura();
+  if (view === 'ideias') loadIdeias();
   if (view === 'usuarios') loadUsuarios();
 }
 
@@ -249,6 +254,13 @@ function updateNavBadges(data) {
     if ($('#navCulturaTotal')) {
       $('#navCulturaTotal').textContent = c;
       $('#navCulturaTotal').hidden = c === 0;
+    }
+  }
+  if (data.ideias) {
+    const p = data.ideias.nova || 0;
+    if ($('#navIdeiasPending')) {
+      $('#navIdeiasPending').textContent = p;
+      $('#navIdeiasPending').hidden = p === 0;
     }
   }
 }
@@ -1292,6 +1304,295 @@ function renderPesquisaCulturaAdesao(rows, total) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Ideias e Melhorias
+   ════════════════════════════════════════════════════════════════ */
+function ideiasQuery() {
+  const f = state.ideias;
+  const p = new URLSearchParams();
+  if (f.status) p.set('status', f.status);
+  if (f.area) p.set('area', f.area);
+  if (f.impacto) p.set('impacto', f.impacto);
+  if (f.frequencia) p.set('frequencia', f.frequencia);
+  if (f.search) p.set('search', f.search);
+  return p;
+}
+
+async function loadIdeias() {
+  const tbody = $('#ideiasBody');
+  if (tbody) tbody.innerHTML = skeletonRows(5, 9);
+  if ($('#ideiasEmpty')) $('#ideiasEmpty').hidden = true;
+
+  const p = ideiasQuery();
+  p.set('page', state.ideias.page);
+  p.set('pageSize', state.ideias.pageSize);
+
+  if ($('#ideiasExport')) {
+    $('#ideiasExport').href = `${API}/export/ideias-melhorias.csv?${ideiasQuery().toString()}`;
+  }
+
+  try {
+    const res = await api('/ideias-melhorias?' + p.toString()).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar ideias.');
+
+    state.ideias.total = res.total;
+
+    // Atualiza KPIs
+    if (res.stats) {
+      if ($('#ideiasKpiTotal')) $('#ideiasKpiTotal').textContent = res.stats.total || 0;
+      if ($('#ideiasKpiNovas')) $('#ideiasKpiNovas').textContent = res.stats.nova || 0;
+      if ($('#ideiasKpiEmAnalise')) $('#ideiasKpiEmAnalise').textContent = res.stats.em_analise || 0;
+      if ($('#ideiasKpiAprovadas')) $('#ideiasKpiAprovadas').textContent = res.stats.aprovada || 0;
+      if ($('#ideiasKpiImplementadas')) $('#ideiasKpiImplementadas').textContent = res.stats.implementada || 0;
+
+      if ($('#navIdeiasPending')) {
+        const n = res.stats.nova || 0;
+        $('#navIdeiasPending').textContent = n;
+        $('#navIdeiasPending').hidden = n === 0;
+      }
+    }
+
+    renderIdeias(res.rows);
+    renderPager('#ideiasPager', state.ideias, loadIdeias);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar ideias', err.message);
+    emptyState('#ideiasEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar as ideias.');
+  }
+}
+
+function renderIdeias(rows) {
+  const tbody = $('#ideiasBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (!rows || !rows.length) {
+    emptyState('#ideiasEmpty', 'Nenhuma ideia encontrada', 'Ajuste os filtros ou termo de busca.');
+    return;
+  }
+  if ($('#ideiasEmpty')) $('#ideiasEmpty').hidden = true;
+
+  const statusMap = {
+    nova: { label: 'Nova', bg: '#fef3c7', text: '#b45309', border: '#fde68a' },
+    em_analise: { label: 'Em Análise', bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+    aprovada: { label: 'Aprovada', bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' },
+    implementada: { label: 'Implementada', bg: '#f0fdfa', text: '#0f766e', border: '#99f6e4' },
+    arquivada: { label: 'Arquivada', bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
+  };
+
+  const impactoMap = {
+    'Baixo': { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' },
+    'Médio': { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+    'Alto': { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
+    'Muito alto': { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
+  };
+
+  const html = rows.map((r) => {
+    const st = statusMap[r.status] || { label: r.status, bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+    const imp = impactoMap[r.impacto] || { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+    const resumo = r.ideia_resumo ? r.ideia_resumo.slice(0, 65) + (r.ideia_resumo.length > 65 ? '…' : '') : '—';
+    const areaStr = r.area === 'Outra' ? `Outra (${r.area_outro || ''})` : r.area;
+
+    return `
+      <tr data-ideia="${esc(r.id)}" style="cursor: pointer;">
+        <td><span class="mono" style="font-weight: 800; color: #d97706;">${esc(r.protocolo || proto(r.id))}</span></td>
+        <td><span class="date-tag">${esc(fmtDateTime(r.created_at))}</span></td>
+        <td>
+          <span class="chip font-medium" style="background:${st.bg}; color:${st.text}; border: 1px solid ${st.border}; font-weight:700;">
+            ${esc(st.label)}
+          </span>
+        </td>
+        <td>
+          <div class="cell-main">${esc(r.nome_colaborador || 'Colaborador')}</div>
+          <div class="cell-sub">${esc(r.unidade || 'Unidade não informada')}</div>
+        </td>
+        <td><span class="chip font-medium">${esc(areaStr)}</span></td>
+        <td><strong>${esc(r.processo)}</strong></td>
+        <td style="max-width: 260px; font-size: 13px; color: #475569; line-height: 1.4;">
+          ${esc(resumo)}
+        </td>
+        <td>
+          <span class="chip font-medium" style="background:${imp.bg}; color:${imp.text}; border: 1px solid ${imp.border}; font-weight:600;">
+            ${esc(r.impacto)}
+          </span>
+        </td>
+        <td style="text-align: center;">
+          <button type="button" class="btn btn-sm btn-outline" data-ideia="${esc(r.id)}" style="font-size: 12px; padding: 4px 10px;">
+            Ver Ideia
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.innerHTML = html;
+}
+
+async function openIdeiaDrawer(id) {
+  state.drawerKind = 'ideia';
+  $('#drawerKicker').textContent = 'Ideias e Melhorias Revalle';
+  $('#drawerTitle').textContent = `Carregando ideia...`;
+  $('#drawerFoot').hidden = true;
+  $('#drawerBody').innerHTML = '<div style="padding: 24px; text-align: center; color: #64748b;">Carregando detalhes da ideia...</div>';
+  openDrawer();
+
+  try {
+    const res = await api(`/ideias-melhorias/${id}`).then((r) => r.json());
+    if (!res.ok || !res.row) throw new Error(res.error || 'Ideia não encontrada.');
+
+    const r = res.row;
+    $('#drawerKicker').textContent = `${r.protocolo || proto(r.id)} · enviada em ${fmtDateTime(r.created_at)}`;
+    $('#drawerTitle').textContent = r.processo;
+
+    const areaStr = r.area === 'Outra' ? `Outra (${r.area_outro || ''})` : r.area;
+    const comoStr = r.como_realizado_hoje === 'Outro' ? `Outro (${r.como_realizado_outro || ''})` : r.como_realizado_hoje;
+    const beneficioStr = r.principal_beneficio === 'Outro' ? `Outro (${r.beneficio_outro || ''})` : r.principal_beneficio;
+    const sistemaDadoStr = r.tem_sistema_dado === 'Sim' ? `Sim (${r.sistema_dado_qual || ''})` : r.tem_sistema_dado;
+
+    const statusMap = {
+      nova: { label: 'Nova', bg: '#fef3c7', text: '#b45309', border: '#fde68a' },
+      em_analise: { label: 'Em Análise', bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+      aprovada: { label: 'Aprovada', bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' },
+      implementada: { label: 'Implementada', bg: '#f0fdfa', text: '#0f766e', border: '#99f6e4' },
+      arquivada: { label: 'Arquivada', bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
+    };
+    const st = statusMap[r.status] || { label: r.status, bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+
+    $('#drawerBody').innerHTML = `
+      <!-- Status & Badges topo -->
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+        <span class="chip font-medium" style="background:${st.bg}; color:${st.text}; border: 1px solid ${st.border}; font-weight:700;">Status: ${esc(st.label)}</span>
+        <span class="chip" style="background:#eff6ff; color:#1d4ed8; font-weight:600;">Impacto: ${esc(r.impacto)}</span>
+        <span class="chip" style="background:#f5f3ff; color:#6d28d9; font-weight:600;">Frequência: ${esc(r.frequencia)}</span>
+        <span class="chip" style="background:#f1f5f9; color:#334155; font-weight:600;">Alcance: ${esc(r.abrangencia)}</span>
+      </div>
+
+      <!-- Seção: Colaborador -->
+      <div class="d-section" style="margin-bottom: 20px;">
+        <div class="d-section-title" style="font-size: 14px; font-weight: 800; color: #0A3296; text-transform: uppercase; margin-bottom: 10px;">
+          👤 Colaborador & Contato
+        </div>
+        <div class="d-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; background: #f8fafc; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0;">
+          <div><label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700;">Nome</label><div style="font-weight: 600; color: #0f172a;">${esc(r.nome_colaborador || 'Não informado')}</div></div>
+          <div><label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700;">CPF</label><div style="font-family: monospace; color: #0f172a;">${esc(fmtCpf(r.cpf))}</div></div>
+          <div><label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700;">Unidade</label><div style="color: #0f172a;">${esc(r.unidade || '—')}</div></div>
+          <div><label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700;">Cargo / Setor</label><div style="color: #0f172a;">${esc(r.cargo || '—')} ${r.setor ? '(' + esc(r.setor) + ')' : ''}</div></div>
+          ${r.contato_opcional ? `<div style="grid-column: 1 / -1;"><label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700;">Contato Opcional Informado</label><div style="color: #0A3296; font-weight: 600;">${esc(r.contato_opcional)}</div></div>` : ''}
+        </div>
+      </div>
+
+      <!-- Seção: Problema e Processo -->
+      <div class="d-section" style="margin-bottom: 20px;">
+        <div class="d-section-title" style="font-size: 14px; font-weight: 800; color: #0A3296; text-transform: uppercase; margin-bottom: 10px;">
+          ⚠️ Problema & Diagnóstico Atual
+        </div>
+        <div style="background: #f8fafc; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Área & Processo</label>
+            <div style="font-size: 14px; color: #0f172a;"><strong>${esc(areaStr)}</strong> &bull; ${esc(r.processo)}</div>
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Dificuldade ou Gargalo Atual</label>
+            <div style="font-size: 14px; color: #1e293b; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">${esc(r.problema)}</div>
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Como é realizado atualmente</label>
+            <div style="font-size: 14px; color: #0f172a;">${esc(comoStr)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Ideia e Benefício -->
+      <div class="d-section" style="margin-bottom: 20px;">
+        <div class="d-section-title" style="font-size: 14px; font-weight: 800; color: #0A3296; text-transform: uppercase; margin-bottom: 10px;">
+          💡 Ideia Proposta & Oportunidade
+        </div>
+        <div style="background: #f8fafc; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Ideia Resumida</label>
+            <div style="font-size: 14.5px; font-weight: 600; color: #0f172a; line-height: 1.5; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">${esc(r.ideia_resumo)}</div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+            <div>
+              <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Principal Benefício</label>
+              <div style="font-size: 13.5px; color: #047857; font-weight: 600;">${esc(beneficioStr)}</div>
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Base de Dados ou Sistema Já Existente</label>
+              <div style="font-size: 13.5px; color: #0f172a;">${esc(sistemaDadoStr)}</div>
+            </div>
+          </div>
+          ${r.solucao_imaginada ? `
+            <div>
+              <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Solução Imaginada (Detalhamento Técnico / Fluxo)</label>
+              <div style="font-size: 14px; color: #1e293b; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">${esc(r.solucao_imaginada)}</div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- Seção: Gestão, Avaliação e Parecer -->
+      <div class="d-section" style="margin-bottom: 24px; background: #fefce8; border: 1.5px solid #fef08a; padding: 16px; border-radius: 12px;">
+        <div style="font-size: 14px; font-weight: 800; color: #854d0e; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Avaliação da Gestão
+        </div>
+        
+        <div style="margin-bottom: 14px;">
+          <label for="drawerIdeiaStatus" style="font-size: 12.5px; font-weight: 700; color: #713f12; display: block; margin-bottom: 4px;">Status da Ideia</label>
+          <select id="drawerIdeiaStatus" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid #fde047; background: #fff; padding: 0 10px; font-size: 13.5px; font-weight: 600; color: #1e293b;">
+            <option value="nova" ${r.status === 'nova' ? 'selected' : ''}>🟡 Nova (Aguardando triagem)</option>
+            <option value="em_analise" ${r.status === 'em_analise' ? 'selected' : ''}>🔵 Em Análise (Estudo de viabilidade)</option>
+            <option value="aprovada" ${r.status === 'aprovada' ? 'selected' : ''}>🟢 Aprovada (Vira projeto)</option>
+            <option value="implementada" ${r.status === 'implementada' ? 'selected' : ''}>🟣 Implementada (Em produção)</option>
+            <option value="arquivada" ${r.status === 'arquivada' ? 'selected' : ''}>⚪ Arquivada (Não prioritária)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label for="drawerIdeiaParecer" style="font-size: 12.5px; font-weight: 700; color: #713f12; display: block; margin-bottom: 4px;">Parecer da Gestão / Feedback</label>
+          <textarea id="drawerIdeiaParecer" rows="3" placeholder="Insira o parecer técnico, justificativa de priorização ou próximos passos..." style="width: 100%; border-radius: 8px; border: 1px solid #fde047; background: #fff; padding: 8px 12px; font-size: 13.5px; font-family: inherit; resize: vertical; box-sizing: border-box;">${esc(r.parecer_gestao || '')}</textarea>
+        </div>
+
+        <button type="button" id="btnSaveIdeiaStatus" class="btn btn-primary" style="background: #ca8a04; border: none; font-size: 13.5px; padding: 8px 18px; font-weight: 700; width: 100%;">
+          Salvar Avaliação
+        </button>
+      </div>
+    `;
+
+    const btnSave = $('#btnSaveIdeiaStatus');
+    if (btnSave) {
+      btnSave.onclick = async () => {
+        btnSave.disabled = true;
+        btnSave.textContent = 'Salvando...';
+        const newStatus = $('#drawerIdeiaStatus').value;
+        const newParecer = $('#drawerIdeiaParecer').value.trim();
+
+        try {
+          const updateRes = await api(`/ideias-melhorias/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: newStatus, parecer: newParecer }),
+          }).then((r) => r.json());
+
+          if (!updateRes.ok) throw new Error(updateRes.error || 'Erro ao atualizar status');
+
+          toast('success', 'Avaliação salva com sucesso!');
+          loadIdeias();
+          loadSummary();
+          openIdeiaDrawer(id);
+        } catch (err) {
+          toast('error', 'Erro ao salvar', err.message);
+          btnSave.disabled = false;
+          btnSave.textContent = 'Salvar Avaliação';
+        }
+      };
+    }
+
+  } catch (err) {
+    $('#drawerBody').innerHTML = `<div style="padding:24px; color:#ef4444;">Erro ao carregar detalhes: ${esc(err.message)}</div>`;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
    Usuários & Acessos (Admin)
    ════════════════════════════════════════════════════════════════ */
 async function loadUsuarios() {
@@ -1701,6 +2002,29 @@ function bind() {
       } catch (err) {
         toast('error', 'Erro ao desabilitar em lote', err.message);
       }
+    };
+  }
+
+  // Filtros e busca de ideias
+  $$('#ideiasStatus .seg').forEach((btn) => {
+    btn.onclick = () => {
+      $$('#ideiasStatus .seg').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.ideias.status = btn.dataset.val;
+      state.ideias.page = 1;
+      loadIdeias();
+    };
+  });
+
+  if ($('#ideiasArea')) $('#ideiasArea').onchange = (e) => { state.ideias.area = e.target.value; state.ideias.page = 1; loadIdeias(); };
+  if ($('#ideiasImpacto')) $('#ideiasImpacto').onchange = (e) => { state.ideias.impacto = e.target.value; state.ideias.page = 1; loadIdeias(); };
+  if ($('#ideiasFrequencia')) $('#ideiasFrequencia').onchange = (e) => { state.ideias.frequencia = e.target.value; state.ideias.page = 1; loadIdeias(); };
+  if ($('#ideiasSearch')) $('#ideiasSearch').oninput = debounce((e) => { state.ideias.search = e.target.value.trim(); state.ideias.page = 1; loadIdeias(); });
+
+  if ($('#ideiasBody')) {
+    $('#ideiasBody').onclick = (e) => {
+      const el = e.target.closest('[data-ideia]');
+      if (el) openIdeiaDrawer(el.dataset.ideia);
     };
   }
 }

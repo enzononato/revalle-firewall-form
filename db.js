@@ -238,6 +238,46 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_dash_usuarios_email ON dashboard_usuarios (LOWER(email))`);
 
     console.log('[db] tabela dashboard_usuarios pronta');
+
+    // ── ideias_melhorias ────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ideias_melhorias (
+        id                   SERIAL PRIMARY KEY,
+        cpf                  VARCHAR(11)  NOT NULL,
+        nome_colaborador     VARCHAR(200) NOT NULL DEFAULT '',
+        unidade              VARCHAR(100) NOT NULL DEFAULT '',
+        cargo                VARCHAR(150) NOT NULL DEFAULT '',
+        setor                VARCHAR(100) NOT NULL DEFAULT '',
+        area                 VARCHAR(100) NOT NULL,
+        area_outro           VARCHAR(200) DEFAULT NULL,
+        processo             VARCHAR(255) NOT NULL,
+        problema             TEXT         NOT NULL,
+        como_realizado_hoje  VARCHAR(100) NOT NULL,
+        como_realizado_outro VARCHAR(200) DEFAULT NULL,
+        ideia_resumo         TEXT         NOT NULL,
+        principal_beneficio  VARCHAR(150) NOT NULL,
+        beneficio_outro      VARCHAR(200) DEFAULT NULL,
+        frequencia           VARCHAR(50)  NOT NULL,
+        impacto              VARCHAR(50)  NOT NULL,
+        abrangencia          VARCHAR(100) NOT NULL,
+        tem_sistema_dado     VARCHAR(20)  NOT NULL,
+        sistema_dado_qual    VARCHAR(255) DEFAULT NULL,
+        solucao_imaginada    TEXT         DEFAULT NULL,
+        contato_opcional     VARCHAR(255) DEFAULT NULL,
+        status               VARCHAR(30)  NOT NULL DEFAULT 'nova',
+        parecer_gestao       TEXT         DEFAULT NULL,
+        ip                   VARCHAR(45)  DEFAULT NULL,
+        created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ideias_created_at ON ideias_melhorias (created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ideias_cpf ON ideias_melhorias (cpf)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ideias_status ON ideias_melhorias (status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ideias_area ON ideias_melhorias (area)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ideias_impacto ON ideias_melhorias (impacto)`);
+
+    console.log('[db] tabela ideias_melhorias pronta');
   } finally {
     client.release();
   }
@@ -2018,6 +2058,249 @@ async function updateDashboardUserLastLogin(id) {
   await pool.query(`UPDATE dashboard_usuarios SET ultimo_login = NOW() WHERE id = $1`, [numId]).catch(() => {});
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Formulário — Ideias e Melhorias
+ * ────────────────────────────────────────────────────────────────────────── */
+
+async function insertIdeiaMelhoria(data) {
+  const {
+    cpf,
+    nome_colaborador = '',
+    unidade = '',
+    cargo = '',
+    setor = '',
+    area,
+    area_outro = null,
+    processo,
+    problema,
+    como_realizado_hoje,
+    como_realizado_outro = null,
+    ideia_resumo,
+    principal_beneficio,
+    beneficio_outro = null,
+    frequencia,
+    impacto,
+    abrangencia,
+    tem_sistema_dado,
+    sistema_dado_qual = null,
+    solucao_imaginada = null,
+    contato_opcional = null,
+    ip = null,
+  } = data;
+
+  const cleanCpf = String(cpf || '').replace(/\D+/g, '');
+  if (!cleanCpf || cleanCpf.length !== 11) {
+    throw new Error('CPF inválido. Digite os 11 números.');
+  }
+
+  if (!area || !processo || !problema || !como_realizado_hoje || !ideia_resumo || !principal_beneficio || !frequencia || !impacto || !abrangencia || !tem_sistema_dado) {
+    throw new Error('Preencha todos os campos obrigatórios do formulário.');
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO ideias_melhorias (
+      cpf, nome_colaborador, unidade, cargo, setor,
+      area, area_outro, processo, problema,
+      como_realizado_hoje, como_realizado_outro,
+      ideia_resumo, principal_beneficio, beneficio_outro,
+      frequencia, impacto, abrangencia,
+      tem_sistema_dado, sistema_dado_qual,
+      solucao_imaginada, contato_opcional, ip
+    ) VALUES (
+      $1, $2, $3, $4, $5,
+      $6, $7, $8, $9,
+      $10, $11,
+      $12, $13, $14,
+      $15, $16, $17,
+      $18, $19,
+      $20, $21, $22
+    ) RETURNING *`,
+    [
+      cleanCpf,
+      String(nome_colaborador || '').trim(),
+      String(unidade || '').trim(),
+      String(cargo || '').trim(),
+      String(setor || '').trim(),
+      String(area || '').trim(),
+      area_outro ? String(area_outro).trim() : null,
+      String(processo || '').trim(),
+      String(problema || '').trim(),
+      String(como_realizado_hoje || '').trim(),
+      como_realizado_outro ? String(como_realizado_outro).trim() : null,
+      String(ideia_resumo || '').trim(),
+      String(principal_beneficio || '').trim(),
+      beneficio_outro ? String(beneficio_outro).trim() : null,
+      String(frequencia || '').trim(),
+      String(impacto || '').trim(),
+      String(abrangencia || '').trim(),
+      String(tem_sistema_dado || '').trim(),
+      sistema_dado_qual ? String(sistema_dado_qual).trim() : null,
+      solucao_imaginada ? String(solucao_imaginada).trim() : null,
+      contato_opcional ? String(contato_opcional).trim() : null,
+      ip ? String(ip).trim() : null,
+    ]
+  );
+
+  const row = rows[0];
+  return {
+    ...row,
+    protocolo: '#IDEIA-' + String(row.id).padStart(5, '0'),
+  };
+}
+
+async function getIdeiaMelhoriaById(id) {
+  const numId = Number(id);
+  if (!numId) return null;
+  const { rows } = await pool.query(
+    `SELECT * FROM ideias_melhorias WHERE id = $1 LIMIT 1`,
+    [numId]
+  );
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    protocolo: '#IDEIA-' + String(rows[0].id).padStart(5, '0'),
+  };
+}
+
+async function updateIdeiaMelhoriaStatus(id, status, parecer) {
+  const numId = Number(id);
+  if (!numId) throw new Error('ID inválido.');
+  const validStatus = ['nova', 'em_analise', 'aprovada', 'implementada', 'arquivada'];
+  const cleanStatus = String(status || '').trim().toLowerCase();
+  if (!validStatus.includes(cleanStatus)) {
+    throw new Error('Status inválido. Escolha: Nova, Em Análise, Aprovada, Implementada ou Arquivada.');
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE ideias_melhorias
+     SET status = $1, parecer_gestao = $2, updated_at = NOW()
+     WHERE id = $3
+     RETURNING *`,
+    [cleanStatus, parecer !== undefined ? String(parecer || '').trim() : null, numId]
+  );
+
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    protocolo: '#IDEIA-' + String(rows[0].id).padStart(5, '0'),
+  };
+}
+
+async function getIdeiasMelhoriasStats() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'nova')::int AS nova,
+        COUNT(*) FILTER (WHERE status = 'em_analise')::int AS em_analise,
+        COUNT(*) FILTER (WHERE status = 'aprovada')::int AS aprovada,
+        COUNT(*) FILTER (WHERE status = 'implementada')::int AS implementada,
+        COUNT(*) FILTER (WHERE status = 'arquivada')::int AS arquivada
+      FROM ideias_melhorias
+    `);
+
+    return rows[0] || {
+      total: 0,
+      nova: 0,
+      em_analise: 0,
+      aprovada: 0,
+      implementada: 0,
+      arquivada: 0,
+    };
+  } catch (err) {
+    console.error('[db] erro getIdeiasMelhoriasStats:', err);
+    return { total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 };
+  }
+}
+
+async function listIdeiasMelhorias(filters = {}) {
+  try {
+    const conditions = [];
+    const params = [];
+    let paramIdx = 1;
+
+    if (filters.status && filters.status !== 'todos') {
+      conditions.push(`status = $${paramIdx++}`);
+      params.push(filters.status);
+    }
+
+    if (filters.area && filters.area !== 'todos') {
+      conditions.push(`area = $${paramIdx++}`);
+      params.push(filters.area);
+    }
+
+    if (filters.impacto && filters.impacto !== 'todos') {
+      conditions.push(`impacto = $${paramIdx++}`);
+      params.push(filters.impacto);
+    }
+
+    if (filters.frequencia && filters.frequencia !== 'todos') {
+      conditions.push(`frequencia = $${paramIdx++}`);
+      params.push(filters.frequencia);
+    }
+
+    if (filters.search) {
+      const term = `%${String(filters.search).trim().toLowerCase()}%`;
+      conditions.push(`(
+        LOWER(nome_colaborador) LIKE $${paramIdx} OR
+        cpf LIKE $${paramIdx} OR
+        LOWER(processo) LIKE $${paramIdx} OR
+        LOWER(ideia_resumo) LIKE $${paramIdx} OR
+        LOWER(problema) LIKE $${paramIdx} OR
+        LOWER(COALESCE(solucao_imaginada, '')) LIKE $${paramIdx} OR
+        LOWER(COALESCE(contato_opcional, '')) LIKE $${paramIdx}
+      )`);
+      params.push(term);
+      paramIdx++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM ideias_melhorias ${whereClause}`, params);
+    const total = countRes.rows[0].count;
+
+    const limit = Math.min(Math.max(Number(filters.limit) || 20, 1), 1000);
+    const page = Math.max(Number(filters.page) || 1, 1);
+    const offset = (page - 1) * limit;
+
+    const querySql = `
+      SELECT *
+      FROM ideias_melhorias
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIdx++} OFFSET $${paramIdx++}
+    `;
+    const queryParams = [...params, limit, offset];
+    const { rows } = await pool.query(querySql, queryParams);
+
+    const ideias = rows.map((r) => ({
+      ...r,
+      protocolo: '#IDEIA-' + String(r.id).padStart(5, '0'),
+    }));
+
+    const stats = await getIdeiasMelhoriasStats();
+
+    return {
+      ideias,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      stats,
+    };
+  } catch (err) {
+    console.error('[db] erro listIdeiasMelhorias:', err);
+    return {
+      ideias: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+      stats: { total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 },
+    };
+  }
+}
+
 module.exports = {
   pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
@@ -2041,5 +2324,8 @@ module.exports = {
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
+  // ideias e melhorias
+  insertIdeiaMelhoria, getIdeiaMelhoriaById, updateIdeiaMelhoriaStatus, listIdeiasMelhorias, getIdeiasMelhoriasStats,
+  findColaboradorBaseByCpf,
 };
 

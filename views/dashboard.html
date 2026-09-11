@@ -68,6 +68,11 @@
           <span>Pesquisa de Cultura</span>
           <em class="nav-badge teal" id="navCulturaTotal" hidden>0</em>
         </button>
+        <button class="nav-item" data-view="ideias" data-roles="admin,mkt_cultura">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+          <span>Ideias e Melhorias</span>
+          <em class="nav-badge amber" id="navIdeiasPending" hidden>0</em>
+        </button>
         <button class="nav-item" data-view="usuarios" data-roles="admin">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Usuários & Acessos</span>
@@ -600,7 +605,7 @@
                 <th>Unidade</th>
                 <th>Setor</th>
                 <th>Cargo</th>
-                <th style="width: 180px; text-align: center;">Status de Adesão</th>
+                <th style="width: 140px; text-align: center;">Status</th>
               </tr></thead>
               <tbody id="culturaAdesaoBody"></tbody>
             </table>
@@ -608,6 +613,103 @@
           </div>
           <div class="pager" id="culturaAdesaoPager"></div>
         </div>
+      </section>
+
+      <!-- ─── VIEW: Ideias e Melhorias ─── -->
+      <section class="view" id="view-ideias" hidden>
+        <div class="kpi-grid" id="ideiasKpis">
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Total de Ideias</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg></div></div>
+            <div class="kpi-value" id="ideiasKpiTotal">0</div>
+            <div class="kpi-sub">Ideias submetidas</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Novas (Não Avaliadas)</span><div class="kpi-icon amber"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div></div>
+            <div class="kpi-value" id="ideiasKpiNovas" style="color: #d97706;">0</div>
+            <div class="kpi-sub">Aguardando triagem</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Em Análise</span><div class="kpi-icon blue"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
+            <div class="kpi-value" id="ideiasKpiEmAnalise" style="color: #2563eb;">0</div>
+            <div class="kpi-sub">Em estudo de viabilidade</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Aprovadas / Projetos</span><div class="kpi-icon green"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+            <div class="kpi-value" id="ideiasKpiAprovadas" style="color: #16a34a;">0</div>
+            <div class="kpi-sub">Aprovadas para execução</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Implementadas</span><div class="kpi-icon teal"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div></div>
+            <div class="kpi-value" id="ideiasKpiImplementadas" style="color: #0d9488;">0</div>
+            <div class="kpi-sub">Em produção na Revalle</div>
+          </article>
+        </div>
+
+        <div class="toolbar">
+          <div class="seg-group" id="ideiasStatus">
+            <button type="button" class="seg active" data-val="">Todas</button>
+            <button type="button" class="seg" data-val="nova">Novas</button>
+            <button type="button" class="seg" data-val="em_analise">Em Análise</button>
+            <button type="button" class="seg" data-val="aprovada">Aprovadas</button>
+            <button type="button" class="seg" data-val="implementada">Implementadas</button>
+            <button type="button" class="seg" data-val="arquivada">Arquivadas</button>
+          </div>
+          <select id="ideiasArea" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todas as áreas</option>
+            <option value="Gente">Gente</option>
+            <option value="Vendas">Vendas</option>
+            <option value="Financeiro">Financeiro</option>
+            <option value="Contabilidade">Contabilidade</option>
+            <option value="Logística">Logística</option>
+            <option value="TI">TI</option>
+            <option value="Compras">Compras</option>
+            <option value="Diretoria">Diretoria</option>
+            <option value="Outra">Outra</option>
+          </select>
+          <select id="ideiasImpacto" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os impactos</option>
+            <option value="Baixo">Baixo</option>
+            <option value="Médio">Médio</option>
+            <option value="Alto">Alto</option>
+            <option value="Muito alto">Muito alto</option>
+          </select>
+          <select id="ideiasFrequencia" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todas as frequências</option>
+            <option value="Todos os dias">Todos os dias</option>
+            <option value="Toda semana">Toda semana</option>
+            <option value="Todo mês">Todo mês</option>
+            <option value="Eventualmente">Eventualmente</option>
+          </select>
+          <div class="toolbar-spacer"></div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="ideiasSearch" placeholder="Buscar processo, ideia, colaborador…" />
+          </div>
+
+          <a class="btn-export" id="ideiasExport" href="/api/dashboard/export/ideias-melhorias.csv">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </a>
+        </div>
+
+        <div class="table-wrap card">
+          <table class="data-table" id="ideiasTable">
+            <thead><tr>
+              <th style="width: 110px;">Protocolo</th>
+              <th style="width: 140px;">Data Envio</th>
+              <th style="width: 120px;">Status</th>
+              <th>Colaborador</th>
+              <th>Área</th>
+              <th>Processo a Melhorar</th>
+              <th>Ideia Resumida</th>
+              <th>Impacto</th>
+              <th style="width: 110px; text-align: center;">Ações</th>
+            </tr></thead>
+            <tbody id="ideiasBody"></tbody>
+          </table>
+          <div class="table-empty" id="ideiasEmpty" hidden>Nenhuma ideia encontrada</div>
+        </div>
+        <div class="pager" id="ideiasPager"></div>
       </section>
 
       <!-- ─── VIEW: Usuários & Acessos (Admin) ─── -->

@@ -24,6 +24,9 @@ const {
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
   listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
+  // ideias e melhorias
+  insertIdeiaMelhoria, getIdeiaMelhoriaById, updateIdeiaMelhoriaStatus, listIdeiasMelhorias, getIdeiasMelhoriasStats,
+  findColaboradorBaseByCpf,
 } = require('./db');
 const {
   sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail,
@@ -115,6 +118,10 @@ app.get(['/treinamento-ia', '/treinamento-ia-intranet', '/termo-ia'], (_req, res
 
 app.get('/pesquisa-cultura', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'pesquisa-cultura.html'));
+});
+
+app.get(['/ideias-melhorias', '/ideias', '/melhorias'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'ideias-melhorias.html'));
 });
 
 /* ── Status de bloqueio da Pesquisa de Cultura ── */
@@ -722,6 +729,152 @@ app.post('/api/pesquisa-cultura/submit', async (req, res) => {
   }
 });
 
+/* ── Formulário de Ideias e Melhorias APIs ── */
+
+app.post('/api/ideias-melhorias/check-cpf', antiBotRateLimiter({ maxPerMinute: 30, cooldownMinutes: 3 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits) return res.status(400).json({ ok: false, error: 'Informe o número do seu CPF.' });
+  if (!isValidCpf(cpfDigits)) return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+
+  try {
+    const colab = await findColaboradorBaseByCpf(cpfDigits);
+    if (!colab) {
+      return res.json({
+        ok: true,
+        not_found: true,
+        colaborador: null,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      colaborador: {
+        nome_completo: colab.nome_completo,
+        cargo: colab.cargo,
+        setor: colab.setor,
+        unidade: colab.unidade,
+      },
+    });
+  } catch (err) {
+    console.error('[ideias-melhorias/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao consultar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/ideias-melhorias/submit', async (req, res) => {
+  const b = req.body || {};
+  const cpfDigits = onlyDigits(b.cpf);
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, errors: ['CPF inválido. Preencha seu CPF corretamente.'] });
+  }
+
+  const errors = [];
+  const area = trimStr(b.area, 100);
+  if (!area) errors.push('Pergunta 1 (Área) é obrigatória.');
+  if (area === 'Outra' && !trimStr(b.area_outro, 200)) {
+    errors.push('Especifique a sua área no campo de texto.');
+  }
+
+  const processo = trimStr(b.processo, 255);
+  if (!processo) errors.push('Pergunta 2 (Processo que gostaria de melhorar) é obrigatória.');
+
+  const problema = trimStr(b.problema, 5000);
+  if (!problema) errors.push('Pergunta 3 (Problema ou dificuldade atual) é obrigatória.');
+
+  const como_realizado_hoje = trimStr(b.como_realizado_hoje, 100);
+  if (!como_realizado_hoje) errors.push('Pergunta 4 (Como esse processo é realizado atualmente) é obrigatória.');
+  if (como_realizado_hoje === 'Outro' && !trimStr(b.como_realizado_outro, 200)) {
+    errors.push('Especifique como o processo é realizado atualmente.');
+  }
+
+  const ideia_resumo = trimStr(b.ideia_resumo, 2000);
+  if (!ideia_resumo) errors.push('Pergunta 5 (Sua ideia resumidamente) é obrigatória.');
+
+  const principal_beneficio = trimStr(b.principal_beneficio, 150);
+  if (!principal_beneficio) errors.push('Pergunta 6 (Principal benefício) é obrigatória.');
+  if (principal_beneficio === 'Outro' && !trimStr(b.beneficio_outro, 200)) {
+    errors.push('Especifique o benefício esperado.');
+  }
+
+  const frequencia = trimStr(b.frequencia, 50);
+  if (!frequencia) errors.push('Pergunta 7 (Frequência do problema) é obrigatória.');
+
+  const impacto = trimStr(b.impacto, 50);
+  if (!impacto) errors.push('Pergunta 8 (Impacto do problema) é obrigatória.');
+
+  const abrangencia = trimStr(b.abrangencia, 100);
+  if (!abrangencia) errors.push('Pergunta 9 (Abrangência da melhoria) é obrigatória.');
+
+  const tem_sistema_dado = trimStr(b.tem_sistema_dado, 20);
+  if (!tem_sistema_dado) errors.push('Pergunta 10 (Se existe sistema/planilha/dado) é obrigatória.');
+  if (tem_sistema_dado === 'Sim' && !trimStr(b.sistema_dado_qual, 255)) {
+    errors.push('Especifique qual sistema, planilha ou dado pode ser utilizado.');
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({ ok: false, errors });
+  }
+
+  try {
+    let nome_colaborador = trimStr(b.nome_colaborador, 200);
+    let unidade = trimStr(b.unidade, 100);
+    let cargo = trimStr(b.cargo, 150);
+    let setor = trimStr(b.setor, 100);
+
+    if (!nome_colaborador || !unidade) {
+      const colab = await findColaboradorBaseByCpf(cpfDigits).catch(() => null);
+      if (colab) {
+        nome_colaborador = nome_colaborador || colab.nome_completo || '';
+        unidade = unidade || colab.unidade || '';
+        cargo = cargo || colab.cargo || '';
+        setor = setor || colab.setor || '';
+      }
+    }
+
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').slice(0, 45);
+
+    const saved = await insertIdeiaMelhoria({
+      cpf: cpfDigits,
+      nome_colaborador,
+      unidade,
+      cargo,
+      setor,
+      area,
+      area_outro: area === 'Outra' ? trimStr(b.area_outro, 200) : null,
+      processo,
+      problema,
+      como_realizado_hoje,
+      como_realizado_outro: como_realizado_hoje === 'Outro' ? trimStr(b.como_realizado_outro, 200) : null,
+      ideia_resumo,
+      principal_beneficio,
+      beneficio_outro: principal_beneficio === 'Outro' ? trimStr(b.beneficio_outro, 200) : null,
+      frequencia,
+      impacto,
+      abrangencia,
+      tem_sistema_dado,
+      sistema_dado_qual: tem_sistema_dado === 'Sim' ? trimStr(b.sistema_dado_qual, 255) : null,
+      solucao_imaginada: trimStr(b.solucao_imaginada, 5000) || null,
+      contato_opcional: trimStr(b.contato_opcional, 255) || null,
+      ip,
+    });
+
+    return res.status(201).json({
+      ok: true,
+      id: saved.id,
+      protocolo: saved.protocolo,
+      created_at: saved.created_at,
+    });
+  } catch (err) {
+    console.error('[ideias-melhorias/submit] erro:', err);
+    return res.status(400).json({ ok: false, errors: [err.message || 'Erro ao registrar sua ideia.'] });
+  }
+});
+
 app.get('/api/approve/:token', async (req, res) => {
   const request = await findRequestByToken(req.params.token).catch(() => null);
 
@@ -1175,7 +1328,10 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
     const isMkt = req.user && req.user.perfil === 'mkt_cultura';
 
     if (isMkt) {
-      const cultura = await getPesquisaCulturaStats().catch(() => ({ total: 0 }));
+      const [cultura, ideias] = await Promise.all([
+        getPesquisaCulturaStats().catch(() => ({ total: 0 })),
+        getIdeiasMelhoriasStats().catch(() => ({ total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 })),
+      ]);
       return res.json({
         ok: true,
         firewall: { total: 0, pendentes: 0, aprovadas: 0, reprovadas: 0, taxa_aprovacao: 0, top_dominios: [], por_unidade: [], por_setor: [], historico_12m: [] },
@@ -1183,11 +1339,12 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
         tess: { total: 0 },
         solides: { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0 },
         cultura,
+        ideias,
         generated_at: new Date().toISOString(),
       });
     }
 
-    const [firewall, contratos, tess, solides, treinamento_ia, cultura, filterOptions] = await Promise.all([
+    const [firewall, contratos, tess, solides, treinamento_ia, cultura, filterOptions, ideias] = await Promise.all([
       getFirewallStats(),
       getContractStats(),
       getImersaoTessStats().catch(() => ({ total: 0, byRevenda: [], bySetor: [] })),
@@ -1195,6 +1352,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       getIaStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0, unidades: [], setores: [], cargos: [] })),
       getPesquisaCulturaStats().catch(() => ({ total: 0 })),
       getColaboradoresFilterOptions().catch(() => ({ unidades: [], setores: [], cargos: [] })),
+      getIdeiasMelhoriasStats().catch(() => ({ total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 })),
     ]);
     res.json({
       ok: true,
@@ -1204,6 +1362,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       solides,
       treinamento_ia,
       cultura,
+      ideias,
       filterOptions,
       unidades_validas: UNIDADES_VALIDAS,
       setores_validos: SETORES_VALIDOS,
@@ -1720,6 +1879,103 @@ app.get('/api/dashboard/export/pesquisa-cultura-adesao.csv', requireRole(['admin
   } catch (err) {
     console.error('[export/pesquisa-cultura-adesao] erro:', err);
     res.status(500).send('Erro ao exportar CSV de adesão.');
+  }
+});
+
+/* ── Ideias e Melhorias Dashboard APIs ── */
+
+app.get('/api/dashboard/ideias-melhorias', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 100);
+
+    const result = await listIdeiasMelhorias({
+      status: req.query.status,
+      area: req.query.area,
+      impacto: req.query.impacto,
+      frequencia: req.query.frequencia,
+      search: req.query.search,
+      page,
+      limit: pageSize,
+    });
+
+    res.json({
+      ok: true,
+      rows: result.ideias,
+      total: result.total,
+      page: result.page,
+      pageSize: result.limit,
+      totalPages: result.totalPages,
+      stats: result.stats,
+    });
+  } catch (err) {
+    console.error('[dashboard/ideias-melhorias] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar ideias e melhorias.' });
+  }
+});
+
+app.get('/api/dashboard/ideias-melhorias/:id', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
+  try {
+    const row = await getIdeiaMelhoriaById(req.params.id);
+    if (!row) return res.status(404).json({ ok: false, error: 'Ideia não encontrada.' });
+    res.json({ ok: true, row });
+  } catch (err) {
+    console.error('[dashboard/ideias-melhorias/:id] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao carregar detalhes da ideia.' });
+  }
+});
+
+app.patch('/api/dashboard/ideias-melhorias/:id/status', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
+  try {
+    const { status, parecer } = req.body || {};
+    const updated = await updateIdeiaMelhoriaStatus(req.params.id, status, parecer);
+    if (!updated) return res.status(404).json({ ok: false, error: 'Ideia não encontrada.' });
+    res.json({ ok: true, row: updated });
+  } catch (err) {
+    console.error('[dashboard/ideias-melhorias/status] erro:', err);
+    res.status(400).json({ ok: false, error: err.message || 'Erro ao atualizar status da ideia.' });
+  }
+});
+
+app.get('/api/dashboard/export/ideias-melhorias.csv', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
+  try {
+    const result = await listIdeiasMelhorias({
+      status: req.query.status,
+      area: req.query.area,
+      impacto: req.query.impacto,
+      frequencia: req.query.frequencia,
+      search: req.query.search,
+      page: 1,
+      limit: 10000,
+    });
+
+    sendCsv(res, 'ideias-e-melhorias-revalle', [
+      { label: 'Protocolo', get: (r) => r.protocolo },
+      { label: 'Data Envio', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Status', get: (r) => (r.status || '').toUpperCase() },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Colaborador', get: (r) => r.nome_colaborador || '' },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Área', get: (r) => r.area === 'Outra' ? `Outra (${r.area_outro || ''})` : r.area },
+      { label: 'Processo', get: (r) => r.processo },
+      { label: 'Problema / Dificuldade', get: (r) => r.problema },
+      { label: 'Como é realizado hoje', get: (r) => r.como_realizado_hoje === 'Outro' ? `Outro (${r.como_realizado_outro || ''})` : r.como_realizado_hoje },
+      { label: 'Ideia Resumida', get: (r) => r.ideia_resumo },
+      { label: 'Principal Benefício', get: (r) => r.principal_beneficio === 'Outro' ? `Outro (${r.beneficio_outro || ''})` : r.principal_beneficio },
+      { label: 'Frequência', get: (r) => r.frequencia },
+      { label: 'Impacto', get: (r) => r.impacto },
+      { label: 'Abrangência', get: (r) => r.abrangencia },
+      { label: 'Existe sistema/planilha/dado', get: (r) => r.tem_sistema_dado === 'Sim' ? `Sim (${r.sistema_dado_qual || ''})` : r.tem_sistema_dado },
+      { label: 'Solução Imaginada (Detalhes)', get: (r) => r.solucao_imaginada || '' },
+      { label: 'Nome e Contato Opcional', get: (r) => r.contato_opcional || '' },
+      { label: 'Parecer da Gestão', get: (r) => r.parecer_gestao || '' },
+      { label: 'Última Atualização', get: (r) => formatDateTimeBr(r.updated_at) },
+    ], result.ideias);
+  } catch (err) {
+    console.error('[export/ideias-melhorias] erro:', err);
+    res.status(500).send('Erro ao exportar CSV.');
   }
 });
 
