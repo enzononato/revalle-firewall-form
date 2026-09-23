@@ -233,6 +233,9 @@ canvas{max-width:100%}
 .badge.vig-warn{background:var(--amber-tint);color:#a9690a}.badge.vig-warn .bd{background:var(--amber)}
 .badge.vig-bad{background:var(--red-tint);color:#b8362f}.badge.vig-bad .bd{background:var(--red)}
 .badge.vig-none{background:var(--bg-2);color:var(--muted)}.badge.vig-none .bd{background:var(--faint)}
+.badge.vig-cancelado{background:var(--red-tint);color:#b8362f}.badge.vig-cancelado .bd{background:var(--red)}
+.row-cancelado{opacity:.72}
+.row-cancelado:hover{opacity:1}
 .vig-cell{display:flex;flex-direction:column;gap:4px}
 .vig-cell small{font-size:12px;color:var(--faint)}
 

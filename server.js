@@ -23,7 +23,7 @@ const {
   createDashboardUser, updateDashboardUser, deleteDashboardUser, updateDashboardUserLastLogin,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
-  listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
+  listContracts, getContractById, updateContractStatus, listContractFiles, getContractFileById, getContractStats,
   // ideias e melhorias
   insertIdeiaMelhoria, getIdeiaMelhoriaById, updateIdeiaMelhoriaStatus, listIdeiasMelhorias, getIdeiasMelhoriasStats,
   findColaboradorBaseByCpf,
@@ -1471,6 +1471,23 @@ app.get('/api/dashboard/contratos/file/:fileId', requireRole(['admin']), async (
   res.send(file.arquivo_dados);
 });
 
+app.patch('/api/dashboard/contratos/:id/status', requireRole(['admin']), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido.' });
+  const status = String((req.body && req.body.status) || '').toLowerCase().trim();
+  if (!['ativo', 'cancelado'].includes(status)) {
+    return res.status(400).json({ ok: false, error: 'Status invalido. Valores permitidos: ativo, cancelado.' });
+  }
+  try {
+    const updated = await updateContractStatus(id, status);
+    if (!updated) return res.status(404).json({ ok: false, error: 'Contrato nao encontrado.' });
+    return res.json({ ok: true, id: updated.id, status: updated.status });
+  } catch (err) {
+    console.error('[dashboard/contratos/status] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro ao atualizar status do contrato.' });
+  }
+});
+
 /* ── Exportacao CSV ── */
 app.get('/api/dashboard/export/firewall.csv', requireRole(['admin']), async (req, res) => {
   try {
@@ -1508,6 +1525,7 @@ app.get('/api/dashboard/export/contratos.csv', requireRole(['admin']), async (re
     });
     sendCsv(res, 'contratos', [
       { label: 'Protocolo', get: (r) => '#' + String(r.id).padStart(5, '0') },
+      { label: 'Status', get: (r) => (r.status === 'cancelado' ? 'Cancelado' : 'Ativo') },
       { label: 'Cadastrado em', get: (r) => formatDateTimeBr(r.created_at) },
       { label: 'Revenda', get: (r) => r.revenda },
       { label: 'Razao Social', get: (r) => r.razao_social },

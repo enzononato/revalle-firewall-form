@@ -88,6 +88,8 @@ async function initDb() {
     await client.query(`ALTER TABLE contract_requests ALTER COLUMN arquivo_nome DROP NOT NULL`);
     await client.query(`ALTER TABLE contract_requests ALTER COLUMN arquivo_dados DROP NOT NULL`);
     await client.query(`ALTER TABLE contract_requests ALTER COLUMN arquivo_token DROP NOT NULL`);
+    await client.query(`ALTER TABLE contract_requests ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ativo'`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contract_requests_status ON contract_requests (status)`);
 
     // Criação da tabela contract_files
     await client.query(`
@@ -506,16 +508,21 @@ function buildContractWhere(filters = {}) {
     const p = add(term);
     conds.push(`(LOWER(razao_social) LIKE ${p} OR cnpj LIKE ${p} OR LOWER(pessoa_contato) LIKE ${p} OR LOWER(dono_servico) LIKE ${p})`);
   }
+  if (filters.status) {
+    conds.push(`status = ${add(filters.status)}`);
+  }
   if (filters.vigencia === 'vencidos') {
-    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim < CURRENT_DATE`);
+    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim < CURRENT_DATE AND (status IS NULL OR status <> 'cancelado')`);
   } else if (filters.vigencia === 'vence_30') {
-    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 30`);
+    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 30 AND (status IS NULL OR status <> 'cancelado')`);
   } else if (filters.vigencia === 'vence_90') {
-    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 90`);
+    conds.push(`vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 90 AND (status IS NULL OR status <> 'cancelado')`);
   } else if (filters.vigencia === 'vigente') {
-    conds.push(`(vigencia_fim IS NULL OR vigencia_fim >= CURRENT_DATE)`);
+    conds.push(`(vigencia_fim IS NULL OR vigencia_fim >= CURRENT_DATE) AND (status IS NULL OR status <> 'cancelado')`);
   } else if (filters.vigencia === 'sem_fim') {
-    conds.push(`vigencia_fim IS NULL`);
+    conds.push(`vigencia_fim IS NULL AND (status IS NULL OR status <> 'cancelado')`);
+  } else if (filters.vigencia === 'cancelados') {
+    conds.push(`status = 'cancelado'`);
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
@@ -536,7 +543,7 @@ async function listContracts(filters = {}) {
            to_char(r.vigencia_inicio, 'YYYY-MM-DD') AS vigencia_inicio,
            to_char(r.vigencia_fim, 'YYYY-MM-DD')    AS vigencia_fim,
            (r.vigencia_fim - CURRENT_DATE)          AS dias_restantes,
-           r.dono_servico, r.setor, r.created_at,
+           r.dono_servico, r.setor, COALESCE(r.status, 'ativo') AS status, r.created_at,
            (SELECT COUNT(*)::int FROM contract_files f WHERE f.contract_id = r.id) AS arquivos_count
     FROM contract_requests r
     ${where}
@@ -558,9 +565,20 @@ async function getContractById(id) {
             to_char(vigencia_inicio, 'YYYY-MM-DD') AS vigencia_inicio,
             to_char(vigencia_fim, 'YYYY-MM-DD')    AS vigencia_fim,
             (vigencia_fim - CURRENT_DATE)          AS dias_restantes,
-            dono_servico, setor, created_at
+            dono_servico, setor, COALESCE(status, 'ativo') AS status, created_at
      FROM contract_requests WHERE id = $1 LIMIT 1`,
     [id]
+  );
+  return rows[0] || null;
+}
+
+async function updateContractStatus(id, status) {
+  const { rows } = await pool.query(
+    `UPDATE contract_requests
+     SET status = $2
+     WHERE id = $1
+     RETURNING id, status, razao_social`,
+    [id, status]
   );
   return rows[0] || null;
 }
@@ -586,12 +604,13 @@ async function getContractStats() {
     pool.query(`
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim < CURRENT_DATE)::int AS vencidos,
-        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 30)::int AS vence_30,
-        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim > CURRENT_DATE + 30 AND vigencia_fim <= CURRENT_DATE + 60)::int AS vence_60,
-        COUNT(*) FILTER (WHERE vigencia_fim IS NOT NULL AND vigencia_fim > CURRENT_DATE + 60 AND vigencia_fim <= CURRENT_DATE + 90)::int AS vence_90,
-        COUNT(*) FILTER (WHERE vigencia_fim IS NULL OR vigencia_fim > CURRENT_DATE + 90)::int AS vigente_long,
-        COUNT(*) FILTER (WHERE vigencia_fim IS NULL)::int AS sem_fim
+        COUNT(*) FILTER (WHERE status = 'cancelado')::int AS cancelados,
+        COUNT(*) FILTER (WHERE (status IS NULL OR status <> 'cancelado') AND vigencia_fim IS NOT NULL AND vigencia_fim < CURRENT_DATE)::int AS vencidos,
+        COUNT(*) FILTER (WHERE (status IS NULL OR status <> 'cancelado') AND vigencia_fim IS NOT NULL AND vigencia_fim >= CURRENT_DATE AND vigencia_fim <= CURRENT_DATE + 30)::int AS vence_30,
+        COUNT(*) FILTER (WHERE (status IS NULL OR status <> 'cancelado') AND vigencia_fim IS NOT NULL AND vigencia_fim > CURRENT_DATE + 30 AND vigencia_fim <= CURRENT_DATE + 60)::int AS vence_60,
+        COUNT(*) FILTER (WHERE (status IS NULL OR status <> 'cancelado') AND vigencia_fim IS NOT NULL AND vigencia_fim > CURRENT_DATE + 60 AND vigencia_fim <= CURRENT_DATE + 90)::int AS vence_90,
+        COUNT(*) FILTER (WHERE (status IS NULL OR status <> 'cancelado') AND (vigencia_fim IS NULL OR vigencia_fim > CURRENT_DATE + 90))::int AS vigente_long,
+        COUNT(*) FILTER (WHERE (status IS NULL OR status <> 'cancelado') AND vigencia_fim IS NULL)::int AS sem_fim
       FROM contract_requests
     `),
     pool.query(`
@@ -613,6 +632,7 @@ async function getContractStats() {
              (vigencia_fim - CURRENT_DATE)       AS dias_restantes
       FROM contract_requests
       WHERE vigencia_fim IS NOT NULL AND vigencia_fim <= CURRENT_DATE + 90
+        AND (status IS NULL OR status <> 'cancelado')
       ORDER BY vigencia_fim ASC
       LIMIT 15
     `),
@@ -2323,7 +2343,7 @@ module.exports = {
   createDashboardUser, updateDashboardUser, deleteDashboardUser, updateDashboardUserLastLogin,
   // dashboard
   findRequestById, listFirewallRequests, getFirewallStats,
-  listContracts, getContractById, listContractFiles, getContractFileById, getContractStats,
+  listContracts, getContractById, updateContractStatus, listContractFiles, getContractFileById, getContractStats,
   // ideias e melhorias
   insertIdeiaMelhoria, getIdeiaMelhoriaById, updateIdeiaMelhoriaStatus, listIdeiasMelhorias, getIdeiasMelhoriasStats,
   findColaboradorBaseByCpf,

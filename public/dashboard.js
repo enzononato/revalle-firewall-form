@@ -66,7 +66,8 @@ function toast(kind, title, sub = '') {
 }
 
 /* ════════ Vigência helpers ════════ */
-function vigInfo(dias, fim) {
+function vigInfo(dias, fim, status) {
+  if (status === 'cancelado') return { cls: 'vig-cancelado', label: 'Cancelado', exp: 'bad', big: '✕', small: 'cancelado' };
   if (fim == null || dias == null) return { cls: 'vig-none', label: 'Sem data final', exp: 'warn', big: '∞', small: 'sem fim' };
   if (dias < 0) return { cls: 'vig-bad', label: `Vencido há ${Math.abs(dias)}d`, exp: 'bad', big: Math.abs(dias), small: 'd atrás' };
   if (dias <= 30) return { cls: 'vig-warn', label: `Vence em ${dias}d`, exp: 'bad', big: dias, small: 'dias' };
@@ -349,7 +350,7 @@ function renderExpire(list) {
   const box = $('#expireList');
   if (!list.length) { box.innerHTML = '<div class="expire-empty">Nenhum contrato vence nos próximos 90 dias. 🎉</div>'; return; }
   box.innerHTML = list.map((c) => {
-    const v = vigInfo(c.dias_restantes, c.vigencia_fim);
+    const v = vigInfo(c.dias_restantes, c.vigencia_fim, c.status);
     return `<div class="expire-item" data-contract="${c.id}">
       <div class="expire-days ${v.exp}"><b>${v.big}</b><span>${v.small}</span></div>
       <div class="expire-meta">
@@ -367,6 +368,14 @@ function renderContratoMiniKpis(k) {
     { ico: 'amber', svg: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>', val: k.vence_60 + k.vence_90, label: 'Vencem em 31–90 dias' },
     { ico: 'red', svg: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>', val: k.vencidos, label: 'Vencidos' },
   ];
+  if (k.cancelados) {
+    items.push({
+      ico: 'red',
+      svg: '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+      val: k.cancelados,
+      label: 'Cancelados',
+    });
+  }
   const ico = (p) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   $('#contratoKpis').innerHTML = items.map((i) => `<div class="mini-kpi"><div class="mk-ico kpi-ico ${i.ico}">${ico(i.svg)}</div><div><b>${i.val}</b><span>${i.label}</span></div></div>`).join('');
   // badges no menu
@@ -565,13 +574,14 @@ function renderCtRows(rows) {
   if (!rows.length) { body.innerHTML = ''; emptyState('#ctEmpty', 'Nenhum contrato encontrado', 'Ajuste os filtros para refinar a busca.'); return; }
   $('#ctEmpty').hidden = true;
   body.innerHTML = rows.map((r) => {
-    const v = vigInfo(r.dias_restantes, r.vigencia_fim);
-    return `<tr data-contract="${r.id}">
+    const isCancelado = r.status === 'cancelado';
+    const v = vigInfo(r.dias_restantes, r.vigencia_fim, r.status);
+    return `<tr data-contract="${r.id}" class="${isCancelado ? 'row-cancelado' : ''}">
       <td><span class="proto">${proto(r.id)}</span></td>
       <td><div class="cell-main">${esc(r.razao_social)}</div><div class="cell-sub">${fmtCnpj(r.cnpj)}</div></td>
       <td>${esc(r.revenda)}</td>
       <td>${esc(r.setor)}</td>
-      <td><div class="vig-cell"><span class="badge ${v.cls}"><span class="bd"></span>${v.label}</span><small>${r.vigencia_fim ? 'até ' + fmtIsoDate(r.vigencia_fim) : 'a partir de ' + fmtIsoDate(r.vigencia_inicio)}</small></div></td>
+      <td><div class="vig-cell"><span class="badge ${v.cls}"><span class="bd"></span>${v.label}</span><small>${isCancelado ? 'Contrato cancelado' : (r.vigencia_fim ? 'até ' + fmtIsoDate(r.vigencia_fim) : 'a partir de ' + fmtIsoDate(r.vigencia_inicio))}</small></div></td>
       <td class="center"><span class="count-pill">${r.arquivos_count}</span></td>
       <td><svg class="row-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></td>
     </tr>`;
@@ -585,10 +595,11 @@ async function openContrato(id) {
   try {
     const res = await api('/contratos/' + id);
     const { row: r, arquivos } = await res.json();
-    const v = vigInfo(r.dias_restantes, r.vigencia_fim);
+    const isCancelado = r.status === 'cancelado';
+    const v = vigInfo(r.dias_restantes, r.vigencia_fim, r.status);
     $('#drawerKicker').textContent = proto(r.id) + ' · cadastrado ' + fmtDateTime(r.created_at);
     $('#drawerTitle').textContent = r.razao_social;
-    const calloutCls = v.exp === 'bad' ? 'red' : v.exp === 'warn' ? 'amber' : 'green';
+    const calloutCls = isCancelado ? 'red' : (v.exp === 'bad' ? 'red' : v.exp === 'warn' ? 'amber' : 'green');
     const files = arquivos.length ? arquivos.map((f) => `
       <div class="file-row">
         <div class="file-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
@@ -601,7 +612,7 @@ async function openContrato(id) {
     $('#drawerBody').innerHTML = `
       <div class="d-section"><div class="callout ${calloutCls}">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        <div><b>${v.label}.</b> Vigência ${fmtIsoDate(r.vigencia_inicio)} ${r.vigencia_fim ? '— ' + fmtIsoDate(r.vigencia_fim) : '(sem data final)'}</div>
+        <div><b>${v.label}.</b> ${isCancelado ? 'Este contrato está marcado como cancelado.' : `Vigência ${fmtIsoDate(r.vigencia_inicio)} ${r.vigencia_fim ? '— ' + fmtIsoDate(r.vigencia_fim) : '(sem data final)'}`}</div>
       </div></div>
       <div class="d-section">
         <div class="d-section-title">Fornecedor</div>
@@ -616,6 +627,7 @@ async function openContrato(id) {
       <div class="d-section">
         <div class="d-section-title">Contrato</div>
         <div class="d-grid">
+          <div class="d-cell"><label>Status</label><span><span class="badge ${v.cls}"><span class="bd"></span>${isCancelado ? 'Cancelado' : 'Ativo'}</span></span></div>
           <div class="d-cell"><label>Revenda</label><span>${esc(r.revenda)}</span></div>
           <div class="d-cell"><label>Setor</label><span>${esc(r.setor)}</span></div>
           <div class="d-cell"><label>Início da vigência</label><span>${fmtIsoDate(r.vigencia_inicio)}</span></div>
@@ -626,7 +638,62 @@ async function openContrato(id) {
         <div class="d-section-title">Documentos (${arquivos.length})</div>
         ${files}
       </div>`;
+
+    const isAdmin = !state.user || state.user.perfil === 'admin' || state.user.perfil === 'superadmin' || state.user.role === 'admin';
+    if (isAdmin) {
+      const foot = $('#drawerFoot');
+      foot.hidden = false;
+      if (isCancelado) {
+        foot.innerHTML = `<button class="btn btn-approve" id="btnToggleContratoStatus" style="flex:1;background:var(--brand,#0A3296)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+          Reativar Contrato (Marcar como Ativo)
+        </button>`;
+        $('#btnToggleContratoStatus').onclick = () => updateContratoStatus(id, 'ativo', r.razao_social);
+      } else {
+        foot.innerHTML = `<button class="btn btn-reject" id="btnToggleContratoStatus" style="flex:1">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Alterar status para "Cancelado"
+        </button>`;
+        $('#btnToggleContratoStatus').onclick = () => confirmCancelarContrato(id, r.razao_social);
+      }
+    }
   } catch (e) { if (e.message !== 'unauth') $('#drawerBody').innerHTML = '<p style="color:var(--faint)">Erro ao carregar.</p>'; }
+}
+function confirmCancelarContrato(id, razao) {
+  const foot = $('#drawerFoot');
+  foot.innerHTML = `
+    <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:13px;color:var(--muted);line-height:1.4">
+        Tem certeza que deseja alterar o status do contrato de <b>${esc(razao)}</b> para <b>Cancelado</b>?
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-reject" id="btnCancelCancel" style="flex:0 0 auto;padding:10px 14px;background:var(--bg-2);color:var(--ink)">Voltar</button>
+        <button class="btn btn-approve" id="btnConfirmCancel" style="flex:0 0 auto;padding:10px 16px;background:var(--red);color:#fff">Confirmar Cancelamento</button>
+      </div>
+    </div>`;
+  $('#btnCancelCancel').onclick = () => openContrato(id);
+  $('#btnConfirmCancel').onclick = () => updateContratoStatus(id, 'cancelado', razao);
+}
+async function updateContratoStatus(id, newStatus, razao) {
+  const foot = $('#drawerFoot');
+  $$('#drawerFoot button').forEach((b) => b.disabled = true);
+  try {
+    const res = await api(`/contratos/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Falha ao alterar status');
+    toast('success', newStatus === 'cancelado' ? 'Contrato cancelado' : 'Contrato reativado', `O contrato de ${razao || 'fornecedor'} foi alterado para ${newStatus}.`);
+    foot.hidden = true;
+    closeDrawer();
+    await Promise.all([loadContratos(), loadSummary()]);
+  } catch (e) {
+    if (e.message !== 'unauth') {
+      toast('error', 'Não foi possível alterar status', e.message);
+      $$('#drawerFoot button').forEach((b) => b.disabled = false);
+    }
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
