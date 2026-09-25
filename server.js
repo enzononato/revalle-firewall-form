@@ -169,8 +169,30 @@ function trimStr(v, max) {
   return t.length > max ? t.slice(0, max) : t;
 }
 
+const ALLOWED_CORPORATE_DOMAINS = [
+  'revalle.com.br',
+  'revallepe.com.br',
+  'revallenordeste.com.br',
+  'revallepe',
+  'revallenordeste',
+  'revalle',
+  'revalle.com',
+  'revallepe.com',
+  'revallenordeste.com',
+];
+
+function isCorporateEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  const clean = email.trim().toLowerCase();
+  const atIndex = clean.lastIndexOf('@');
+  if (atIndex <= 0 || atIndex === clean.length - 1) return false;
+  const domain = clean.slice(atIndex + 1);
+  return ALLOWED_CORPORATE_DOMAINS.some((d) => domain === d || domain.endsWith('.' + d));
+}
+
 function isValidEmail(s) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+  const str = String(s || '').trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str) || isCorporateEmail(str);
 }
 
 function isValidCnpj(cnpj) {
@@ -313,7 +335,7 @@ function validateImersaoTessPayload(body) {
   const email = trimStr(body.email, 200);
   if (!email) errors.push('E-mail e obrigatorio.');
   else if (!isValidEmail(email)) errors.push('E-mail invalido.');
-  else if (!email.toLowerCase().endsWith('@revalle.com.br')) errors.push('Use obrigatoriamente um e-mail corporativo (@revalle.com.br).');
+  else if (!isCorporateEmail(email)) errors.push('Use obrigatoriamente um e-mail corporativo (@revalle.com.br, @revallepe ou @revallenordeste).');
 
   const telefoneDigits = onlyDigits(body.telefone);
   if (!telefoneDigits) errors.push('Telefone e obrigatorio.');

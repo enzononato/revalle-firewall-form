@@ -175,9 +175,16 @@
     const funcao = document.getElementById('funcao').value.trim();
     if (!funcao) { setFieldError('funcao', 'Informe a funcao.'); errors.push('Funcao'); }
 
+    const isCorporate = (em) => {
+      const at = em.lastIndexOf('@');
+      if (at <= 0) return false;
+      const dom = em.slice(at + 1).toLowerCase();
+      const allowed = ['revalle.com.br', 'revallepe.com.br', 'revallenordeste.com.br', 'revallepe', 'revallenordeste', 'revalle', 'revalle.com', 'revallepe.com', 'revallenordeste.com'];
+      return allowed.some((d) => dom === d || dom.endsWith('.' + d));
+    };
     const email = document.getElementById('email').value.trim();
     if (!email) { setFieldError('email', 'Informe o e-mail.'); errors.push('Email'); }
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !isCorporate(email)) {
       setFieldError('email', 'E-mail invalido.'); errors.push('Email');
     }
 

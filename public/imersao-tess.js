@@ -53,8 +53,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const ALLOWED_CORPORATE_DOMAINS = [
+    'revalle.com.br',
+    'revallepe.com.br',
+    'revallenordeste.com.br',
+    'revallepe',
+    'revallenordeste',
+    'revalle',
+    'revalle.com',
+    'revallepe.com',
+    'revallenordeste.com',
+  ];
+
+  function isCorporateEmail(email) {
+    if (!email) return false;
+    const clean = String(email || '').trim().toLowerCase();
+    const atIndex = clean.lastIndexOf('@');
+    if (atIndex <= 0 || atIndex === clean.length - 1) return false;
+    const domain = clean.slice(atIndex + 1);
+    return ALLOWED_CORPORATE_DOMAINS.some((d) => domain === d || domain.endsWith('.' + d));
+  }
+
   function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+    const str = String(email || '').trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str) || isCorporateEmail(str);
   }
 
   function validateForm() {
@@ -82,8 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!isValidEmail(emailVal)) {
       setError('email', 'Informe um e-mail válido.');
       isValid = false;
-    } else if (!emailVal.toLowerCase().endsWith('@revalle.com.br')) {
-      setError('email', 'Use obrigatoriamente seu e-mail corporativo (@revalle.com.br).');
+    } else if (!isCorporateEmail(emailVal)) {
+      setError('email', 'Use obrigatoriamente seu e-mail corporativo (@revalle.com.br, @revallepe ou @revallenordeste).');
       isValid = false;
     }
 
