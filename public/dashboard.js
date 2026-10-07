@@ -561,6 +561,7 @@ async function loadContratos() {
   $('#ctEmpty').hidden = true;
   const p = ctQuery(); p.set('page', state.ct.page); p.set('pageSize', state.ct.pageSize);
   $('#ctExport').href = `${API}/export/contratos.csv?${ctQuery().toString()}`;
+  $('#ctExportZip').href = `${API}/export/contratos.zip?${ctQuery().toString()}`;
   try {
     const res = await api('/contratos?' + p.toString());
     const data = await res.json();

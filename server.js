@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const multer = require('multer');
+const archiver = require('archiver');
 const {
   initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
@@ -1564,6 +1565,60 @@ app.get('/api/dashboard/export/contratos.csv', requireRole(['admin']), async (re
   } catch (err) {
     console.error('[export/contratos] erro:', err);
     res.status(500).send('Erro ao exportar.');
+  }
+});
+app.get('/api/dashboard/export/contratos.zip', requireRole(['admin']), async (req, res) => {
+  try {
+    const { rows } = await listContracts({
+      setor: req.query.setor, revenda: req.query.revenda, vigencia: req.query.vigencia,
+      search: req.query.search, limit: 50000, offset: 0,
+    });
+    const entries = [];
+    for (const contract of rows) {
+      if (!contract.arquivos_count) continue;
+      entries.push({ contract, files: await listContractFiles(contract.id) });
+    }
+    if (!entries.length) return res.status(404).send('Nenhum arquivo de contrato encontrado para os filtros atuais.');
+
+    const safeName = (value, fallback) => {
+      const cleaned = String(value || '').replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').replace(/ \./g, '.').trim().slice(0, 80);
+      return cleaned || fallback;
+    };
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="contratos-${stamp}.zip"`);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    archive.on('error', (err) => {
+      console.error('[export/contratos.zip] erro no zip:', err);
+      res.destroy(err);
+    });
+    res.on('close', () => { if (!res.writableFinished) archive.abort(); });
+    archive.pipe(res);
+
+    // Um arquivo por vez para nao carregar todos os PDFs na memoria.
+    for (const { contract, files } of entries) {
+      const folder = `${String(contract.id).padStart(5, '0')} - ${safeName(contract.razao_social, 'contrato')}`;
+      const used = new Set();
+      for (const meta of files) {
+        const file = await getContractFileById(meta.id);
+        if (!file) continue;
+        let name = safeName(file.arquivo_nome, `contrato-${file.id}.pdf`);
+        if (used.has(name.toLowerCase())) {
+          const dot = name.lastIndexOf('.');
+          const base = dot > 0 ? name.slice(0, dot) : name;
+          const ext = dot > 0 ? name.slice(dot) : '';
+          name = `${base} (${file.id})${ext}`;
+        }
+        used.add(name.toLowerCase());
+        archive.append(file.arquivo_dados, { name: `${folder}/${name}` });
+      }
+    }
+    await archive.finalize();
+  } catch (err) {
+    console.error('[export/contratos.zip] erro:', err);
+    if (!res.headersSent) res.status(500).send('Erro ao exportar.');
+    else res.destroy(err);
   }
 });
 
