@@ -8,3 +8,16 @@ npm-debug.log*
 .vscode/
 .idea/
 .claude/
+
+# segredos / credenciais
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+secrets/
+credentials*.json
+service-account*.json
+*.sql.gz
+*.dump
+backup*.sql
