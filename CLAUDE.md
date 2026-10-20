@@ -78,6 +78,7 @@ Dockerfile, .dockerignore
 | Imersão TESS | `/imersao-tess-form` | `imersao_tess_requests` |
 | Treinamento Sólides (ponto) | `/treinamento-solides` | `solides_treinamento_assinaturas`, `solides_treinamento_permissoes` |
 | Treinamento IA / LGPD / Intranet | `/treinamento-ia` (`/termo-ia`, `/treinamento-ia-intranet`) | `treinamento_ia_assinaturas`, `treinamento_ia_permissoes` |
+| Treinamento Passivo Trabalhista (só lideranças habilitadas) | `/passivo-trabalhista` | `passivo_trabalhista_assinaturas`, `passivo_trabalhista_permissoes` (via `createTermoComHabilitados` em `db.js`, reutilizável para novos termos; CPFs liberados colando a lista no painel — **nunca commitar CPFs, o repo é público**) |
 | Pesquisa de Cultura (anônima) | `/pesquisa-cultura` | `pesquisa_cultura_participantes` (adesão), `pesquisa_cultura_respostas` (sem vínculo com CPF) |
 | Ideias e Melhorias | `/ideias-melhorias` (`/ideias`, `/melhorias`) | `ideias_melhorias` |
 | Usuários do painel | — | `dashboard_usuarios` (perfis `admin` e `mkt_cultura`) |

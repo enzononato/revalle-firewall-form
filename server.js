@@ -13,6 +13,8 @@ const {
   // treinamento ia e intranet
   findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
   toggleIaPermissao, bulkSetIaPermissoes,
+  // treinamento passivo trabalhista
+  passivoTrabalhista, EMPTY_TERMO_STATS,
   // utilitários de filtros
   getColaboradoresFilterOptions,
   // pesquisa cultura revalle
@@ -115,6 +117,10 @@ app.get('/treinamento-solides', (_req, res) => {
 
 app.get(['/treinamento-ia', '/treinamento-ia-intranet', '/termo-ia'], (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'treinamento-ia.html'));
+});
+
+app.get(['/passivo-trabalhista', '/treinamento-passivo-trabalhista'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'passivo-trabalhista.html'));
 });
 
 app.get('/pesquisa-cultura', (_req, res) => {
@@ -677,6 +683,115 @@ app.post('/api/treinamento-ia/assinar', async (req, res) => {
     });
   } catch (err) {
     console.error('[treinamento-ia/assinar] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
+  }
+});
+
+/* ── Treinamento Passivo Trabalhista (somente liderancas habilitadas) ── */
+
+// Limite mais alto que os demais: a turma costuma assinar ao mesmo tempo, da
+// mesma rede da unidade (mesmo IP).
+app.post('/api/passivo-trabalhista/check-cpf', antiBotRateLimiter({ maxPerMinute: 60, cooldownMinutes: 2 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits) {
+    return res.status(400).json({ ok: false, error: 'Informe o número do CPF.' });
+  }
+  if (!isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+  }
+
+  try {
+    const colab = await passivoTrabalhista.findByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({
+        ok: false,
+        not_found: true,
+        error: 'CPF não localizado no cadastro da Revalle. Verifique o número digitado ou contate o setor de TI / RH.',
+      });
+    }
+
+    // Quem ja assinou sempre consegue rever o comprovante.
+    if (!colab.assinado && colab.inativo) {
+      return res.status(403).json({
+        ok: false,
+        inativo: true,
+        error: 'Seu cadastro consta como inativo no sistema da Revalle. O acesso é restrito a colaboradores ativos.',
+      });
+    }
+    if (!colab.assinado && !colab.permitido) {
+      return res.status(403).json({
+        ok: false,
+        not_permitted: true,
+        error: 'Este termo é destinado às lideranças convocadas para o Treinamento de Passivo Trabalhista e este CPF não está na lista. Se você participou do treinamento, procure o setor de RH / DP.',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      colaborador: {
+        id: colab.id,
+        cpf: colab.cpf,
+        nome_completo: colab.nome_completo,
+        cargo: colab.cargo,
+        setor: colab.setor,
+        unidade: colab.unidade,
+        assinado: colab.assinado,
+        assinado_em: colab.assinado_em,
+        protocolo: colab.protocolo,
+      },
+    });
+  } catch (err) {
+    console.error('[passivo-trabalhista/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao consultar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/passivo-trabalhista/assinar', async (req, res) => {
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+  if (!(req.body && req.body.aceitou_termos)) {
+    return res.status(400).json({ ok: false, error: 'É necessário declarar ciência dos pontos apresentados para assinar.' });
+  }
+
+  try {
+    const colab = await passivoTrabalhista.findByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({ ok: false, error: 'Colaborador não encontrado.' });
+    }
+    if (colab.assinado) {
+      return res.status(409).json({
+        ok: false,
+        already_signed: true,
+        error: 'Este termo já foi assinado anteriormente.',
+        assinado_em: colab.assinado_em,
+        protocolo: colab.protocolo,
+      });
+    }
+    if (colab.inativo || !colab.permitido) {
+      return res.status(403).json({ ok: false, error: 'Colaborador não está habilitado para assinar este termo.' });
+    }
+
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').slice(0, 45);
+    const signed = await passivoTrabalhista.assinar(cpfDigits, ip);
+    if (!signed) {
+      return res.status(409).json({ ok: false, already_signed: true, error: 'Este termo já foi assinado anteriormente.' });
+    }
+
+    return res.json({
+      ok: true,
+      protocolo: signed.protocolo,
+      nome_completo: signed.nome_completo,
+      assinado_em: signed.assinado_em,
+    });
+  } catch (err) {
+    console.error('[passivo-trabalhista/assinar] erro:', err);
     return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
   }
 });
@@ -1367,12 +1482,13 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       });
     }
 
-    const [firewall, contratos, tess, solides, treinamento_ia, cultura, filterOptions, ideias] = await Promise.all([
+    const [firewall, contratos, tess, solides, treinamento_ia, passivo_trabalhista, cultura, filterOptions, ideias] = await Promise.all([
       getFirewallStats(),
       getContractStats(),
       getImersaoTessStats().catch(() => ({ total: 0, byRevenda: [], bySetor: [] })),
       getSolidesStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0, unidades: [], setores: [], cargos: [] })),
       getIaStats().catch(() => ({ total_base: 0, assinados: 0, pendentes: 0, unidades: [], setores: [], cargos: [] })),
+      passivoTrabalhista.getStats().catch(() => ({ ...EMPTY_TERMO_STATS })),
       getPesquisaCulturaStats().catch(() => ({ total: 0 })),
       getColaboradoresFilterOptions().catch(() => ({ unidades: [], setores: [], cargos: [] })),
       getIdeiasMelhoriasStats().catch(() => ({ total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 })),
@@ -1384,6 +1500,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       tess,
       solides,
       treinamento_ia,
+      passivo_trabalhista,
       cultura,
       ideias,
       filterOptions,
@@ -1839,6 +1956,88 @@ app.get('/api/dashboard/export/treinamento-ia.csv', requireRole(['admin']), asyn
     ], rows);
   } catch (err) {
     console.error('[export/treinamento-ia] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
+});
+
+/* ── Treinamento Passivo Trabalhista Dashboard APIs ── */
+
+function passivoFilters(query) {
+  return {
+    status: query.status,
+    setor: query.setor,
+    unidade: query.unidade,
+    cargo: query.cargo,
+    search: query.search,
+  };
+}
+
+app.get('/api/dashboard/passivo-trabalhista', requireRole(['admin']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const result = await passivoTrabalhista.list({
+      ...passivoFilters(req.query),
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+    res.json({ ok: true, rows: result.rows, total: result.total, page, pageSize, stats: result.stats });
+  } catch (err) {
+    console.error('[dashboard/passivo-trabalhista] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar colaboradores do treinamento de Passivo Trabalhista.' });
+  }
+});
+
+app.post('/api/dashboard/passivo-trabalhista/toggle-permission', requireRole(['admin']), async (req, res) => {
+  const cpf = onlyDigits(req.body ? req.body.cpf : '');
+  const permitido = Boolean(req.body && req.body.permitido);
+  if (!cpf || cpf.length !== 11) {
+    return res.status(400).json({ ok: false, error: 'CPF inválido.' });
+  }
+  try {
+    const result = await passivoTrabalhista.togglePermissao(cpf, permitido);
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error('[dashboard/passivo-trabalhista/toggle-permission] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao alterar permissão.' });
+  }
+});
+
+// Aceita tanto a selecao da tabela quanto uma lista de CPFs colada no painel.
+app.post('/api/dashboard/passivo-trabalhista/bulk-permission', requireRole(['admin']), async (req, res) => {
+  const cpfs = Array.isArray(req.body ? req.body.cpfs : null) ? req.body.cpfs.map(onlyDigits) : [];
+  const permitido = Boolean(req.body && req.body.permitido);
+  const validos = cpfs.filter((c) => c.length === 11 && isValidCpf(c));
+  const invalidos = cpfs.filter((c) => c && !(c.length === 11 && isValidCpf(c)));
+  if (!validos.length) {
+    return res.status(400).json({ ok: false, error: 'Nenhum CPF válido informado.', invalidos });
+  }
+  try {
+    const result = await passivoTrabalhista.bulkSetPermissoes(validos, permitido);
+    res.json({ ok: true, count: result.count, nao_encontrados: result.nao_encontrados, invalidos });
+  } catch (err) {
+    console.error('[dashboard/passivo-trabalhista/bulk-permission] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao aplicar permissões em lote.' });
+  }
+});
+
+app.get('/api/dashboard/export/passivo-trabalhista.csv', requireRole(['admin']), async (req, res) => {
+  try {
+    const { rows } = await passivoTrabalhista.list({ ...passivoFilters(req.query), limit: 50000, offset: 0 });
+    sendCsv(res, 'treinamento-passivo-trabalhista', [
+      { label: 'Protocolo', get: (r) => r.assinado ? passivoTrabalhista.protocolo(r.id) : '' },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Nome do Colaborador', get: (r) => r.nome_completo },
+      { label: 'Permissao', get: (r) => r.permitido ? 'Habilitado' : 'Nao Habilitado' },
+      { label: 'Status Assinatura', get: (r) => r.assinado ? 'Assinado' : 'Pendente' },
+      { label: 'Data Assinatura', get: (r) => r.assinado_em ? formatDateTimeBr(r.assinado_em) : '' },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'IP Assinatura', get: (r) => r.ip || '' },
+    ], rows);
+  } catch (err) {
+    console.error('[export/passivo-trabalhista] erro:', err);
     res.status(500).send('Erro ao exportar.');
   }
 });

@@ -12,6 +12,7 @@ const state = {
   tess: { setor: '', revenda: '', search: '', page: 1, pageSize: 25, total: 0 },
   solides: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ia: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
+  pt: { status: 'permitido', unidade: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ideias: { status: '', area: '', impacto: '', frequencia: '', search: '', page: 1, pageSize: 20, total: 0 },
@@ -85,6 +86,7 @@ const TITLES = {
   tess: ['Imersão Tess', 'Lista de inscritos e detalhes da Imersão Tess'],
   solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
   'treinamento-ia': ['Treinamento IA & Intranet', 'Colaboradores participantes e controle de assinatura do termo'],
+  passivo: ['Passivo Trabalhista', 'Lideranças convocadas e controle de assinatura do termo de ciência'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
   ideias: ['Ideias e Melhorias', 'Programa de ideias, melhorias e sugestões de projetos da Revalle'],
   usuarios: ['Usuários & Acessos', 'Gerenciamento de acessos e perfis de usuários do painel'],
@@ -107,6 +109,7 @@ function switchView(view) {
   if (view === 'tess') loadTess();
   if (view === 'solides') loadSolides();
   if (view === 'treinamento-ia') loadTreinamentoIa();
+  if (view === 'passivo') loadPassivo();
   if (view === 'cultura') loadPesquisaCultura();
   if (view === 'ideias') loadIdeias();
   if (view === 'usuarios') loadUsuarios();
@@ -250,6 +253,7 @@ function updateNavBadges(data) {
       $('#navIaPending').hidden = p <= 0;
     }
   }
+  if (data.passivo_trabalhista) setPassivoNavBadge(data.passivo_trabalhista.pendentes || 0);
   if (data.cultura) {
     const c = data.cultura.total || 0;
     if ($('#navCulturaTotal')) {
@@ -1096,6 +1100,229 @@ function renderTreinamentoIa(rows, total) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Treinamento Passivo Trabalhista Dashboard
+   ════════════════════════════════════════════════════════════════ */
+const selectedPtCpfs = new Set();
+
+function setPassivoNavBadge(pendentes) {
+  const el = $('#navPassivoPending');
+  if (!el) return;
+  el.textContent = pendentes;
+  el.hidden = pendentes <= 0;
+}
+
+async function loadPassivo() {
+  const { status, unidade, cargo, search, page, pageSize } = state.pt;
+  const query = new URLSearchParams({ page, pageSize });
+  if (status) query.set('status', status);
+  if (unidade) query.set('unidade', unidade);
+  if (cargo) query.set('cargo', cargo);
+  if (search) query.set('search', search);
+
+  if ($('#ptExport')) $('#ptExport').href = `${API}/export/passivo-trabalhista.csv?${query.toString()}`;
+  if ($('#ptBody')) $('#ptBody').innerHTML = skeletonRows(5, 8);
+  if ($('#ptEmpty')) $('#ptEmpty').hidden = true;
+
+  try {
+    const res = await api(`/passivo-trabalhista?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.pt.total = res.total;
+
+    if (res.stats) {
+      $('#ptKpiPermitidos').textContent = res.stats.total_permitidos || 0;
+      $('#ptKpiAssinados').textContent = res.stats.assinados || 0;
+      $('#ptKpiPendentes').textContent = res.stats.pendentes || 0;
+      $('#ptKpiTaxa').textContent = `${res.stats.taxa_adesao || 0}%`;
+      setPassivoNavBadge(res.stats.pendentes || 0);
+      populateSelectOptions($('#ptUnidade'), res.stats.unidades || [], state.pt.unidade, 'Todas as unidades');
+      populateSelectOptions($('#ptCargo'), res.stats.cargos || [], state.pt.cargo, 'Todos os cargos');
+    }
+
+    renderPassivo(res.rows);
+    renderPager('#ptPager', state.pt, loadPassivo);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar lista do Passivo Trabalhista', err.message);
+    emptyState('#ptEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function updatePtBulkBar() {
+  const bar = $('#ptBulkBar');
+  if (!bar) return;
+  const count = selectedPtCpfs.size;
+  bar.style.display = count > 0 ? 'flex' : 'none';
+  $('#ptSelectedCount').textContent = `${count} colaborador${count > 1 ? 'es' : ''} selecionado${count > 1 ? 's' : ''}`;
+}
+
+function renderPassivo(rows) {
+  const tbody = $('#ptBody');
+  if (!tbody) return;
+  selectedPtCpfs.clear();
+  updatePtBulkBar();
+  if ($('#ptCheckAll')) $('#ptCheckAll').checked = false;
+
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    const sub = state.pt.status === 'permitido' && !state.pt.search
+      ? 'Ninguém habilitado ainda. Use "Habilitar lista de CPFs" acima.'
+      : 'Tente ajustar a busca ou filtros.';
+    emptyState('#ptEmpty', 'Nenhum colaborador encontrado', sub);
+    return;
+  }
+  $('#ptEmpty').hidden = true;
+
+  tbody.innerHTML = rows.map((r) => {
+    let statusHtml;
+    if (r.assinado) {
+      statusHtml = `<span class="badge badge-ok"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Assinado</span>`;
+    } else if (r.permitido) {
+      statusHtml = `<span class="badge badge-warn"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pendente</span>`;
+    } else {
+      statusHtml = `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">Não Habilitado</span>`;
+    }
+    return `
+    <tr data-cpf="${esc(r.cpf)}">
+      <td style="text-align: center;"><input type="checkbox" class="pt-row-check" data-cpf="${esc(r.cpf)}" /></td>
+      <td style="text-align: center;">
+        <label class="toggle-switch" title="${r.permitido ? 'Habilitado para assinar' : 'Desabilitado'}">
+          <input type="checkbox" class="pt-perm-toggle" data-cpf="${esc(r.cpf)}" ${r.permitido ? 'checked' : ''} />
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>${statusHtml}</td>
+      <td><strong>${esc(r.nome_completo)}</strong></td>
+      <td><span class="mono">${esc(fmtCpf(r.cpf))}</span></td>
+      <td>
+        <span class="chip">${esc(r.cargo || '—')}</span>
+        ${r.setor ? `<span class="chip font-medium">${esc(r.setor)}</span>` : ''}
+      </td>
+      <td><span class="chip font-medium">${esc(r.unidade || '—')}</span></td>
+      <td>${r.assinado_em
+        ? `<span class="date-tag">${esc(fmtDateTime(r.assinado_em))}</span>`
+        : '<span style="color: #94a3b8; font-size: 13px;">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  $$('.pt-perm-toggle', tbody).forEach((toggle) => {
+    toggle.onchange = async (e) => {
+      const permitido = e.target.checked;
+      try {
+        const res = await api('/passivo-trabalhista/toggle-permission', {
+          method: 'POST',
+          body: JSON.stringify({ cpf: e.target.dataset.cpf, permitido }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Erro ao atualizar');
+        toast('success', `Permissão ${permitido ? 'habilitada' : 'desabilitada'} com sucesso.`);
+        loadPassivo();
+      } catch (err) {
+        e.target.checked = !permitido;
+        toast('error', 'Erro ao alterar permissão', err.message);
+      }
+    };
+  });
+
+  $$('.pt-row-check', tbody).forEach((cb) => {
+    cb.onchange = (e) => {
+      if (e.target.checked) selectedPtCpfs.add(e.target.dataset.cpf);
+      else selectedPtCpfs.delete(e.target.dataset.cpf);
+      updatePtBulkBar();
+      const all = $$('.pt-row-check', tbody);
+      $('#ptCheckAll').checked = all.length > 0 && all.every((c) => c.checked);
+    };
+  });
+}
+
+async function setPassivoPermissoes(cpfs, permitido) {
+  const res = await api('/passivo-trabalhista/bulk-permission', {
+    method: 'POST',
+    body: JSON.stringify({ cpfs, permitido }),
+  }).then((r) => r.json());
+  if (!res.ok) throw new Error(res.error || 'Erro');
+  return res;
+}
+
+function parseCpfList(text) {
+  return [...new Set(String(text || '').split(/[\s,;]+/).map((s) => s.replace(/\D/g, '')).filter(Boolean))];
+}
+
+async function importPassivoCpfs() {
+  const cpfs = parseCpfList($('#ptImportText').value);
+  const out = $('#ptImportResult');
+  if (!cpfs.length) {
+    toast('error', 'Cole ao menos um CPF na caixa de texto.');
+    return;
+  }
+  const btn = $('#btnPtImport');
+  btn.disabled = true;
+  try {
+    const res = await setPassivoPermissoes(cpfs, true);
+    const linhas = [`${res.count} CPF${res.count === 1 ? '' : 's'} habilitado${res.count === 1 ? '' : 's'}.`];
+    if (res.invalidos && res.invalidos.length) {
+      linhas.push(`\n${res.invalidos.length} CPF(s) inválido(s), ignorados:\n${res.invalidos.map(fmtCpf).join('\n')}`);
+    }
+    if (res.nao_encontrados && res.nao_encontrados.length) {
+      linhas.push(`\n${res.nao_encontrados.length} CPF(s) habilitado(s) mas NÃO encontrados na base de colaboradores (não conseguirão assinar até constarem no cadastro):\n${res.nao_encontrados.map(fmtCpf).join('\n')}`);
+    }
+    const alerta = (res.invalidos && res.invalidos.length) || (res.nao_encontrados && res.nao_encontrados.length);
+    out.style.background = alerta ? '#fffbeb' : '#f0fdf4';
+    out.style.borderColor = alerta ? '#fde68a' : '#bbf7d0';
+    out.textContent = linhas.join('\n');
+    out.hidden = false;
+    toast('success', `${res.count} CPF${res.count === 1 ? '' : 's'} habilitado${res.count === 1 ? '' : 's'}.`);
+    $('#ptImportText').value = '';
+    $('#ptImportCount').textContent = '';
+    loadPassivo();
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Erro ao habilitar lista', err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function bindPassivo() {
+  if (!$('#view-passivo')) return;
+  $('#ptStatus').onclick = (e) => {
+    const s = e.target.closest('.seg'); if (!s) return;
+    $$('#ptStatus .seg').forEach((x) => x.classList.toggle('active', x === s));
+    state.pt.status = s.dataset.val; state.pt.page = 1; loadPassivo();
+  };
+  $('#ptUnidade').onchange = (e) => { state.pt.unidade = e.target.value; state.pt.page = 1; loadPassivo(); };
+  $('#ptCargo').onchange = (e) => { state.pt.cargo = e.target.value; state.pt.page = 1; loadPassivo(); };
+  $('#ptSearch').oninput = debounce((e) => { state.pt.search = e.target.value.trim(); state.pt.page = 1; loadPassivo(); });
+
+  $('#ptCheckAll').onchange = (e) => {
+    $$('.pt-row-check', $('#ptBody')).forEach((cb) => {
+      cb.checked = e.target.checked;
+      if (e.target.checked) selectedPtCpfs.add(cb.dataset.cpf);
+      else selectedPtCpfs.delete(cb.dataset.cpf);
+    });
+    updatePtBulkBar();
+  };
+
+  const bulk = (permitido) => async () => {
+    const cpfs = [...selectedPtCpfs];
+    if (!cpfs.length) return;
+    try {
+      await setPassivoPermissoes(cpfs, permitido);
+      toast('success', `${cpfs.length} colaborador${cpfs.length > 1 ? 'es' : ''} ${permitido ? 'habilitado' : 'desabilitado'}${cpfs.length > 1 ? 's' : ''}.`);
+      loadPassivo();
+    } catch (err) {
+      toast('error', `Erro ao ${permitido ? 'habilitar' : 'desabilitar'} em lote`, err.message);
+    }
+  };
+  $('#btnPtBulkAllow').onclick = bulk(true);
+  $('#btnPtBulkDisallow').onclick = bulk(false);
+
+  $('#ptImportText').oninput = (e) => {
+    const n = parseCpfList(e.target.value).length;
+    $('#ptImportCount').textContent = n ? `${n} CPF${n > 1 ? 's' : ''} detectado${n > 1 ? 's' : ''}` : '';
+  };
+  $('#btnPtImport').onclick = importPassivoCpfs;
+}
+
+/* ════════════════════════════════════════════════════════════════
    Pesquisa de Cultura Revalle Dashboard
    ════════════════════════════════════════════════════════════════ */
 async function loadPesquisaCultura() {
@@ -1877,6 +2104,7 @@ function bind() {
     if (state.view === 'tess') await loadTess();
     if (state.view === 'solides') await loadSolides();
     if (state.view === 'treinamento-ia') await loadTreinamentoIa();
+    if (state.view === 'passivo') await loadPassivo();
     if (state.view === 'cultura') await loadPesquisaCultura();
     if (state.view === 'usuarios') await loadUsuarios();
     setTimeout(() => b.classList.remove('refreshing'), 500);
@@ -2004,6 +2232,8 @@ function bind() {
       }
     };
   }
+
+  bindPassivo();
 
   // sub-tabs e filtros pesquisa cultura
   if ($('#tabCulturaRespostas')) $('#tabCulturaRespostas').onclick = () => switchCulturaSubTab('respostas');

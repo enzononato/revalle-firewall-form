@@ -189,6 +189,31 @@ async function initDb() {
 
     console.log('[db] tabelas de treinamento IA & Intranet prontas');
 
+    // ── passivo_trabalhista (termo de ciencia restrito a liderancas) ────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS passivo_trabalhista_assinaturas (
+        id             SERIAL PRIMARY KEY,
+        cpf            VARCHAR(11) UNIQUE NOT NULL,
+        nome_completo  VARCHAR(200) NOT NULL,
+        cargo          VARCHAR(150) NOT NULL DEFAULT '',
+        setor          VARCHAR(100) NOT NULL DEFAULT '',
+        unidade        VARCHAR(100) NOT NULL DEFAULT '',
+        assinado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        ip             VARCHAR(45) DEFAULT NULL,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_passivo_assinaturas_data ON passivo_trabalhista_assinaturas (assinado_em DESC)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS passivo_trabalhista_permissoes (
+        cpf           VARCHAR(11) PRIMARY KEY,
+        permitido     BOOLEAN NOT NULL DEFAULT FALSE,
+        permitido_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    console.log('[db] tabelas de treinamento Passivo Trabalhista prontas');
+
     // ── pesquisa_cultura_participantes & pesquisa_cultura_respostas ─────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS pesquisa_cultura_participantes (
@@ -1522,6 +1547,194 @@ async function getIaStats() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Termos de ciencia com lista de habilitados por CPF
+ * Mesmo fluxo do Treinamento IA, parametrizado por tabela e prefixo de
+ * protocolo. Usado pelo Treinamento Passivo Trabalhista.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const EMPTY_TERMO_STATS = { total_base: 0, total_permitidos: 0, assinados: 0, pendentes: 0, taxa_adesao: 0, unidades: [], setores: [], cargos: [] };
+
+function createTermoComHabilitados({ assinaturasTable, permissoesTable, protocoloPrefix }) {
+  const protocolo = (id) => `#${protocoloPrefix}-${String(id).padStart(5, '0')}`;
+  const cleanCpf = (cpf) => String(cpf || '').replace(/\D+/g, '');
+
+  async function findByCpf(cpf) {
+    const digits = cleanCpf(cpf);
+    if (digits.length !== 11) return null;
+
+    const colab = await findColaboradorBaseByCpf(digits);
+    if (!colab) return null;
+
+    const [sigRes, permRes] = await Promise.all([
+      pool.query(`SELECT id, assinado_em FROM ${assinaturasTable} WHERE cpf = $1 LIMIT 1`, [digits]),
+      pool.query(`SELECT permitido FROM ${permissoesTable} WHERE cpf = $1 LIMIT 1`, [digits]),
+    ]);
+    const sig = sigRes.rows[0] || null;
+    const perm = permRes.rows[0];
+
+    return {
+      ...colab,
+      cpf: digits,
+      id: sig ? sig.id : null,
+      assinado: Boolean(sig),
+      assinado_em: sig ? sig.assinado_em : null,
+      protocolo: sig ? protocolo(sig.id) : null,
+      permitido: perm ? Boolean(perm.permitido) : false,
+    };
+  }
+
+  async function togglePermissao(cpf, permitido) {
+    const digits = cleanCpf(cpf);
+    if (!digits) return null;
+    const { rows } = await pool.query(
+      `INSERT INTO ${permissoesTable} (cpf, permitido, permitido_em)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (cpf) DO UPDATE SET permitido = EXCLUDED.permitido, permitido_em = NOW()
+       RETURNING cpf, permitido, permitido_em`,
+      [digits, Boolean(permitido)]
+    );
+    return rows[0] || null;
+  }
+
+  // Retorna tambem os CPFs que nao existem na base de colaboradores, para o
+  // painel avisar quando uma lista colada tem alguem fora do cadastro.
+  async function bulkSetPermissoes(cpfs, permitido) {
+    if (!Array.isArray(cpfs) || !cpfs.length) return { count: 0, nao_encontrados: [] };
+    const cleanCpfs = [...new Set(cpfs.map(cleanCpf).filter((c) => c.length === 11))];
+    if (!cleanCpfs.length) return { count: 0, nao_encontrados: [] };
+
+    const { rowCount } = await pool.query(
+      `INSERT INTO ${permissoesTable} (cpf, permitido, permitido_em)
+       SELECT unnest($1::text[]), $2, NOW()
+       ON CONFLICT (cpf) DO UPDATE SET permitido = EXCLUDED.permitido, permitido_em = NOW()`,
+      [cleanCpfs, Boolean(permitido)]
+    );
+
+    let nao_encontrados = [];
+    try {
+      const schema = await getColaboradorTableSchema();
+      const { rows } = await pool.query(`SELECT * FROM ${schema.table}`);
+      const base = new Set(rows.map((r) => mapColaboradorRow(r, schema).cpf));
+      nao_encontrados = cleanCpfs.filter((c) => !base.has(c));
+    } catch (err) {
+      console.error('[db] erro ao conferir CPFs na base de colaboradores:', err.message);
+    }
+
+    return { count: rowCount, nao_encontrados };
+  }
+
+  async function assinar(cpf, ip = '') {
+    const colab = await findByCpf(cpf);
+    if (!colab) return null;
+    if (!colab.permitido) throw new Error('Colaborador nao esta habilitado para assinar este termo.');
+
+    const { rows } = await pool.query(
+      `INSERT INTO ${assinaturasTable} (cpf, nome_completo, cargo, setor, unidade, assinado_em, ip)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+       ON CONFLICT (cpf) DO NOTHING
+       RETURNING id, cpf, nome_completo, cargo, setor, unidade, assinado_em`,
+      [colab.cpf, colab.nome_completo, colab.cargo || '', colab.setor || '', colab.unidade || '', ip]
+    );
+    if (!rows[0]) return null; // assinatura concorrente ja registrada
+    return { ...rows[0], assinado: true, protocolo: protocolo(rows[0].id) };
+  }
+
+  async function list(filters = {}) {
+    const schema = await getColaboradorTableSchema();
+    try {
+      const [colabRes, permRes, sigRes] = await Promise.all([
+        pool.query(`SELECT * FROM ${schema.table}`),
+        pool.query(`SELECT cpf, permitido FROM ${permissoesTable}`),
+        pool.query(`SELECT id, cpf, nome_completo, cargo, setor, unidade, assinado_em, ip FROM ${assinaturasTable}`),
+      ]);
+
+      const permMap = new Map(permRes.rows.map((p) => [p.cpf, Boolean(p.permitido)]));
+      const sigMap = new Map(sigRes.rows.map((s) => [s.cpf, s]));
+
+      const all = colabRes.rows.map((row) => {
+        const m = mapColaboradorRow(row, schema);
+        const sig = sigMap.get(m.cpf) || null;
+        return {
+          id: sig ? sig.id : null,
+          cpf: m.cpf,
+          nome_completo: m.nome_completo || '',
+          cargo: m.cargo || '',
+          setor: m.setor || '',
+          unidade: m.unidade || '',
+          inativo: m.inativo,
+          permitido: permMap.get(m.cpf) || false,
+          assinado: Boolean(sig),
+          assinado_em: sig ? sig.assinado_em : null,
+          ip: sig ? sig.ip : null,
+        };
+      });
+
+      // Quem assinou continua aparecendo mesmo que tenha sido desligado depois.
+      const base = all.filter((c) => c.cpf.length === 11 && (!c.inativo || c.assinado));
+
+      const total_permitidos = base.filter((c) => c.permitido).length;
+      const assinados = base.filter((c) => c.assinado).length;
+      const pendentes = base.filter((c) => c.permitido && !c.assinado).length;
+      const uniq = (key) => [...new Set(base.map((c) => c[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const stats = {
+        total_base: base.length,
+        total_permitidos,
+        assinados,
+        pendentes,
+        taxa_adesao: total_permitidos > 0 ? Number(((assinados / total_permitidos) * 100).toFixed(1)) : 0,
+        unidades: uniq('unidade'),
+        setores: uniq('setor'),
+        cargos: uniq('cargo'),
+      };
+
+      let filtered = base;
+      if (filters.status === 'permitido') filtered = filtered.filter((c) => c.permitido);
+      else if (filters.status === 'nao_permitido') filtered = filtered.filter((c) => !c.permitido);
+      else if (filters.status === 'assinado') filtered = filtered.filter((c) => c.assinado);
+      else if (filters.status === 'pendente') filtered = filtered.filter((c) => c.permitido && !c.assinado);
+
+      for (const key of ['unidade', 'setor', 'cargo']) {
+        if (!filters[key]) continue;
+        const f = String(filters[key]).toLowerCase();
+        filtered = filtered.filter((c) => c[key].toLowerCase().includes(f));
+      }
+      if (filters.search) {
+        const term = String(filters.search).toLowerCase();
+        filtered = filtered.filter((c) =>
+          c.nome_completo.toLowerCase().includes(term) || c.cpf.includes(term) ||
+          c.cargo.toLowerCase().includes(term) || c.setor.toLowerCase().includes(term) ||
+          c.unidade.toLowerCase().includes(term)
+        );
+      }
+
+      // Pendentes primeiro, depois assinados, depois nao habilitados.
+      const rank = (c) => (c.permitido && !c.assinado ? 0 : c.assinado ? 1 : 2);
+      filtered.sort((a, b) => rank(a) - rank(b) || a.nome_completo.localeCompare(b.nome_completo));
+
+      const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100000);
+      const offset = Math.max(Number(filters.offset) || 0, 0);
+      return { rows: filtered.slice(offset, offset + limit), total: filtered.length, stats };
+    } catch (err) {
+      console.error(`[db] erro ao listar colaboradores de ${assinaturasTable}:`, err);
+      return { rows: [], total: 0, stats: { ...EMPTY_TERMO_STATS } };
+    }
+  }
+
+  async function getStats() {
+    const res = await list({ limit: 1, offset: 0 });
+    return res.stats;
+  }
+
+  return { protocolo, findByCpf, togglePermissao, bulkSetPermissoes, assinar, list, getStats };
+}
+
+const passivoTrabalhista = createTermoComHabilitados({
+  assinaturasTable: 'passivo_trabalhista_assinaturas',
+  permissoesTable: 'passivo_trabalhista_permissoes',
+  protocoloPrefix: 'PTR',
+});
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Pesquisa de Cultura Revalle (Respostas 100% Anônimas)
  * ────────────────────────────────────────────────────────────────────────── */
 
@@ -2332,6 +2545,8 @@ module.exports = {
   // treinamento ia e intranet
   findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
   toggleIaPermissao, bulkSetIaPermissoes,
+  // treinamento passivo trabalhista
+  passivoTrabalhista, EMPTY_TERMO_STATS,
   // utilitários de filtros
   getColaboradoresFilterOptions,
   // pesquisa cultura revalle
