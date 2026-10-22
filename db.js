@@ -2580,7 +2580,7 @@ async function findAtualizacaoCadastralByCpf(cpf) {
 async function upsertAtualizacaoCadastral(data) {
   const cleanCpf = String(data.cpf || '').replace(/\D+/g, '');
   if (cleanCpf.length !== 11) throw new Error('CPF inválido. Digite os 11 números.');
-  if (!data.email_profissional || !data.celular || !data.superior_direto) {
+  if (!data.email_profissional || !data.superior_direto) {
     throw new Error('Preencha todos os campos obrigatórios do formulário.');
   }
 
@@ -2607,7 +2607,7 @@ async function upsertAtualizacaoCadastral(data) {
       String(data.setor || '').trim(),
       String(data.unidade || '').trim(),
       String(data.email_profissional).trim().toLowerCase(),
-      String(data.celular).replace(/\D+/g, ''),
+      String(data.celular || '').replace(/\D+/g, ''), // opcional: vazio quando nao informado
       String(data.superior_direto).trim(),
       data.ip ? String(data.ip).trim() : null,
     ]

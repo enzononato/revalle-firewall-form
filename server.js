@@ -1115,8 +1115,8 @@ app.post('/api/atualizacao-cadastral/submit', antiBotRateLimiter({ maxPerMinute:
   }
 
   const celular = onlyDigits(b.celular);
-  if (!celular) errors.push('Informe o número do seu celular corporativo.');
-  else if (!isValidCelular(celular)) errors.push('Celular corporativo inválido. Informe DDD + número com 9 dígitos, ex.: (74) 99999-9999.');
+  // Celular corporativo e opcional: nem todo colaborador tem um.
+  if (celular && !isValidCelular(celular)) errors.push('Celular corporativo inválido. Informe DDD + número com 9 dígitos, ex.: (74) 99999-9999.');
 
   const superior_direto = normalizeNomeSobrenome(b.superior_direto);
   if (!trimStr(b.superior_direto, 200)) errors.push('Informe o nome e sobrenome do seu superior direto.');

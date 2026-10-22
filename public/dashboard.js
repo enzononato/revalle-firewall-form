@@ -1386,7 +1386,7 @@ function renderCadastro(rows) {
       <td><strong>${esc(r.nome_colaborador || '—')}</strong></td>
       <td><span class="mono" style="white-space: nowrap;">${esc(fmtCpf(r.cpf))}</span></td>
       <td>${esc(r.email_profissional)}</td>
-      <td style="white-space: nowrap;">${esc(fmtPhone(r.celular))}</td>
+      <td style="white-space: nowrap;">${r.celular ? esc(fmtPhone(r.celular)) : '<span style="color: #94a3b8;">—</span>'}</td>
       <td>${esc(r.superior_direto)}</td>
       <td>
         <span class="chip">${esc(r.cargo || '—')}</span>

@@ -302,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
     check(Boolean(emailVal), 'field-email', 'err-email', 'Informe seu e-mail profissional.', emailInput);
     if (emailVal) check(isCorporateEmail(emailVal), 'field-email', 'err-email', 'Use seu e-mail profissional da Revalle (@revalle.com.br, @revallepe ou @revallenordeste).', emailInput);
 
-    check(Boolean(celularVal), 'field-celular', 'err-celular', 'Informe o número do seu celular corporativo.', celularInput);
     if (celularVal) check(isValidCelular(celularVal), 'field-celular', 'err-celular', 'Celular corporativo inválido. Informe DDD + número com 9 dígitos.', celularInput);
 
     check(Boolean(superiorVal), 'field-superior', 'err-superior', 'Informe o nome e sobrenome do seu superior direto.', superiorInput);
@@ -332,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
       successProto.textContent = data.protocolo || '#CAD-00000';
       document.getElementById('summaryNome').textContent = currentCollaborator.nome_completo || '—';
       document.getElementById('summaryEmail').textContent = emailVal;
-      document.getElementById('summaryCelular').textContent = maskCelular(celularVal);
+      document.getElementById('summaryCelular').textContent = celularVal ? maskCelular(celularVal) : 'Não informado';
       document.getElementById('summarySuperior').textContent = superiorVal;
       document.getElementById('summaryData').textContent = formatDateTime(data.updated_at || new Date().toISOString());
 
