@@ -49,7 +49,7 @@ APP_URL=http://localhost:3000
 # deixe SMTP_PASS vazio → e-mails são só logados no console, não enviados
 ```
 
-Os formulários que validam CPF (Sólides, Treinamento IA, Pesquisa de Cultura, Ideias) dependem da tabela externa `"colaboradores-revalle"`. Para testá-los, crie uma versão fake:
+Os formulários que validam CPF (Sólides, Treinamento IA, Pesquisa de Cultura, Ideias, Atualização Cadastral) dependem da tabela externa `"colaboradores-revalle"`. Para testá-los, crie uma versão fake:
 
 ```sql
 CREATE TABLE "colaboradores-revalle" (cpf text, nome text, cargo text, setor text, unidade text, status text);
@@ -81,6 +81,7 @@ Dockerfile, .dockerignore
 | Treinamento Passivo Trabalhista (só lideranças habilitadas) | `/passivo-trabalhista` | `passivo_trabalhista_assinaturas`, `passivo_trabalhista_permissoes` (via `createTermoComHabilitados` em `db.js`, reutilizável para novos termos; CPFs liberados colando a lista no painel — **nunca commitar CPFs, o repo é público**) |
 | Pesquisa de Cultura (anônima) | `/pesquisa-cultura` | `pesquisa_cultura_participantes` (adesão), `pesquisa_cultura_respostas` (sem vínculo com CPF) |
 | Ideias e Melhorias | `/ideias-melhorias` (`/ideias`, `/melhorias`) | `ideias_melhorias` |
+| Atualização Cadastral (e-mail profissional, celular, superior direto) | `/atualizacao-cadastral` (`/dados-colaborador`) | `atualizacao_cadastral` (1 registro por CPF; reenviar atualiza. CPF precisa estar ativo em `"colaboradores-revalle"`) |
 | Usuários do painel | — | `dashboard_usuarios` (perfis `admin` e `mkt_cultura`) |
 
 ## Convenções

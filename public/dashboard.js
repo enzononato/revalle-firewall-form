@@ -16,6 +16,7 @@ const state = {
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ideias: { status: '', area: '', impacto: '', frequencia: '', search: '', page: 1, pageSize: 20, total: 0 },
+  cad: { unidade: '', search: '', page: 1, pageSize: 25, total: 0 },
   usuarios: { search: '', perfil: '', list: [] },
   charts: {},
   drawerKind: null,
@@ -89,6 +90,7 @@ const TITLES = {
   passivo: ['Passivo Trabalhista', 'Lideranças convocadas e controle de assinatura do termo de ciência'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
   ideias: ['Ideias e Melhorias', 'Programa de ideias, melhorias e sugestões de projetos da Revalle'],
+  cadastro: ['Atualização Cadastral', 'E-mail profissional, celular e superior direto informados pelos colaboradores'],
   usuarios: ['Usuários & Acessos', 'Gerenciamento de acessos e perfis de usuários do painel'],
 };
 function switchView(view) {
@@ -112,6 +114,7 @@ function switchView(view) {
   if (view === 'passivo') loadPassivo();
   if (view === 'cultura') loadPesquisaCultura();
   if (view === 'ideias') loadIdeias();
+  if (view === 'cadastro') loadCadastro();
   if (view === 'usuarios') loadUsuarios();
 }
 
@@ -254,6 +257,7 @@ function updateNavBadges(data) {
     }
   }
   if (data.passivo_trabalhista) setPassivoNavBadge(data.passivo_trabalhista.pendentes || 0);
+  if (data.atualizacao_cadastral) setCadastroNavBadge(data.atualizacao_cadastral.total || 0);
   if (data.cultura) {
     const c = data.cultura.total || 0;
     if ($('#navCulturaTotal')) {
@@ -1323,6 +1327,82 @@ function bindPassivo() {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Atualização Cadastral Dashboard
+   ════════════════════════════════════════════════════════════════ */
+function setCadastroNavBadge(total) {
+  const el = $('#navCadastroTotal');
+  if (!el) return;
+  el.textContent = total;
+  el.hidden = total <= 0;
+}
+
+async function loadCadastro() {
+  const { unidade, search, page, pageSize } = state.cad;
+  const query = new URLSearchParams({ page, pageSize });
+  if (unidade) query.set('unidade', unidade);
+  if (search) query.set('search', search);
+
+  if ($('#cadExport')) $('#cadExport').href = `${API}/export/atualizacao-cadastral.csv?${query.toString()}`;
+  if ($('#cadBody')) $('#cadBody').innerHTML = skeletonRows(5, 8);
+  if ($('#cadEmpty')) $('#cadEmpty').hidden = true;
+
+  try {
+    const res = await api(`/atualizacao-cadastral?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.cad.total = res.total;
+
+    if (res.stats) {
+      $('#cadKpiTotal').textContent = res.stats.total || 0;
+      $('#cadKpi7d').textContent = res.stats.ultimos_7d || 0;
+      $('#cadKpiSuperiores').textContent = res.stats.superiores || 0;
+      setCadastroNavBadge(res.stats.total || 0);
+      populateSelectOptions($('#cadUnidade'), res.stats.unidades || [], state.cad.unidade, 'Todas as unidades');
+    }
+
+    renderCadastro(res.rows);
+    renderPager('#cadPager', state.cad, loadCadastro);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar a Atualização Cadastral', err.message);
+    emptyState('#cadEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function renderCadastro(rows) {
+  const tbody = $('#cadBody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    const sub = state.cad.search || state.cad.unidade
+      ? 'Tente ajustar a busca ou filtros.'
+      : 'Nenhum colaborador enviou os dados ainda. Divulgue o link /atualizacao-cadastral.';
+    emptyState('#cadEmpty', 'Nenhum registro encontrado', sub);
+    return;
+  }
+  $('#cadEmpty').hidden = true;
+  tbody.innerHTML = rows.map((r) => `
+    <tr>
+      <td><span class="date-tag">${esc(fmtDateTime(r.updated_at))}</span></td>
+      <td><strong>${esc(r.nome_colaborador || '—')}</strong></td>
+      <td><span class="mono" style="white-space: nowrap;">${esc(fmtCpf(r.cpf))}</span></td>
+      <td>${esc(r.email_profissional)}</td>
+      <td style="white-space: nowrap;">${esc(fmtPhone(r.celular))}</td>
+      <td>${esc(r.superior_direto)}</td>
+      <td>
+        <span class="chip">${esc(r.cargo || '—')}</span>
+        ${r.setor ? `<span class="chip font-medium">${esc(r.setor)}</span>` : ''}
+      </td>
+      <td><span class="chip font-medium">${esc(r.unidade || '—')}</span></td>
+    </tr>`).join('');
+}
+
+function bindCadastro() {
+  if (!$('#view-cadastro')) return;
+  $('#cadUnidade').onchange = (e) => { state.cad.unidade = e.target.value; state.cad.page = 1; loadCadastro(); };
+  $('#cadSearch').oninput = debounce((e) => { state.cad.search = e.target.value.trim(); state.cad.page = 1; loadCadastro(); });
+}
+
+/* ════════════════════════════════════════════════════════════════
    Pesquisa de Cultura Revalle Dashboard
    ════════════════════════════════════════════════════════════════ */
 async function loadPesquisaCultura() {
@@ -2105,6 +2185,7 @@ function bind() {
     if (state.view === 'solides') await loadSolides();
     if (state.view === 'treinamento-ia') await loadTreinamentoIa();
     if (state.view === 'passivo') await loadPassivo();
+    if (state.view === 'cadastro') await loadCadastro();
     if (state.view === 'cultura') await loadPesquisaCultura();
     if (state.view === 'usuarios') await loadUsuarios();
     setTimeout(() => b.classList.remove('refreshing'), 500);
@@ -2234,6 +2315,7 @@ function bind() {
   }
 
   bindPassivo();
+  bindCadastro();
 
   // sub-tabs e filtros pesquisa cultura
   if ($('#tabCulturaRespostas')) $('#tabCulturaRespostas').onclick = () => switchCulturaSubTab('respostas');

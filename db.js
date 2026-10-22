@@ -305,6 +305,27 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ideias_impacto ON ideias_melhorias (impacto)`);
 
     console.log('[db] tabela ideias_melhorias pronta');
+
+    // ── atualizacao_cadastral (um registro por CPF; reenviar atualiza) ──────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS atualizacao_cadastral (
+        id                 SERIAL PRIMARY KEY,
+        cpf                VARCHAR(11)  NOT NULL UNIQUE,
+        nome_colaborador   VARCHAR(200) NOT NULL DEFAULT '',
+        cargo              VARCHAR(150) NOT NULL DEFAULT '',
+        setor              VARCHAR(100) NOT NULL DEFAULT '',
+        unidade            VARCHAR(100) NOT NULL DEFAULT '',
+        email_profissional VARCHAR(200) NOT NULL,
+        celular            VARCHAR(11)  NOT NULL,
+        superior_direto    VARCHAR(200) NOT NULL,
+        ip                 VARCHAR(45)  DEFAULT NULL,
+        created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_atualizacao_cadastral_updated_at ON atualizacao_cadastral (updated_at DESC)`);
+
+    console.log('[db] tabela atualizacao_cadastral pronta');
   } finally {
     client.release();
   }
@@ -2534,6 +2555,133 @@ async function listIdeiasMelhorias(filters = {}) {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Formulário — Atualização Cadastral (e-mail, celular e superior direto)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const EMPTY_CADASTRO_STATS = { total: 0, ultimos_7d: 0, superiores: 0, unidades: [] };
+
+function cadastroProtocolo(id) {
+  return '#CAD-' + String(id).padStart(5, '0');
+}
+
+async function findAtualizacaoCadastralByCpf(cpf) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (digits.length !== 11) return null;
+  const { rows } = await pool.query(
+    `SELECT * FROM atualizacao_cadastral WHERE cpf = $1 LIMIT 1`,
+    [digits]
+  );
+  if (!rows[0]) return null;
+  return { ...rows[0], protocolo: cadastroProtocolo(rows[0].id) };
+}
+
+// Reenviar com o mesmo CPF substitui os dados anteriores (vale o mais recente).
+async function upsertAtualizacaoCadastral(data) {
+  const cleanCpf = String(data.cpf || '').replace(/\D+/g, '');
+  if (cleanCpf.length !== 11) throw new Error('CPF inválido. Digite os 11 números.');
+  if (!data.email_profissional || !data.celular || !data.superior_direto) {
+    throw new Error('Preencha todos os campos obrigatórios do formulário.');
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO atualizacao_cadastral (
+      cpf, nome_colaborador, cargo, setor, unidade,
+      email_profissional, celular, superior_direto, ip
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (cpf) DO UPDATE SET
+      nome_colaborador   = EXCLUDED.nome_colaborador,
+      cargo              = EXCLUDED.cargo,
+      setor              = EXCLUDED.setor,
+      unidade            = EXCLUDED.unidade,
+      email_profissional = EXCLUDED.email_profissional,
+      celular            = EXCLUDED.celular,
+      superior_direto    = EXCLUDED.superior_direto,
+      ip                 = EXCLUDED.ip,
+      updated_at         = NOW()
+    RETURNING *, (xmax = 0) AS inserido`,
+    [
+      cleanCpf,
+      String(data.nome_colaborador || '').trim(),
+      String(data.cargo || '').trim(),
+      String(data.setor || '').trim(),
+      String(data.unidade || '').trim(),
+      String(data.email_profissional).trim().toLowerCase(),
+      String(data.celular).replace(/\D+/g, ''),
+      String(data.superior_direto).trim(),
+      data.ip ? String(data.ip).trim() : null,
+    ]
+  );
+
+  return { ...rows[0], protocolo: cadastroProtocolo(rows[0].id) };
+}
+
+async function getAtualizacaoCadastralStats() {
+  try {
+    const [totais, unidades] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE updated_at >= NOW() - INTERVAL '7 days')::int AS ultimos_7d,
+          COUNT(DISTINCT LOWER(superior_direto))::int AS superiores
+        FROM atualizacao_cadastral
+      `),
+      pool.query(`
+        SELECT DISTINCT unidade FROM atualizacao_cadastral
+        WHERE unidade <> '' ORDER BY unidade
+      `),
+    ]);
+    return { ...totais.rows[0], unidades: unidades.rows.map((r) => r.unidade) };
+  } catch (err) {
+    console.error('[db] erro getAtualizacaoCadastralStats:', err);
+    return { ...EMPTY_CADASTRO_STATS };
+  }
+}
+
+async function listAtualizacaoCadastral(filters = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (filters.unidade) {
+    params.push(filters.unidade);
+    conditions.push(`unidade = $${params.length}`);
+  }
+  if (filters.search) {
+    params.push(`%${String(filters.search).trim().toLowerCase()}%`);
+    const p = `$${params.length}`;
+    conditions.push(`(
+      LOWER(nome_colaborador) LIKE ${p} OR
+      cpf LIKE ${p} OR
+      LOWER(email_profissional) LIKE ${p} OR
+      celular LIKE ${p} OR
+      LOWER(superior_direto) LIKE ${p} OR
+      LOWER(cargo) LIKE ${p} OR
+      LOWER(setor) LIKE ${p}
+    )`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 50000);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const [countRes, rowsRes, stats] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS count FROM atualizacao_cadastral ${where}`, params),
+    pool.query(
+      `SELECT * FROM atualizacao_cadastral ${where}
+       ORDER BY updated_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    ),
+    getAtualizacaoCadastralStats(),
+  ]);
+
+  return {
+    rows: rowsRes.rows.map((r) => ({ ...r, protocolo: cadastroProtocolo(r.id) })),
+    total: countRes.rows[0].count,
+    stats,
+  };
+}
+
 module.exports = {
   pool, initDb, insertRequest, findRequestByToken, approveRequest, rejectRequest,
   insertContract, findContractByIdAndToken,
@@ -2562,5 +2710,8 @@ module.exports = {
   // ideias e melhorias
   insertIdeiaMelhoria, getIdeiaMelhoriaById, updateIdeiaMelhoriaStatus, listIdeiasMelhorias, getIdeiasMelhoriasStats,
   findColaboradorBaseByCpf,
+  // atualizacao cadastral
+  findAtualizacaoCadastralByCpf, upsertAtualizacaoCadastral, listAtualizacaoCadastral,
+  getAtualizacaoCadastralStats, EMPTY_CADASTRO_STATS,
 };
 

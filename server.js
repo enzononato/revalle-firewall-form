@@ -30,6 +30,9 @@ const {
   // ideias e melhorias
   insertIdeiaMelhoria, getIdeiaMelhoriaById, updateIdeiaMelhoriaStatus, listIdeiasMelhorias, getIdeiasMelhoriasStats,
   findColaboradorBaseByCpf,
+  // atualizacao cadastral
+  findAtualizacaoCadastralByCpf, upsertAtualizacaoCadastral, listAtualizacaoCadastral,
+  getAtualizacaoCadastralStats, EMPTY_CADASTRO_STATS,
 } = require('./db');
 const {
   sendRequestEmail, sendApprovedEmail, sendRejectedEmail, sendContractEmail,
@@ -131,6 +134,10 @@ app.get(['/ideias-melhorias', '/ideias', '/melhorias'], (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'ideias-melhorias.html'));
 });
 
+app.get(['/atualizacao-cadastral', '/dados-colaborador'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'atualizacao-cadastral.html'));
+});
+
 /* ── Status de bloqueio da Pesquisa de Cultura ── */
 const PESQUISA_CULTURA_ENCERRADA = process.env.PESQUISA_CULTURA_ENCERRADA !== 'false';
 
@@ -200,6 +207,19 @@ function isCorporateEmail(email) {
 function isValidEmail(s) {
   const str = String(s || '').trim();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str) || isCorporateEmail(str);
+}
+
+// Celular brasileiro: DDD (2 digitos, sem zero) + 9 + 8 digitos.
+function isValidCelular(value) {
+  return /^[1-9]{2}9\d{8}$/.test(onlyDigits(value));
+}
+
+// Nome e sobrenome: ao menos duas palavras, so letras (com acentos), espaco, hifen, ponto e apostrofo.
+function normalizeNomeSobrenome(value) {
+  const nome = trimStr(value, 200).replace(/\s+/g, ' ');
+  if (!/^[\p{L}][\p{L}'.\- ]*$/u.test(nome)) return '';
+  const palavras = nome.split(' ').filter((p) => p.replace(/[^\p{L}]/gu, '').length >= 2);
+  return palavras.length >= 2 ? nome : '';
 }
 
 function isValidCnpj(cnpj) {
@@ -1013,6 +1033,130 @@ app.post('/api/ideias-melhorias/submit', async (req, res) => {
   }
 });
 
+/* ── Atualização Cadastral APIs (e-mail profissional, celular e superior direto) ── */
+
+function getAtualizacaoCadastralColaborador(colab) {
+  if (!colab) {
+    return {
+      status: 404,
+      body: {
+        ok: false,
+        not_found: true,
+        error: 'CPF não localizado no cadastro da Revalle. Verifique o número digitado ou contate o setor de RH / DP.',
+      },
+    };
+  }
+  if (colab.inativo) {
+    return {
+      status: 403,
+      body: {
+        ok: false,
+        inativo: true,
+        error: 'Seu cadastro consta como inativo no sistema da Revalle. A atualização é restrita a colaboradores ativos.',
+      },
+    };
+  }
+  return null;
+}
+
+app.post('/api/atualizacao-cadastral/check-cpf', antiBotRateLimiter({ maxPerMinute: 30, cooldownMinutes: 3 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits) return res.status(400).json({ ok: false, error: 'Informe o número do seu CPF.' });
+  if (!isValidCpf(cpfDigits)) return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+
+  try {
+    const colab = await findColaboradorBaseByCpf(cpfDigits);
+    const blocked = getAtualizacaoCadastralColaborador(colab);
+    if (blocked) return res.status(blocked.status).json(blocked.body);
+
+    // Nao devolve os dados ja enviados (e-mail/celular) para nao expor contato
+    // de terceiros a quem souber apenas o CPF; so avisa que ja existe registro.
+    const anterior = await findAtualizacaoCadastralByCpf(cpfDigits);
+
+    return res.json({
+      ok: true,
+      colaborador: {
+        nome_completo: colab.nome_completo,
+        cargo: colab.cargo,
+        setor: colab.setor,
+        unidade: colab.unidade,
+      },
+      ja_atualizado: Boolean(anterior),
+      atualizado_em: anterior ? anterior.updated_at : null,
+    });
+  } catch (err) {
+    console.error('[atualizacao-cadastral/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao consultar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/atualizacao-cadastral/submit', antiBotRateLimiter({ maxPerMinute: 30, cooldownMinutes: 3 }), async (req, res) => {
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const b = req.body || {};
+  const cpfDigits = onlyDigits(b.cpf);
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, errors: ['CPF inválido. Preencha seu CPF corretamente.'] });
+  }
+
+  const errors = [];
+  const email_profissional = trimStr(b.email_profissional, 200).toLowerCase();
+  if (!email_profissional) errors.push('Informe seu e-mail profissional.');
+  else if (!/^[^\s@]+@[^\s@]+$/.test(email_profissional) || !isCorporateEmail(email_profissional)) {
+    errors.push('Use seu e-mail profissional da Revalle (@revalle.com.br, @revallepe ou @revallenordeste).');
+  }
+
+  const celular = onlyDigits(b.celular);
+  if (!celular) errors.push('Informe seu número de celular.');
+  else if (!isValidCelular(celular)) errors.push('Celular inválido. Informe DDD + número com 9 dígitos, ex.: (74) 99999-9999.');
+
+  const superior_direto = normalizeNomeSobrenome(b.superior_direto);
+  if (!trimStr(b.superior_direto, 200)) errors.push('Informe o nome e sobrenome do seu superior direto.');
+  else if (!superior_direto) errors.push('Informe o nome e o sobrenome do seu superior direto (ex.: Maria Silva).');
+
+  if (errors.length > 0) {
+    return res.status(400).json({ ok: false, errors });
+  }
+
+  try {
+    // Nome, cargo, setor e unidade vem sempre da base de colaboradores, nunca do navegador.
+    const colab = await findColaboradorBaseByCpf(cpfDigits);
+    const blocked = getAtualizacaoCadastralColaborador(colab);
+    if (blocked) return res.status(blocked.status).json({ ok: false, errors: [blocked.body.error] });
+
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').slice(0, 45);
+    const saved = await upsertAtualizacaoCadastral({
+      cpf: cpfDigits,
+      nome_colaborador: colab.nome_completo,
+      cargo: colab.cargo,
+      setor: colab.setor,
+      unidade: colab.unidade,
+      email_profissional,
+      celular,
+      superior_direto,
+      ip,
+    });
+
+    return res.status(saved.inserido ? 201 : 200).json({
+      ok: true,
+      protocolo: saved.protocolo,
+      atualizado: !saved.inserido,
+      updated_at: saved.updated_at,
+    });
+  } catch (err) {
+    console.error('[atualizacao-cadastral/submit] erro:', err);
+    return res.status(500).json({ ok: false, errors: ['Erro ao registrar seus dados. Tente novamente.'] });
+  }
+});
+
 app.get('/api/approve/:token', async (req, res) => {
   const request = await findRequestByToken(req.params.token).catch(() => null);
 
@@ -1482,7 +1626,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       });
     }
 
-    const [firewall, contratos, tess, solides, treinamento_ia, passivo_trabalhista, cultura, filterOptions, ideias] = await Promise.all([
+    const [firewall, contratos, tess, solides, treinamento_ia, passivo_trabalhista, cultura, filterOptions, ideias, atualizacao_cadastral] = await Promise.all([
       getFirewallStats(),
       getContractStats(),
       getImersaoTessStats().catch(() => ({ total: 0, byRevenda: [], bySetor: [] })),
@@ -1492,6 +1636,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       getPesquisaCulturaStats().catch(() => ({ total: 0 })),
       getColaboradoresFilterOptions().catch(() => ({ unidades: [], setores: [], cargos: [] })),
       getIdeiasMelhoriasStats().catch(() => ({ total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 })),
+      getAtualizacaoCadastralStats().catch(() => ({ ...EMPTY_CADASTRO_STATS })),
     ]);
     res.json({
       ok: true,
@@ -1503,6 +1648,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       passivo_trabalhista,
       cultura,
       ideias,
+      atualizacao_cadastral,
       filterOptions,
       unidades_validas: UNIDADES_VALIDAS,
       setores_validos: SETORES_VALIDOS,
@@ -2038,6 +2184,58 @@ app.get('/api/dashboard/export/passivo-trabalhista.csv', requireRole(['admin']),
     ], rows);
   } catch (err) {
     console.error('[export/passivo-trabalhista] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
+});
+
+/* ── Atualização Cadastral Dashboard APIs ── */
+
+function formatCelular(value) {
+  const d = onlyDigits(value);
+  if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  return value || '';
+}
+
+app.get('/api/dashboard/atualizacao-cadastral', requireRole(['admin']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const result = await listAtualizacaoCadastral({
+      unidade: req.query.unidade,
+      search: req.query.search,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+    res.json({ ok: true, rows: result.rows, total: result.total, page, pageSize, stats: result.stats });
+  } catch (err) {
+    console.error('[dashboard/atualizacao-cadastral] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar atualizações cadastrais.' });
+  }
+});
+
+app.get('/api/dashboard/export/atualizacao-cadastral.csv', requireRole(['admin']), async (req, res) => {
+  try {
+    const { rows } = await listAtualizacaoCadastral({
+      unidade: req.query.unidade,
+      search: req.query.search,
+      limit: 50000,
+      offset: 0,
+    });
+    sendCsv(res, 'atualizacao-cadastral-revalle', [
+      { label: 'Protocolo', get: (r) => r.protocolo },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Nome do Colaborador', get: (r) => r.nome_colaborador },
+      { label: 'E-mail Profissional', get: (r) => r.email_profissional },
+      { label: 'Celular', get: (r) => formatCelular(r.celular) },
+      { label: 'Superior Direto', get: (r) => r.superior_direto },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'Primeiro Envio', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Ultima Atualizacao', get: (r) => formatDateTimeBr(r.updated_at) },
+    ], rows);
+  } catch (err) {
+    console.error('[export/atualizacao-cadastral] erro:', err);
     res.status(500).send('Erro ao exportar.');
   }
 });

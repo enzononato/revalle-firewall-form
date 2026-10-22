@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <title>Revalle — Atualização Cadastral</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <meta name="description" content="Atualização cadastral dos colaboradores do Grupo Revalle: e-mail profissional, celular e superior direto." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, rgba(10, 50, 150, 0.08) 0%, rgba(37, 99, 235, 0.12) 100%);
+      color: var(--brand-blue);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .form-hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .form-hero h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+    .form-hero .lead {
+      font-size: 15.5px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    .icon-wrapper.cad-icon {
+      background: linear-gradient(135deg, #0A3296 0%, #2563eb 100%);
+      color: #ffffff;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(10, 50, 150, 0.25);
+      margin: 0 auto 16px;
+    }
+
+    /* Collaborator Banner */
+    .colab-greeting-box {
+      background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+      border: 1.5px solid #bfdbfe;
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .colab-info h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin: 0 0 4px;
+    }
+    .colab-info p {
+      font-size: 13.5px;
+      color: #475569;
+      margin: 0;
+    }
+    .colab-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .colab-chip {
+      padding: 4px 10px;
+      background: #ffffff;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .cad-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      margin-bottom: 24px;
+    }
+    .cad-fields .hint {
+      margin-top: 6px;
+    }
+
+    .btn-secondary-action {
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1.5px solid #e2e8f0;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-secondary-action:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Success */
+    .success-card {
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .success-icon-badge {
+      width: 72px;
+      height: 72px;
+      background: #dcfce7;
+      color: #15803d;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 25px rgba(21, 128, 61, 0.18);
+    }
+    .proto-badge {
+      display: inline-block;
+      padding: 8px 22px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 30px;
+      font-family: monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 1px;
+      margin: 16px 0 24px;
+    }
+    .summary-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      text-align: left;
+      margin-bottom: 28px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #edf2f7;
+      font-size: 14px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: #64748b; flex-shrink: 0; }
+    .summary-val { font-weight: 600; color: #0f172a; text-align: right; word-break: break-word; }
+
+    @media print {
+      header, footer, button, .btn-secondary-action, .topbar { display: none !important; }
+      .container { max-width: 100% !important; padding: 0 !important; }
+      .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+      body { background: #fff !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-elements" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner" style="justify-content: space-between;">
+      <div class="brand">
+        <img src="/logo.png" alt="Revalle" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="brand-text-fallback" style="display: none;">
+          <span class="brand-name">revalle</span>
+          <span class="brand-tag">GRUPO PEDRO BARROS</span>
+        </div>
+      </div>
+      <div class="badge-tag" style="margin: 0;">
+        <span>Atualização Cadastral</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="max-width: 680px;">
+    <!-- ════ ETAPA 1: Identificação por CPF ════ -->
+    <section class="card glass-panel" id="step1Card">
+      <div class="form-hero">
+        <div class="icon-wrapper cad-icon">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/><path d="M19 8v6"/>
+          </svg>
+        </div>
+        <div class="badge-tag">Dados do Colaborador</div>
+        <h1>Atualização Cadastral</h1>
+        <p class="lead">
+          Informe seu CPF para começar. Em seguida, confirme seu e-mail profissional, celular e o nome do seu superior direto.
+        </p>
+      </div>
+
+      <form id="formCpf" novalidate>
+        <!-- Campo Honeypot Invisível para Bloqueio de Robôs -->
+        <div style="position: absolute; opacity: 0; pointer-events: none; left: -9999px; height: 0; width: 0; overflow: hidden;" aria-hidden="true" tabindex="-1">
+          <label for="website_url">Não preencher este campo</label>
+          <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <div class="field full" id="field-cpf">
+          <label for="cpfInput">CPF do Colaborador <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <input type="tel" id="cpfInput" name="cpf" placeholder="000.000.000-00" maxlength="14" required autocomplete="off" inputmode="numeric" />
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+            </span>
+          </div>
+          <span class="error" id="err-cpf"></span>
+        </div>
+
+        <div id="step1Error" class="alert-box alert-error" style="margin-top: 18px;" hidden></div>
+
+        <div style="margin-top: 28px;">
+          <button type="submit" class="btn-submit" id="btnCheckCpf">
+            <span id="btnCheckText">Consultar e Continuar</span>
+            <svg id="btnCheckIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <div id="btnCheckSpinner" class="spinner" hidden></div>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ════ ETAPA 2: Dados de contato e liderança ════ -->
+    <section class="card glass-panel" id="step2Card" hidden>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <button type="button" class="btn-secondary-action" id="btnBackToCpf">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Trocar CPF
+        </button>
+        <span class="badge-tag" style="margin: 0;">Etapa 2 de 2</span>
+      </div>
+
+      <div class="colab-greeting-box">
+        <div class="colab-info">
+          <p>Colaborador(a) identificado(a):</p>
+          <h3 id="colabNome">---</h3>
+          <p id="colabCpf">CPF: ---</p>
+        </div>
+        <div class="colab-chips" id="colabChips"></div>
+      </div>
+
+      <div id="jaAtualizadoBox" class="alert-box alert-warn" style="margin: 0 0 22px;" hidden></div>
+
+      <form id="formCadastro" novalidate>
+        <div class="cad-fields">
+          <div class="field" id="field-email">
+            <label for="emailInput">E-mail profissional <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <input type="email" id="emailInput" name="email_profissional" placeholder="seu.nome@revalle.com.br" maxlength="200" autocomplete="email" required />
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </span>
+            </div>
+            <span class="hint">Use o e-mail corporativo (@revalle.com.br, @revallepe ou @revallenordeste).</span>
+            <span class="error" id="err-email"></span>
+          </div>
+
+          <div class="field" id="field-celular">
+            <label for="celularInput">Celular <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <input type="tel" id="celularInput" name="celular" placeholder="(00) 00000-0000" maxlength="15" autocomplete="tel-national" inputmode="numeric" required />
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+              </span>
+            </div>
+            <span class="hint">Com DDD. Ex.: (74) 99999-9999.</span>
+            <span class="error" id="err-celular"></span>
+          </div>
+
+          <div class="field" id="field-superior">
+            <label for="superiorInput">Superior direto (nome e sobrenome) <span class="req">*</span></label>
+            <div class="input-wrapper">
+              <input type="text" id="superiorInput" name="superior_direto" placeholder="Ex.: Maria Silva" maxlength="200" autocomplete="off" required />
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+            </div>
+            <span class="hint">Informe o nome da sua liderança direta, a pessoa a quem você responde no dia a dia.</span>
+            <span class="error" id="err-superior"></span>
+          </div>
+        </div>
+
+        <div id="step2Error" class="alert-box alert-error" style="margin-bottom: 20px;" hidden></div>
+
+        <button type="submit" class="btn-submit" id="btnSubmit">
+          <span id="btnSubmitText">Enviar Dados</span>
+          <svg id="btnSubmitIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <div id="btnSubmitSpinner" class="spinner" hidden></div>
+        </button>
+      </form>
+    </section>
+
+    <!-- ════ ETAPA 3: Comprovante ════ -->
+    <section class="card glass-panel success-card" id="successCard" hidden>
+      <div class="success-icon-badge">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+
+      <h2 style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 6px;" id="successTitle">
+        Dados Enviados com Sucesso!
+      </h2>
+      <p style="color: var(--text-muted); font-size: 15px;">
+        Obrigado! Suas informações foram registradas.
+      </p>
+
+      <div class="proto-badge" id="successProto">#CAD-00000</div>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="summary-label">Colaborador:</span>
+          <span class="summary-val" id="summaryNome">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">E-mail profissional:</span>
+          <span class="summary-val" id="summaryEmail">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Celular:</span>
+          <span class="summary-val" id="summaryCelular">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Superior direto:</span>
+          <span class="summary-val" id="summarySuperior">---</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Data e hora:</span>
+          <span class="summary-val" id="summaryData">---</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn-secondary-action" onclick="window.print()" style="flex: 1; justify-content: center; padding: 14px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          Imprimir Comprovante
+        </button>
+        <button type="button" class="btn btn-primary" id="btnNewCheck" style="flex: 1; padding: 14px;">
+          Informar Outro CPF
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" style="text-align: center; padding: 24px 0 40px; color: #64748b; font-size: 13px;">
+    <p>&copy; 2026 Revalle &bull; Grupo Pedro Barros. Tecnologia & Inovação.</p>
+  </footer>
+
+  <script src="/atualizacao-cadastral.js"></script>
+</body>
+</html>
