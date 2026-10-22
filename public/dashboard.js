@@ -90,7 +90,7 @@ const TITLES = {
   passivo: ['Passivo Trabalhista', 'Lideranças convocadas e controle de assinatura do termo de ciência'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
   ideias: ['Ideias e Melhorias', 'Programa de ideias, melhorias e sugestões de projetos da Revalle'],
-  cadastro: ['Atualização Cadastral', 'E-mail profissional, celular e superior direto informados pelos colaboradores'],
+  cadastro: ['Atualização Cadastral', 'E-mail profissional, celular corporativo e superior direto informados pelos colaboradores'],
   usuarios: ['Usuários & Acessos', 'Gerenciamento de acessos e perfis de usuários do painel'],
 };
 function switchView(view) {

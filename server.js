@@ -1033,7 +1033,7 @@ app.post('/api/ideias-melhorias/submit', async (req, res) => {
   }
 });
 
-/* ── Atualização Cadastral APIs (e-mail profissional, celular e superior direto) ── */
+/* ── Atualização Cadastral APIs (e-mail profissional, celular corporativo e superior direto) ── */
 
 function getAtualizacaoCadastralColaborador(colab) {
   if (!colab) {
@@ -1115,8 +1115,8 @@ app.post('/api/atualizacao-cadastral/submit', antiBotRateLimiter({ maxPerMinute:
   }
 
   const celular = onlyDigits(b.celular);
-  if (!celular) errors.push('Informe seu número de celular.');
-  else if (!isValidCelular(celular)) errors.push('Celular inválido. Informe DDD + número com 9 dígitos, ex.: (74) 99999-9999.');
+  if (!celular) errors.push('Informe o número do seu celular corporativo.');
+  else if (!isValidCelular(celular)) errors.push('Celular corporativo inválido. Informe DDD + número com 9 dígitos, ex.: (74) 99999-9999.');
 
   const superior_direto = normalizeNomeSobrenome(b.superior_direto);
   if (!trimStr(b.superior_direto, 200)) errors.push('Informe o nome e sobrenome do seu superior direto.');
@@ -2226,7 +2226,7 @@ app.get('/api/dashboard/export/atualizacao-cadastral.csv', requireRole(['admin']
       { label: 'CPF', get: (r) => formatCpf(r.cpf) },
       { label: 'Nome do Colaborador', get: (r) => r.nome_colaborador },
       { label: 'E-mail Profissional', get: (r) => r.email_profissional },
-      { label: 'Celular', get: (r) => formatCelular(r.celular) },
+      { label: 'Celular Corporativo', get: (r) => formatCelular(r.celular) },
       { label: 'Superior Direto', get: (r) => r.superior_direto },
       { label: 'Cargo', get: (r) => r.cargo || '' },
       { label: 'Setor', get: (r) => r.setor || '' },

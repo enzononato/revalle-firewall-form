@@ -302,8 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
     check(Boolean(emailVal), 'field-email', 'err-email', 'Informe seu e-mail profissional.', emailInput);
     if (emailVal) check(isCorporateEmail(emailVal), 'field-email', 'err-email', 'Use seu e-mail profissional da Revalle (@revalle.com.br, @revallepe ou @revallenordeste).', emailInput);
 
-    check(Boolean(celularVal), 'field-celular', 'err-celular', 'Informe seu número de celular.', celularInput);
-    if (celularVal) check(isValidCelular(celularVal), 'field-celular', 'err-celular', 'Celular inválido. Informe DDD + número com 9 dígitos.', celularInput);
+    check(Boolean(celularVal), 'field-celular', 'err-celular', 'Informe o número do seu celular corporativo.', celularInput);
+    if (celularVal) check(isValidCelular(celularVal), 'field-celular', 'err-celular', 'Celular corporativo inválido. Informe DDD + número com 9 dígitos.', celularInput);
 
     check(Boolean(superiorVal), 'field-superior', 'err-superior', 'Informe o nome e sobrenome do seu superior direto.', superiorInput);
     if (superiorVal) check(isNomeSobrenome(superiorVal), 'field-superior', 'err-superior', 'Informe o nome e o sobrenome (ex.: Maria Silva).', superiorInput);
