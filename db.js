@@ -214,6 +214,31 @@ async function initDb() {
 
     console.log('[db] tabelas de treinamento Passivo Trabalhista prontas');
 
+    // ── planejamento_ferias (termo de ciencia, colaboradores habilitados) ─
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS planejamento_ferias_assinaturas (
+        id             SERIAL PRIMARY KEY,
+        cpf            VARCHAR(11) UNIQUE NOT NULL,
+        nome_completo  VARCHAR(200) NOT NULL,
+        cargo          VARCHAR(150) NOT NULL DEFAULT '',
+        setor          VARCHAR(100) NOT NULL DEFAULT '',
+        unidade        VARCHAR(100) NOT NULL DEFAULT '',
+        assinado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        ip             VARCHAR(45) DEFAULT NULL,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ferias_assinaturas_data ON planejamento_ferias_assinaturas (assinado_em DESC)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS planejamento_ferias_permissoes (
+        cpf           VARCHAR(11) PRIMARY KEY,
+        permitido     BOOLEAN NOT NULL DEFAULT FALSE,
+        permitido_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    console.log('[db] tabelas de treinamento Planejamento de Ferias prontas');
+
     // ── pesquisa_cultura_participantes & pesquisa_cultura_respostas ─────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS pesquisa_cultura_participantes (
@@ -1755,6 +1780,12 @@ const passivoTrabalhista = createTermoComHabilitados({
   protocoloPrefix: 'PTR',
 });
 
+const planejamentoFerias = createTermoComHabilitados({
+  assinaturasTable: 'planejamento_ferias_assinaturas',
+  permissoesTable: 'planejamento_ferias_permissoes',
+  protocoloPrefix: 'PFE',
+});
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Pesquisa de Cultura Revalle (Respostas 100% Anônimas)
  * ────────────────────────────────────────────────────────────────────────── */
@@ -2693,8 +2724,8 @@ module.exports = {
   // treinamento ia e intranet
   findIaColaboradorByCpf, assinarTermoIa, listIaColaboradores, getIaStats,
   toggleIaPermissao, bulkSetIaPermissoes,
-  // treinamento passivo trabalhista
-  passivoTrabalhista, EMPTY_TERMO_STATS,
+  // termos com lista de habilitados (passivo trabalhista, planejamento de ferias)
+  passivoTrabalhista, planejamentoFerias, EMPTY_TERMO_STATS,
   // utilitários de filtros
   getColaboradoresFilterOptions,
   // pesquisa cultura revalle

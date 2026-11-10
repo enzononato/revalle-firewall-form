@@ -78,7 +78,10 @@ Dockerfile, .dockerignore
 | Imersão TESS | `/imersao-tess-form` | `imersao_tess_requests` |
 | Treinamento Sólides (ponto) | `/treinamento-solides` | `solides_treinamento_assinaturas`, `solides_treinamento_permissoes` |
 | Treinamento IA / LGPD / Intranet | `/treinamento-ia` (`/termo-ia`, `/treinamento-ia-intranet`) | `treinamento_ia_assinaturas`, `treinamento_ia_permissoes` |
-| Treinamento Passivo Trabalhista (só lideranças habilitadas) | `/passivo-trabalhista` | `passivo_trabalhista_assinaturas`, `passivo_trabalhista_permissoes` (via `createTermoComHabilitados` em `db.js`, reutilizável para novos termos; CPFs liberados colando a lista no painel — **nunca commitar CPFs, o repo é público**) |
+| Treinamento Passivo Trabalhista (só lideranças habilitadas) | `/passivo-trabalhista` | `passivo_trabalhista_assinaturas`, `passivo_trabalhista_permissoes` (protocolo `#PTR`) |
+| Treinamento Planejamento de Férias (só colaboradores habilitados) | `/planejamento-ferias` (`/ferias`) | `planejamento_ferias_assinaturas`, `planejamento_ferias_permissoes` (protocolo `#PFE`) |
+
+**Termos de ciência com lista de habilitados** (Passivo, Férias): novo termo = tabelas em `initDb()` + `createTermoComHabilitados` (`db.js`) + `registerTermoComHabilitados` (`server.js`, registra página e APIs) + `public/<slug>.html` usando `public/termo-assinatura.js` (configurado por `data-termo-api`/`data-termo-nome` no `<body>`) + entrada em `TERMO_TABS` (`public/dashboard.js`) e seção `view-<aba>` com ids de prefixo próprio em `views/dashboard.html` + chave no `/api/dashboard/summary`. CPFs são liberados no painel (toggle, seleção ou lista colada) — **nunca commitar CPFs, o repo é público**.
 | Pesquisa de Cultura (anônima) | `/pesquisa-cultura` | `pesquisa_cultura_participantes` (adesão), `pesquisa_cultura_respostas` (sem vínculo com CPF) |
 | Ideias e Melhorias | `/ideias-melhorias` (`/ideias`, `/melhorias`) | `ideias_melhorias` |
 | Atualização Cadastral (e-mail profissional, celular corporativo opcional, superior direto) | `/atualizacao-cadastral` (`/dados-colaborador`) | `atualizacao_cadastral` (1 registro por CPF; reenviar atualiza. CPF precisa estar ativo em `"colaboradores-revalle"`) |

@@ -1,4 +1,9 @@
+// Pagina de assinatura de termo de ciencia. Configurada pelo <body>:
+//   data-termo-api="/api/<slug>"  data-termo-nome="Treinamento de ..."
 document.addEventListener('DOMContentLoaded', () => {
+  const termoApi = document.body.dataset.termoApi;
+  const termoNome = document.body.dataset.termoNome;
+
   const step1Card = document.getElementById('step1Card');
   const step2Card = document.getElementById('step2Card');
   const successCard = document.getElementById('successCard');
@@ -155,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         keyEvents: userInteractions.keyEvents,
       };
 
-      let res = await fetch('/api/passivo-trabalhista/check-cpf', {
+      let res = await fetch(`${termoApi}/check-cpf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok && data.expired) {
         await loadSecurityChallenge();
         const retryPow = await solveSecurityChallenge(securityChallenge);
-        res = await fetch('/api/passivo-trabalhista/check-cpf', {
+        res = await fetch(`${termoApi}/check-cpf`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -206,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showStep2(currentCollaborator);
 
     } catch (err) {
-      console.error('[passivo check-cpf] erro:', err);
+      console.error('[termo check-cpf] erro:', err);
       step1Error.textContent = 'Erro de conexão com o servidor. Verifique sua internet e tente novamente.';
       step1Error.hidden = false;
       loadSecurityChallenge();
@@ -282,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (step2Error) step2Error.hidden = true;
 
     try {
-      const res = await fetch('/api/passivo-trabalhista/assinar', {
+      const res = await fetch(`${termoApi}/assinar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -309,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showConfirmationScreen(currentCollaborator, false);
 
     } catch (err) {
-      console.error('[passivo assinar] erro:', err);
+      console.error('[termo assinar] erro:', err);
       step2Error.textContent = 'Erro ao processar assinatura. Verifique sua conexão e tente novamente.';
       step2Error.hidden = false;
     } finally {
@@ -327,14 +332,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (alreadySigned) {
       successTitle.textContent = 'Termo Já Assinado!';
-      successSub.textContent = 'Este CPF já assinou o Termo de Ciência do Treinamento de Passivo Trabalhista. Confira o comprovante abaixo.';
+      successSub.textContent = `Este CPF já assinou o Termo de Ciência do ${termoNome}. Confira o comprovante abaixo.`;
       if (successIconBadge) {
         successIconBadge.className = 'success-icon-badge already-signed-badge';
         successIconBadge.innerHTML = `<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`;
       }
     } else {
       successTitle.textContent = 'Termo Assinado com Sucesso!';
-      successSub.textContent = 'Sua participação no Treinamento de Passivo Trabalhista foi registrada com sucesso.';
+      successSub.textContent = `Sua participação no ${termoNome} foi registrada com sucesso.`;
       if (successIconBadge) {
         successIconBadge.className = 'success-icon-badge';
         successIconBadge.innerHTML = `<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;

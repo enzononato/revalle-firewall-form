@@ -13,6 +13,7 @@ const state = {
   solides: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ia: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   pt: { status: 'permitido', unidade: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
+  pf: { status: 'permitido', unidade: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ideias: { status: '', area: '', impacto: '', frequencia: '', search: '', page: 1, pageSize: 20, total: 0 },
@@ -88,6 +89,7 @@ const TITLES = {
   solides: ['Gestão de Ponto (Sólides)', 'Lideranças participantes e controle de assinatura do termo'],
   'treinamento-ia': ['Treinamento IA & Intranet', 'Colaboradores participantes e controle de assinatura do termo'],
   passivo: ['Passivo Trabalhista', 'Lideranças convocadas e controle de assinatura do termo de ciência'],
+  ferias: ['Planejamento de Férias', 'Colaboradores convocados e controle de assinatura do termo de ciência'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
   ideias: ['Ideias e Melhorias', 'Programa de ideias, melhorias e sugestões de projetos da Revalle'],
   cadastro: ['Atualização Cadastral', 'E-mail profissional, celular corporativo e superior direto informados pelos colaboradores'],
@@ -111,7 +113,7 @@ function switchView(view) {
   if (view === 'tess') loadTess();
   if (view === 'solides') loadSolides();
   if (view === 'treinamento-ia') loadTreinamentoIa();
-  if (view === 'passivo') loadPassivo();
+  if (TERMO_TABS[view]) loadTermo(view);
   if (view === 'cultura') loadPesquisaCultura();
   if (view === 'ideias') loadIdeias();
   if (view === 'cadastro') loadCadastro();
@@ -256,7 +258,9 @@ function updateNavBadges(data) {
       $('#navIaPending').hidden = p <= 0;
     }
   }
-  if (data.passivo_trabalhista) setPassivoNavBadge(data.passivo_trabalhista.pendentes || 0);
+  for (const cfg of Object.values(TERMO_TABS)) {
+    if (data[cfg.summaryKey]) setTermoNavBadge(cfg, data[cfg.summaryKey].pendentes || 0);
+  }
   if (data.atualizacao_cadastral) setCadastroNavBadge(data.atualizacao_cadastral.total || 0);
   if (data.cultura) {
     const c = data.cultura.total || 0;
@@ -1104,77 +1108,83 @@ function renderTreinamentoIa(rows, total) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Treinamento Passivo Trabalhista Dashboard
+   Termos de ciencia com lista de habilitados
+   (Passivo Trabalhista, Planejamento de Ferias)
+   Cada aba usa os mesmos ids com prefixo proprio (ex.: #ptBody, #pfBody)
+   e o estado em state[prefixo].
    ════════════════════════════════════════════════════════════════ */
-const selectedPtCpfs = new Set();
+const TERMO_TABS = {
+  passivo: { prefix: 'pt', api: 'passivo-trabalhista', nome: 'Passivo Trabalhista', navBadge: '#navPassivoPending', summaryKey: 'passivo_trabalhista' },
+  ferias: { prefix: 'pf', api: 'planejamento-ferias', nome: 'Planejamento de Férias', navBadge: '#navFeriasPending', summaryKey: 'planejamento_ferias' },
+};
+const termoSelected = Object.fromEntries(Object.keys(TERMO_TABS).map((v) => [v, new Set()]));
+const termoEl = (cfg, id) => $(`#${cfg.prefix}${id}`);
 
-function setPassivoNavBadge(pendentes) {
-  const el = $('#navPassivoPending');
+function setTermoNavBadge(cfg, pendentes) {
+  const el = $(cfg.navBadge);
   if (!el) return;
   el.textContent = pendentes;
   el.hidden = pendentes <= 0;
 }
 
-async function loadPassivo() {
-  const { status, unidade, cargo, search, page, pageSize } = state.pt;
-  const query = new URLSearchParams({ page, pageSize });
-  if (status) query.set('status', status);
-  if (unidade) query.set('unidade', unidade);
-  if (cargo) query.set('cargo', cargo);
-  if (search) query.set('search', search);
+async function loadTermo(view) {
+  const cfg = TERMO_TABS[view];
+  const st = state[cfg.prefix];
+  const query = new URLSearchParams({ page: st.page, pageSize: st.pageSize });
+  for (const key of ['status', 'unidade', 'cargo', 'search']) if (st[key]) query.set(key, st[key]);
 
-  if ($('#ptExport')) $('#ptExport').href = `${API}/export/passivo-trabalhista.csv?${query.toString()}`;
-  if ($('#ptBody')) $('#ptBody').innerHTML = skeletonRows(5, 8);
-  if ($('#ptEmpty')) $('#ptEmpty').hidden = true;
+  termoEl(cfg, 'Export').href = `${API}/export/${cfg.api}.csv?${query.toString()}`;
+  termoEl(cfg, 'Body').innerHTML = skeletonRows(5, 8);
+  termoEl(cfg, 'Empty').hidden = true;
 
   try {
-    const res = await api(`/passivo-trabalhista?${query}`).then((r) => r.json());
+    const res = await api(`/${cfg.api}?${query}`).then((r) => r.json());
     if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
-    state.pt.total = res.total;
+    st.total = res.total;
 
     if (res.stats) {
-      $('#ptKpiPermitidos').textContent = res.stats.total_permitidos || 0;
-      $('#ptKpiAssinados').textContent = res.stats.assinados || 0;
-      $('#ptKpiPendentes').textContent = res.stats.pendentes || 0;
-      $('#ptKpiTaxa').textContent = `${res.stats.taxa_adesao || 0}%`;
-      setPassivoNavBadge(res.stats.pendentes || 0);
-      populateSelectOptions($('#ptUnidade'), res.stats.unidades || [], state.pt.unidade, 'Todas as unidades');
-      populateSelectOptions($('#ptCargo'), res.stats.cargos || [], state.pt.cargo, 'Todos os cargos');
+      termoEl(cfg, 'KpiPermitidos').textContent = res.stats.total_permitidos || 0;
+      termoEl(cfg, 'KpiAssinados').textContent = res.stats.assinados || 0;
+      termoEl(cfg, 'KpiPendentes').textContent = res.stats.pendentes || 0;
+      termoEl(cfg, 'KpiTaxa').textContent = `${res.stats.taxa_adesao || 0}%`;
+      setTermoNavBadge(cfg, res.stats.pendentes || 0);
+      populateSelectOptions(termoEl(cfg, 'Unidade'), res.stats.unidades || [], st.unidade, 'Todas as unidades');
+      populateSelectOptions(termoEl(cfg, 'Cargo'), res.stats.cargos || [], st.cargo, 'Todos os cargos');
     }
 
-    renderPassivo(res.rows);
-    renderPager('#ptPager', state.pt, loadPassivo);
+    renderTermo(view, res.rows);
+    renderPager(`#${cfg.prefix}Pager`, st, () => loadTermo(view));
   } catch (err) {
     if (err.message === 'unauth') return;
-    toast('error', 'Falha ao carregar lista do Passivo Trabalhista', err.message);
-    emptyState('#ptEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+    toast('error', `Falha ao carregar lista do ${cfg.nome}`, err.message);
+    emptyState(`#${cfg.prefix}Empty`, 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
   }
 }
 
-function updatePtBulkBar() {
-  const bar = $('#ptBulkBar');
-  if (!bar) return;
-  const count = selectedPtCpfs.size;
-  bar.style.display = count > 0 ? 'flex' : 'none';
-  $('#ptSelectedCount').textContent = `${count} colaborador${count > 1 ? 'es' : ''} selecionado${count > 1 ? 's' : ''}`;
+function updateTermoBulkBar(view) {
+  const cfg = TERMO_TABS[view];
+  const count = termoSelected[view].size;
+  termoEl(cfg, 'BulkBar').style.display = count > 0 ? 'flex' : 'none';
+  termoEl(cfg, 'SelectedCount').textContent = `${count} colaborador${count > 1 ? 'es' : ''} selecionado${count > 1 ? 's' : ''}`;
 }
 
-function renderPassivo(rows) {
-  const tbody = $('#ptBody');
-  if (!tbody) return;
-  selectedPtCpfs.clear();
-  updatePtBulkBar();
-  if ($('#ptCheckAll')) $('#ptCheckAll').checked = false;
+function renderTermo(view, rows) {
+  const cfg = TERMO_TABS[view];
+  const st = state[cfg.prefix];
+  const tbody = termoEl(cfg, 'Body');
+  termoSelected[view].clear();
+  updateTermoBulkBar(view);
+  termoEl(cfg, 'CheckAll').checked = false;
 
   if (!rows.length) {
     tbody.innerHTML = '';
-    const sub = state.pt.status === 'permitido' && !state.pt.search
-      ? 'Ninguém habilitado ainda. Use "Habilitar lista de CPFs" acima.'
+    const sub = st.status === 'permitido' && !st.search
+      ? 'Ninguém habilitado ainda. Clique em "Toda a base" para buscar e habilitar colaboradores, ou cole uma lista de CPFs acima.'
       : 'Tente ajustar a busca ou filtros.';
-    emptyState('#ptEmpty', 'Nenhum colaborador encontrado', sub);
+    emptyState(`#${cfg.prefix}Empty`, 'Nenhum colaborador encontrado', sub);
     return;
   }
-  $('#ptEmpty').hidden = true;
+  termoEl(cfg, 'Empty').hidden = true;
 
   tbody.innerHTML = rows.map((r) => {
     let statusHtml;
@@ -1187,10 +1197,10 @@ function renderPassivo(rows) {
     }
     return `
     <tr data-cpf="${esc(r.cpf)}">
-      <td style="text-align: center;"><input type="checkbox" class="pt-row-check" data-cpf="${esc(r.cpf)}" /></td>
+      <td style="text-align: center;"><input type="checkbox" class="termo-row-check" data-cpf="${esc(r.cpf)}" /></td>
       <td style="text-align: center;">
         <label class="toggle-switch" title="${r.permitido ? 'Habilitado para assinar' : 'Desabilitado'}">
-          <input type="checkbox" class="pt-perm-toggle" data-cpf="${esc(r.cpf)}" ${r.permitido ? 'checked' : ''} />
+          <input type="checkbox" class="termo-perm-toggle" data-cpf="${esc(r.cpf)}" ${r.permitido ? 'checked' : ''} />
           <span class="toggle-slider"></span>
         </label>
       </td>
@@ -1208,17 +1218,17 @@ function renderPassivo(rows) {
     </tr>`;
   }).join('');
 
-  $$('.pt-perm-toggle', tbody).forEach((toggle) => {
+  $$('.termo-perm-toggle', tbody).forEach((toggle) => {
     toggle.onchange = async (e) => {
       const permitido = e.target.checked;
       try {
-        const res = await api('/passivo-trabalhista/toggle-permission', {
+        const res = await api(`/${cfg.api}/toggle-permission`, {
           method: 'POST',
           body: JSON.stringify({ cpf: e.target.dataset.cpf, permitido }),
         }).then((r) => r.json());
         if (!res.ok) throw new Error(res.error || 'Erro ao atualizar');
         toast('success', `Permissão ${permitido ? 'habilitada' : 'desabilitada'} com sucesso.`);
-        loadPassivo();
+        loadTermo(view);
       } catch (err) {
         e.target.checked = !permitido;
         toast('error', 'Erro ao alterar permissão', err.message);
@@ -1226,19 +1236,19 @@ function renderPassivo(rows) {
     };
   });
 
-  $$('.pt-row-check', tbody).forEach((cb) => {
+  $$('.termo-row-check', tbody).forEach((cb) => {
     cb.onchange = (e) => {
-      if (e.target.checked) selectedPtCpfs.add(e.target.dataset.cpf);
-      else selectedPtCpfs.delete(e.target.dataset.cpf);
-      updatePtBulkBar();
-      const all = $$('.pt-row-check', tbody);
-      $('#ptCheckAll').checked = all.length > 0 && all.every((c) => c.checked);
+      if (e.target.checked) termoSelected[view].add(e.target.dataset.cpf);
+      else termoSelected[view].delete(e.target.dataset.cpf);
+      updateTermoBulkBar(view);
+      const all = $$('.termo-row-check', tbody);
+      termoEl(cfg, 'CheckAll').checked = all.length > 0 && all.every((c) => c.checked);
     };
   });
 }
 
-async function setPassivoPermissoes(cpfs, permitido) {
-  const res = await api('/passivo-trabalhista/bulk-permission', {
+async function setTermoPermissoes(cfg, cpfs, permitido) {
+  const res = await api(`/${cfg.api}/bulk-permission`, {
     method: 'POST',
     body: JSON.stringify({ cpfs, permitido }),
   }).then((r) => r.json());
@@ -1250,17 +1260,18 @@ function parseCpfList(text) {
   return [...new Set(String(text || '').split(/[\s,;]+/).map((s) => s.replace(/\D/g, '')).filter(Boolean))];
 }
 
-async function importPassivoCpfs() {
-  const cpfs = parseCpfList($('#ptImportText').value);
-  const out = $('#ptImportResult');
+async function importTermoCpfs(view) {
+  const cfg = TERMO_TABS[view];
+  const cpfs = parseCpfList(termoEl(cfg, 'ImportText').value);
+  const out = termoEl(cfg, 'ImportResult');
   if (!cpfs.length) {
     toast('error', 'Cole ao menos um CPF na caixa de texto.');
     return;
   }
-  const btn = $('#btnPtImport');
+  const btn = termoEl(cfg, 'BtnImport');
   btn.disabled = true;
   try {
-    const res = await setPassivoPermissoes(cpfs, true);
+    const res = await setTermoPermissoes(cfg, cpfs, true);
     const linhas = [`${res.count} CPF${res.count === 1 ? '' : 's'} habilitado${res.count === 1 ? '' : 's'}.`];
     if (res.invalidos && res.invalidos.length) {
       linhas.push(`\n${res.invalidos.length} CPF(s) inválido(s), ignorados:\n${res.invalidos.map(fmtCpf).join('\n')}`);
@@ -1274,9 +1285,9 @@ async function importPassivoCpfs() {
     out.textContent = linhas.join('\n');
     out.hidden = false;
     toast('success', `${res.count} CPF${res.count === 1 ? '' : 's'} habilitado${res.count === 1 ? '' : 's'}.`);
-    $('#ptImportText').value = '';
-    $('#ptImportCount').textContent = '';
-    loadPassivo();
+    termoEl(cfg, 'ImportText').value = '';
+    termoEl(cfg, 'ImportCount').textContent = '';
+    loadTermo(view);
   } catch (err) {
     if (err.message === 'unauth') return;
     toast('error', 'Erro ao habilitar lista', err.message);
@@ -1285,45 +1296,49 @@ async function importPassivoCpfs() {
   }
 }
 
-function bindPassivo() {
-  if (!$('#view-passivo')) return;
-  $('#ptStatus').onclick = (e) => {
-    const s = e.target.closest('.seg'); if (!s) return;
-    $$('#ptStatus .seg').forEach((x) => x.classList.toggle('active', x === s));
-    state.pt.status = s.dataset.val; state.pt.page = 1; loadPassivo();
-  };
-  $('#ptUnidade').onchange = (e) => { state.pt.unidade = e.target.value; state.pt.page = 1; loadPassivo(); };
-  $('#ptCargo').onchange = (e) => { state.pt.cargo = e.target.value; state.pt.page = 1; loadPassivo(); };
-  $('#ptSearch').oninput = debounce((e) => { state.pt.search = e.target.value.trim(); state.pt.page = 1; loadPassivo(); });
+function bindTermoTab(view) {
+  const cfg = TERMO_TABS[view];
+  const st = state[cfg.prefix];
+  if (!$(`#view-${view}`)) return;
+  const reload = () => { st.page = 1; loadTermo(view); };
 
-  $('#ptCheckAll').onchange = (e) => {
-    $$('.pt-row-check', $('#ptBody')).forEach((cb) => {
+  termoEl(cfg, 'Status').onclick = (e) => {
+    const s = e.target.closest('.seg'); if (!s) return;
+    $$(`#${cfg.prefix}Status .seg`).forEach((x) => x.classList.toggle('active', x === s));
+    st.status = s.dataset.val; reload();
+  };
+  termoEl(cfg, 'Unidade').onchange = (e) => { st.unidade = e.target.value; reload(); };
+  termoEl(cfg, 'Cargo').onchange = (e) => { st.cargo = e.target.value; reload(); };
+  termoEl(cfg, 'Search').oninput = debounce((e) => { st.search = e.target.value.trim(); reload(); });
+
+  termoEl(cfg, 'CheckAll').onchange = (e) => {
+    $$('.termo-row-check', termoEl(cfg, 'Body')).forEach((cb) => {
       cb.checked = e.target.checked;
-      if (e.target.checked) selectedPtCpfs.add(cb.dataset.cpf);
-      else selectedPtCpfs.delete(cb.dataset.cpf);
+      if (e.target.checked) termoSelected[view].add(cb.dataset.cpf);
+      else termoSelected[view].delete(cb.dataset.cpf);
     });
-    updatePtBulkBar();
+    updateTermoBulkBar(view);
   };
 
   const bulk = (permitido) => async () => {
-    const cpfs = [...selectedPtCpfs];
+    const cpfs = [...termoSelected[view]];
     if (!cpfs.length) return;
     try {
-      await setPassivoPermissoes(cpfs, permitido);
+      await setTermoPermissoes(cfg, cpfs, permitido);
       toast('success', `${cpfs.length} colaborador${cpfs.length > 1 ? 'es' : ''} ${permitido ? 'habilitado' : 'desabilitado'}${cpfs.length > 1 ? 's' : ''}.`);
-      loadPassivo();
+      loadTermo(view);
     } catch (err) {
       toast('error', `Erro ao ${permitido ? 'habilitar' : 'desabilitar'} em lote`, err.message);
     }
   };
-  $('#btnPtBulkAllow').onclick = bulk(true);
-  $('#btnPtBulkDisallow').onclick = bulk(false);
+  termoEl(cfg, 'BtnBulkAllow').onclick = bulk(true);
+  termoEl(cfg, 'BtnBulkDisallow').onclick = bulk(false);
 
-  $('#ptImportText').oninput = (e) => {
+  termoEl(cfg, 'ImportText').oninput = (e) => {
     const n = parseCpfList(e.target.value).length;
-    $('#ptImportCount').textContent = n ? `${n} CPF${n > 1 ? 's' : ''} detectado${n > 1 ? 's' : ''}` : '';
+    termoEl(cfg, 'ImportCount').textContent = n ? `${n} CPF${n > 1 ? 's' : ''} detectado${n > 1 ? 's' : ''}` : '';
   };
-  $('#btnPtImport').onclick = importPassivoCpfs;
+  termoEl(cfg, 'BtnImport').onclick = () => importTermoCpfs(view);
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -2184,7 +2199,7 @@ function bind() {
     if (state.view === 'tess') await loadTess();
     if (state.view === 'solides') await loadSolides();
     if (state.view === 'treinamento-ia') await loadTreinamentoIa();
-    if (state.view === 'passivo') await loadPassivo();
+    if (TERMO_TABS[state.view]) await loadTermo(state.view);
     if (state.view === 'cadastro') await loadCadastro();
     if (state.view === 'cultura') await loadPesquisaCultura();
     if (state.view === 'usuarios') await loadUsuarios();
@@ -2314,7 +2329,7 @@ function bind() {
     };
   }
 
-  bindPassivo();
+  Object.keys(TERMO_TABS).forEach(bindTermoTab);
   bindCadastro();
 
   // sub-tabs e filtros pesquisa cultura
