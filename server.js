@@ -2199,6 +2199,58 @@ registerTermoComHabilitados({
   naoHabilitadoMsg: 'Este termo é destinado aos colaboradores convocados para o Treinamento de Planejamento de Férias e este CPF ainda não foi liberado. Se você participou do treinamento, procure o setor de RH / DP.',
 });
 
+/* ── Atualização Cadastral Dashboard APIs ── */
+
+function formatCelular(value) {
+  const d = onlyDigits(value);
+  if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  return value || '';
+}
+
+app.get('/api/dashboard/atualizacao-cadastral', requireRole(['admin']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const result = await listAtualizacaoCadastral({
+      unidade: req.query.unidade,
+      search: req.query.search,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+    res.json({ ok: true, rows: result.rows, total: result.total, page, pageSize, stats: result.stats });
+  } catch (err) {
+    console.error('[dashboard/atualizacao-cadastral] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao listar atualizações cadastrais.' });
+  }
+});
+
+app.get('/api/dashboard/export/atualizacao-cadastral.csv', requireRole(['admin']), async (req, res) => {
+  try {
+    const { rows } = await listAtualizacaoCadastral({
+      unidade: req.query.unidade,
+      search: req.query.search,
+      limit: 50000,
+      offset: 0,
+    });
+    sendCsv(res, 'atualizacao-cadastral-revalle', [
+      { label: 'Protocolo', get: (r) => r.protocolo },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Nome do Colaborador', get: (r) => r.nome_colaborador },
+      { label: 'E-mail Profissional', get: (r) => r.email_profissional },
+      { label: 'Celular Corporativo', get: (r) => formatCelular(r.celular) },
+      { label: 'Superior Direto', get: (r) => r.superior_direto },
+      { label: 'Cargo', get: (r) => r.cargo || '' },
+      { label: 'Setor', get: (r) => r.setor || '' },
+      { label: 'Unidade', get: (r) => r.unidade || '' },
+      { label: 'Primeiro Envio', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'Ultima Atualizacao', get: (r) => formatDateTimeBr(r.updated_at) },
+    ], rows);
+  } catch (err) {
+    console.error('[export/atualizacao-cadastral] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
+});
+
 /* ── Pesquisa de Cultura Dashboard APIs ── */
 
 app.get('/api/dashboard/pesquisa-cultura', requireRole(['admin', 'mkt_cultura']), async (req, res) => {
