@@ -81,7 +81,7 @@
       ],
     },
     {
-      id: 'motivo_notas', etapa: 'geral', ref: '4', tipo: 'aberta',
+      id: 'motivo_notas', etapa: 'geral', ref: '4', tipo: 'aberta', obrigatoria: true, min: 4,
       texto: 'O que fez você dar essas notas?',
     },
 
@@ -372,7 +372,9 @@
         limpas[p.id] = out;
       } else if (p.tipo === 'aberta') {
         const t = String(v || '').trim().slice(0, MAX_TEXTO);
-        if (t) limpas[p.id] = t;
+        if (!t) { if (p.obrigatoria) erros[p.id] = 'Escreva sua resposta.'; continue; }
+        if (p.min && t.length < p.min) { erros[p.id] = `Escreva pelo menos ${p.min} caracteres.`; continue; }
+        limpas[p.id] = t;
       }
     }
     return { erros, limpas };

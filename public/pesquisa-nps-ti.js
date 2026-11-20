@@ -294,12 +294,16 @@ document.addEventListener('DOMContentLoaded', () => {
         card.appendChild(row);
       }
     } else if (p.tipo === 'aberta') {
-      const ta = el('textarea', { maxlength: String(DEF.MAX_TEXTO), placeholder: 'Escreva aqui, se quiser...' });
+      const ta = el('textarea', {
+        maxlength: String(DEF.MAX_TEXTO),
+        placeholder: p.obrigatoria ? 'Escreva aqui...' : 'Escreva aqui, se quiser...',
+      });
       ta.value = respostas[p.id] || '';
       const info = el('div', { class: 'char-info' }, `${ta.value.length}/${DEF.MAX_TEXTO}`);
       ta.addEventListener('input', () => {
         respostas[p.id] = ta.value;
         info.textContent = `${ta.value.length}/${DEF.MAX_TEXTO}`;
+        if (!p.min || ta.value.trim().length >= p.min) clearError(card);
         saveDraft();
       });
       card.appendChild(ta);
