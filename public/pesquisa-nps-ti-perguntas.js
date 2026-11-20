@@ -16,6 +16,8 @@
   const temComputador = (r) => (r.equipamentos || []).some((e) => e === 'desktop' || e === 'notebook');
   const temCelular = (r) => (r.equipamentos || []).includes('celular');
   const temImpressora = (r) => (r.equipamentos || []).includes('impressora');
+  // As perguntas "ajudaria?" so aparecem depois que a pessoa marca algo.
+  const marcouEquipamentos = (r) => Array.isArray(r.equipamentos) && r.equipamentos.length > 0;
 
   const NOTAS_1_5 = [
     { v: '1', l: '1 · Muito ruim' },
@@ -28,21 +30,21 @@
   const perguntas = [
     /* ── Etapa 1 · Seus equipamentos ── */
     {
-      // Opcional: quem nao usa nenhum equipamento deixa em branco e segue.
-      id: 'equipamentos', etapa: 'equipamentos', ref: '10/15', tipo: 'multi',
+      id: 'equipamentos', etapa: 'equipamentos', ref: '10/15', tipo: 'multi', exclusiva: 'nenhum',
       texto: 'Quais destes equipamentos você usa no trabalho?',
-      ajuda: 'Marque todos que você usa. Se não usa nenhum, é só continuar. As próximas perguntas se adaptam ao que você marcar.',
+      ajuda: 'Marque todos que você usa. As próximas perguntas se adaptam ao que você marcar.',
       opcoes: [
         { v: 'celular', l: 'Celular corporativo' },
         { v: 'desktop', l: 'Computador desktop' },
         { v: 'notebook', l: 'Notebook' },
         { v: 'impressora', l: 'Impressora' },
+        { v: 'nenhum', l: 'Não uso nenhum desses' },
       ],
     },
     {
       id: 'computador_ajudaria', etapa: 'equipamentos', ref: '10', tipo: 'unica',
       texto: 'Um computador ajudaria no seu trabalho?',
-      mostrar: (r) => !temComputador(r),
+      mostrar: (r) => marcouEquipamentos(r) && !temComputador(r),
       opcoes: [
         { v: 'ajudaria', l: 'Sim, ajudaria' },
         { v: 'nao_preciso', l: 'Não preciso' },
@@ -51,7 +53,7 @@
     {
       id: 'celular_ajudaria', etapa: 'equipamentos', ref: '15.1', tipo: 'unica',
       texto: 'Um celular corporativo ajudaria no seu trabalho?',
-      mostrar: (r) => !temCelular(r),
+      mostrar: (r) => marcouEquipamentos(r) && !temCelular(r),
       opcoes: [
         { v: 'ajudaria_muito', l: 'Sim, ajudaria muito' },
         { v: 'ajudaria_pouco', l: 'Ajudaria um pouco' },
@@ -316,6 +318,12 @@
       ],
     },
   ];
+
+  // Toda pergunta de marcar e obrigatoria quando aparece; as abertas sao
+  // opcionais. `obrigatoria` explicito na pergunta abre excecao.
+  for (const p of perguntas) {
+    if (p.obrigatoria === undefined) p.obrigatoria = p.tipo !== 'aberta';
+  }
 
   const etapas = [
     { id: 'equipamentos', titulo: 'Seus equipamentos', descricao: 'Primeiro, conte o que você usa no dia a dia.' },
