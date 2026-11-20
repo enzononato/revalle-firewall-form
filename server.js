@@ -15,6 +15,8 @@ const {
   toggleIaPermissao, bulkSetIaPermissoes,
   // treinamento passivo trabalhista
   passivoTrabalhista, planejamentoFerias, EMPTY_TERMO_STATS,
+  // pesquisa nps do ti
+  findNpsTiRespostaByCpf, insertNpsTiResposta, listNpsTiRespostas, getNpsTiFilterOptions, countNpsTiRespostas,
   // utilitários de filtros
   getColaboradoresFilterOptions,
   // pesquisa cultura revalle
@@ -136,6 +138,14 @@ app.get(['/atualizacao-cadastral', '/dados-colaborador'], (_req, res) => {
 
 /* ── Status de bloqueio da Pesquisa de Cultura ── */
 const PESQUISA_CULTURA_ENCERRADA = process.env.PESQUISA_CULTURA_ENCERRADA !== 'false';
+
+// Pesquisa de NPS do TI fica aberta ate alguem definir PESQUISA_NPS_TI_ENCERRADA=true.
+const PESQUISA_NPS_TI_ENCERRADA = process.env.PESQUISA_NPS_TI_ENCERRADA === 'true';
+const NPS_TI = require('./public/pesquisa-nps-ti-perguntas.js');
+
+app.get(['/pesquisa-nps-ti', '/nps-ti', '/pesquisa-ti'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pesquisa-nps-ti.html'));
+});
 
 function onlyDigits(s) {
   return String(s || '').replace(/\D+/g, '');
@@ -700,6 +710,116 @@ app.post('/api/treinamento-ia/assinar', async (req, res) => {
   } catch (err) {
     console.error('[treinamento-ia/assinar] erro:', err);
     return res.status(500).json({ ok: false, error: 'Erro ao registrar assinatura. Tente novamente.' });
+  }
+});
+
+/* ── Pesquisa de NPS do TI (identificada pelo CPF, 1 resposta por pessoa) ── */
+
+const NPS_TI_ENCERRADA_MSG = 'A Pesquisa de NPS do TI está encerrada. Obrigado pelo interesse!';
+
+function npsTiColaborador(colab) {
+  return {
+    nome_completo: colab.nome_completo,
+    cargo: colab.cargo,
+    setor: colab.setor,
+    unidade: colab.unidade,
+  };
+}
+
+app.post('/api/pesquisa-nps-ti/check-cpf', antiBotRateLimiter({ maxPerMinute: 30, cooldownMinutes: 3 }), async (req, res) => {
+  if (PESQUISA_NPS_TI_ENCERRADA) {
+    return res.status(403).json({ ok: false, encerrada: true, error: NPS_TI_ENCERRADA_MSG });
+  }
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const cpfDigits = onlyDigits(req.body ? req.body.cpf : '');
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, error: 'Número de CPF inválido.' });
+  }
+
+  try {
+    const colab = await findColaboradorBaseByCpf(cpfDigits);
+    if (!colab) {
+      return res.status(404).json({
+        ok: false,
+        not_found: true,
+        error: 'CPF não localizado no cadastro da Revalle. Verifique o número digitado ou contate o setor de TI / RH.',
+      });
+    }
+    if (colab.inativo) {
+      return res.status(403).json({
+        ok: false,
+        inativo: true,
+        error: 'Seu cadastro consta como inativo no sistema da Revalle. A pesquisa é destinada a colaboradores ativos.',
+      });
+    }
+
+    const anterior = await findNpsTiRespostaByCpf(cpfDigits);
+    if (anterior) {
+      return res.status(409).json({
+        ok: false,
+        already_answered: true,
+        respondido_em: anterior.created_at,
+        error: 'Você já respondeu a Pesquisa de NPS do TI. Obrigado pela participação!',
+      });
+    }
+
+    return res.json({ ok: true, colaborador: npsTiColaborador(colab) });
+  } catch (err) {
+    console.error('[pesquisa-nps-ti/check-cpf] erro:', err);
+    return res.status(500).json({ ok: false, error: 'Erro interno ao consultar CPF. Tente novamente.' });
+  }
+});
+
+app.post('/api/pesquisa-nps-ti/submit', antiBotRateLimiter({ maxPerMinute: 30, cooldownMinutes: 3 }), async (req, res) => {
+  if (PESQUISA_NPS_TI_ENCERRADA) {
+    return res.status(403).json({ ok: false, encerrada: true, errors: [NPS_TI_ENCERRADA_MSG] });
+  }
+  const verification = verifySecurityChallenge(req);
+  if (!verification.ok) {
+    return res.status(403).json(verification);
+  }
+
+  const b = req.body || {};
+  const cpfDigits = onlyDigits(b.cpf);
+  if (!cpfDigits || !isValidCpf(cpfDigits)) {
+    return res.status(400).json({ ok: false, errors: ['CPF inválido.'] });
+  }
+
+  const { erros, limpas } = NPS_TI.validar(b.respostas);
+  if (Object.keys(erros).length) {
+    return res.status(400).json({
+      ok: false,
+      campos: erros,
+      errors: Object.entries(erros).map(([id, msg]) => `${NPS_TI.porId[id].texto} ${msg}`),
+    });
+  }
+
+  try {
+    const colab = await findColaboradorBaseByCpf(cpfDigits);
+    if (!colab || colab.inativo) {
+      return res.status(403).json({ ok: false, errors: ['CPF não habilitado para responder a pesquisa.'] });
+    }
+
+    const saved = await insertNpsTiResposta({
+      cpf: cpfDigits,
+      ...npsTiColaborador(colab),
+      nps: limpas.nps,
+      tem_computador: NPS_TI.temComputador(limpas),
+      tem_celular: NPS_TI.temCelular(limpas),
+      respostas: limpas,
+      versao: NPS_TI.versao,
+    });
+    if (!saved) {
+      return res.status(409).json({ ok: false, already_answered: true, errors: ['Você já respondeu a Pesquisa de NPS do TI.'] });
+    }
+    return res.status(201).json({ ok: true, id: saved.id, created_at: saved.created_at });
+  } catch (err) {
+    console.error('[pesquisa-nps-ti/submit] erro:', err);
+    return res.status(500).json({ ok: false, errors: ['Erro interno ao salvar a resposta. Tente novamente em instantes.'] });
   }
 });
 
@@ -1526,6 +1646,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       getIdeiasMelhoriasStats().catch(() => ({ total: 0, nova: 0, em_analise: 0, aprovada: 0, implementada: 0, arquivada: 0 })),
       getAtualizacaoCadastralStats().catch(() => ({ ...EMPTY_CADASTRO_STATS })),
     ]);
+    const pesquisa_nps_ti = { total: await countNpsTiRespostas().catch(() => 0) };
     res.json({
       ok: true,
       firewall,
@@ -1538,6 +1659,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       cultura,
       ideias,
       atualizacao_cadastral,
+      pesquisa_nps_ti,
       filterOptions,
       unidades_validas: UNIDADES_VALIDAS,
       setores_validos: SETORES_VALIDOS,
@@ -2247,6 +2369,136 @@ app.get('/api/dashboard/export/atualizacao-cadastral.csv', requireRole(['admin']
     ], rows);
   } catch (err) {
     console.error('[export/atualizacao-cadastral] erro:', err);
+    res.status(500).send('Erro ao exportar.');
+  }
+});
+
+/* ── Pesquisa de NPS do TI Dashboard APIs ── */
+
+// Indicadores a partir das respostas (ja filtradas): NPS geral e por
+// unidade/cargo, media das notas por area e distribuicao de cada pergunta
+// fechada. Percentuais de cada pergunta sao sobre quem a respondeu.
+function resumoNpsTi(rows) {
+  const geral = NPS_TI.calcularNps(rows.map((r) => r.nps));
+
+  const porGrupo = (key) => {
+    const grupos = new Map();
+    for (const r of rows) {
+      const g = r[key] || 'Não informado';
+      if (!grupos.has(g)) grupos.set(g, []);
+      grupos.get(g).push(r.nps);
+    }
+    return [...grupos.entries()]
+      .map(([nome, notas]) => ({ nome, ...NPS_TI.calcularNps(notas) }))
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+  };
+
+  const matriz = NPS_TI.porId.notas_areas;
+  const areas = matriz.itens.map((it) => {
+    const notas = [];
+    let nao_uso = 0;
+    for (const r of rows) {
+      const v = r.respostas && r.respostas.notas_areas ? r.respostas.notas_areas[it.id] : undefined;
+      if (v === 'nao_uso') nao_uso++;
+      else if (v != null) notas.push(Number(v));
+    }
+    const media = notas.length ? Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 10) / 10 : null;
+    return { id: it.id, label: it.l, media, respostas: notas.length, nao_uso };
+  });
+
+  const distribuicao = {};
+  for (const p of NPS_TI.perguntas) {
+    if (p.tipo !== 'unica' && p.tipo !== 'multi') continue;
+    const contagem = Object.fromEntries(p.opcoes.map((o) => [o.v, 0]));
+    let base = 0;
+    for (const r of rows) {
+      const v = r.respostas ? r.respostas[p.id] : undefined;
+      if (v == null || (Array.isArray(v) && !v.length)) continue;
+      base++;
+      for (const x of Array.isArray(v) ? v : [v]) if (x in contagem) contagem[x]++;
+    }
+    distribuicao[p.id] = {
+      base,
+      opcoes: p.opcoes.map((o) => ({
+        v: o.v, l: o.l, count: contagem[o.v],
+        pct: base ? Math.round((contagem[o.v] / base) * 1000) / 10 : 0,
+      })),
+    };
+  }
+
+  return {
+    total: rows.length,
+    nps: geral,
+    com_computador: rows.filter((r) => r.tem_computador).length,
+    com_celular: rows.filter((r) => r.tem_celular).length,
+    por_unidade: porGrupo('unidade'),
+    por_cargo: porGrupo('cargo'),
+    areas,
+    distribuicao,
+  };
+}
+
+function npsTiFilters(query) {
+  return { unidade: query.unidade, cargo: query.cargo, setor: query.setor, search: query.search };
+}
+
+app.get('/api/dashboard/pesquisa-nps-ti', requireRole(['admin']), async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 25, 1), 200);
+    const [rows, filtros] = await Promise.all([
+      listNpsTiRespostas(npsTiFilters(req.query)),
+      getNpsTiFilterOptions(),
+    ]);
+    res.json({
+      ok: true,
+      encerrada: PESQUISA_NPS_TI_ENCERRADA,
+      stats: resumoNpsTi(rows),
+      filtros,
+      rows: rows.slice((page - 1) * pageSize, page * pageSize),
+      total: rows.length,
+      page,
+      pageSize,
+    });
+  } catch (err) {
+    console.error('[dashboard/pesquisa-nps-ti] erro:', err);
+    res.status(500).json({ ok: false, error: 'Erro ao carregar a Pesquisa de NPS do TI.' });
+  }
+});
+
+app.get('/api/dashboard/export/pesquisa-nps-ti.csv', requireRole(['admin']), async (req, res) => {
+  try {
+    const rows = await listNpsTiRespostas(npsTiFilters(req.query));
+    const cols = [
+      { label: 'Data', get: (r) => formatDateTimeBr(r.created_at) },
+      { label: 'CPF', get: (r) => formatCpf(r.cpf) },
+      { label: 'Nome', get: (r) => r.nome_completo },
+      { label: 'Unidade', get: (r) => r.unidade },
+      { label: 'Cargo', get: (r) => r.cargo },
+      { label: 'Setor', get: (r) => r.setor },
+      { label: 'NPS (0-10)', get: (r) => r.nps },
+      { label: 'Classificacao NPS', get: (r) => (r.nps >= 9 ? 'Promotor' : r.nps <= 6 ? 'Detrator' : 'Neutro') },
+    ];
+    for (const p of NPS_TI.perguntas) {
+      if (p.id === 'nps') continue;
+      if (p.tipo === 'matriz') {
+        // Uma coluna por area, para dar para filtrar/somar na planilha.
+        for (const it of p.itens) {
+          cols.push({
+            label: `${p.ref} ${it.l}`,
+            get: (r) => {
+              const v = r.respostas.notas_areas ? r.respostas.notas_areas[it.id] : undefined;
+              return v == null ? '' : v === 'nao_uso' ? 'Nao uso' : v;
+            },
+          });
+        }
+      } else {
+        cols.push({ label: `${p.ref} ${p.texto}`, get: (r) => NPS_TI.rotulo(p, r.respostas[p.id]) });
+      }
+    }
+    sendCsv(res, 'pesquisa-nps-ti', cols, rows);
+  } catch (err) {
+    console.error('[export/pesquisa-nps-ti] erro:', err);
     res.status(500).send('Erro ao exportar.');
   }
 });

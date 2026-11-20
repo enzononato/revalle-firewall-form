@@ -14,6 +14,7 @@ const state = {
   ia: { status: '', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   pt: { status: 'permitido', unidade: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   pf: { status: 'permitido', unidade: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
+  nps: { unidade: '', cargo: '', setor: '', search: '', page: 1, pageSize: 25, total: 0 },
   cultura: { unidade: '', area: '', tempo: '', search: '', page: 1, pageSize: 25, total: 0, subTab: 'respostas' },
   culturaAdesao: { status: 'pendente', unidade: '', setor: '', cargo: '', search: '', page: 1, pageSize: 25, total: 0 },
   ideias: { status: '', area: '', impacto: '', frequencia: '', search: '', page: 1, pageSize: 20, total: 0 },
@@ -90,6 +91,7 @@ const TITLES = {
   'treinamento-ia': ['Treinamento IA & Intranet', 'Colaboradores participantes e controle de assinatura do termo'],
   passivo: ['Passivo Trabalhista', 'Lideranças convocadas e controle de assinatura do termo de ciência'],
   ferias: ['Planejamento de Férias', 'Colaboradores convocados e controle de assinatura do termo de ciência'],
+  'nps-ti': ['NPS do TI', 'Satisfação com o suporte, computadores, internet e celulares corporativos'],
   cultura: ['Pesquisa de Cultura', 'Respostas 100% anônimas sobre o dia a dia e clima na Revalle'],
   ideias: ['Ideias e Melhorias', 'Programa de ideias, melhorias e sugestões de projetos da Revalle'],
   cadastro: ['Atualização Cadastral', 'E-mail profissional, celular corporativo e superior direto informados pelos colaboradores'],
@@ -114,6 +116,7 @@ function switchView(view) {
   if (view === 'solides') loadSolides();
   if (view === 'treinamento-ia') loadTreinamentoIa();
   if (TERMO_TABS[view]) loadTermo(view);
+  if (view === 'nps-ti') loadNpsTi();
   if (view === 'cultura') loadPesquisaCultura();
   if (view === 'ideias') loadIdeias();
   if (view === 'cadastro') loadCadastro();
@@ -262,6 +265,7 @@ function updateNavBadges(data) {
     if (data[cfg.summaryKey]) setTermoNavBadge(cfg, data[cfg.summaryKey].pendentes || 0);
   }
   if (data.atualizacao_cadastral) setCadastroNavBadge(data.atualizacao_cadastral.total || 0);
+  if (data.pesquisa_nps_ti) setNpsNavBadge(data.pesquisa_nps_ti.total || 0);
   if (data.cultura) {
     const c = data.cultura.total || 0;
     if ($('#navCulturaTotal')) {
@@ -1342,6 +1346,169 @@ function bindTermoTab(view) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Pesquisa de NPS do TI Dashboard
+   Rotulos e perguntas vem de PESQUISA_NPS_TI (pesquisa-nps-ti-perguntas.js).
+   ════════════════════════════════════════════════════════════════ */
+const NPS_DEF = window.PESQUISA_NPS_TI;
+const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('pt-BR'));
+const npsTone = (nps) => (nps == null ? '' : nps >= 50 ? 'nps-good' : nps >= 0 ? 'nps-mid' : 'nps-bad');
+const npsKind = (nota) => (nota >= 9 ? 'pro' : nota <= 6 ? 'det' : 'neu');
+
+function setNpsNavBadge(total) {
+  const el = $('#navNpsTotal');
+  if (!el) return;
+  el.textContent = total;
+  el.hidden = total <= 0;
+}
+
+function npsQuery() {
+  const st = state.nps;
+  const query = new URLSearchParams({ page: st.page, pageSize: st.pageSize });
+  for (const key of ['unidade', 'cargo', 'setor', 'search']) if (st[key]) query.set(key, st[key]);
+  return query;
+}
+
+async function loadNpsTi() {
+  const query = npsQuery();
+  $('#npsExport').href = `${API}/export/pesquisa-nps-ti.csv?${query.toString()}`;
+  $('#npsBody').innerHTML = skeletonRows(5, 6);
+  $('#npsEmpty').hidden = true;
+
+  try {
+    const res = await api(`/pesquisa-nps-ti?${query}`).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || 'Erro ao carregar');
+    state.nps.total = res.total;
+    const s = res.stats;
+
+    $('#npsEncerrada').hidden = !res.encerrada;
+    $('#npsKpiNps').textContent = fmtNum(s.nps.nps);
+    $('#npsKpiNps').className = `kpi-value ${npsTone(s.nps.nps)}`;
+    $('#npsKpiTotal').textContent = fmtNum(s.total);
+    $('#npsKpiEquip').textContent = `${s.com_computador} com computador · ${s.com_celular} com celular`;
+    $('#npsKpiPro').textContent = `${fmtNum(s.nps.pct_promotores || 0)}%`;
+    $('#npsKpiNeu').textContent = `${fmtNum(s.nps.pct_neutros || 0)}%`;
+    $('#npsKpiDet').textContent = `${fmtNum(s.nps.pct_detratores || 0)}%`;
+    // O contador do menu e o total geral; so atualiza quando nao ha filtro.
+    if (!state.nps.unidade && !state.nps.cargo && !state.nps.setor && !state.nps.search) setNpsNavBadge(s.total);
+
+    populateSelectOptions($('#npsUnidade'), res.filtros.unidades || [], state.nps.unidade, 'Todas as unidades');
+    populateSelectOptions($('#npsCargo'), res.filtros.cargos || [], state.nps.cargo, 'Todos os cargos');
+    populateSelectOptions($('#npsSetor'), res.filtros.setores || [], state.nps.setor, 'Todos os setores');
+
+    renderNpsGrupos('#npsPorUnidade', s.por_unidade, 'Unidade');
+    renderNpsGrupos('#npsPorCargo', s.por_cargo, 'Cargo');
+    renderNpsAreas(s.areas);
+    renderNpsDistribuicao(s.distribuicao);
+    renderNpsRows(res.rows);
+    renderPager('#npsPager', state.nps, loadNpsTi);
+  } catch (err) {
+    if (err.message === 'unauth') return;
+    toast('error', 'Falha ao carregar a Pesquisa de NPS do TI', err.message);
+    emptyState('#npsEmpty', 'Erro ao carregar', 'Ocorreu um erro ao buscar os dados.');
+  }
+}
+
+function renderNpsGrupos(sel, grupos, titulo) {
+  const box = $(sel);
+  if (!grupos.length) {
+    box.innerHTML = '<p style="color: var(--faint); font-size: 13px;">Sem respostas ainda.</p>';
+    return;
+  }
+  box.innerHTML = `
+    <table class="mini-table">
+      <thead><tr><th>${esc(titulo)}</th><th style="text-align:right">Resp.</th><th style="text-align:right">NPS</th><th>Distribuição</th></tr></thead>
+      <tbody>${grupos.map((g) => `
+        <tr>
+          <td>${esc(g.nome)}</td>
+          <td class="num">${g.total}</td>
+          <td class="num"><b class="${npsTone(g.nps)}">${fmtNum(g.nps)}</b></td>
+          <td title="${g.promotores} promotores · ${g.neutros} neutros · ${g.detratores} detratores">
+            <div class="nps-stack"><i class="pro" style="width:${g.pct_promotores}%"></i><i class="neu" style="width:${g.pct_neutros}%"></i><i class="det" style="width:${g.pct_detratores}%"></i></div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderNpsAreas(areas) {
+  $('#npsAreas').innerHTML = areas.map((a) => `
+    <div class="area-row">
+      <span>${esc(a.label)}</span>
+      <div class="bar"><i style="width:${a.media ? (a.media / 5) * 100 : 0}%"></i></div>
+      <span class="num"><b style="color: var(--ink)">${a.media == null ? '—' : fmtNum(a.media)}</b> · ${a.respostas} notas${a.nao_uso ? ` · ${a.nao_uso} não usam` : ''}</span>
+    </div>`).join('');
+}
+
+function renderNpsDistribuicao(dist) {
+  const blocos = NPS_DEF.etapas.map((etapa) => {
+    const perguntas = NPS_DEF.perguntas.filter((p) => p.etapa === etapa.id && dist[p.id]);
+    if (!perguntas.length) return '';
+    return `<div class="dist-etapa">${esc(etapa.titulo)}</div><div class="dist-grid">${perguntas.map((p) => {
+      const d = dist[p.id];
+      const linhas = d.base
+        ? d.opcoes.map((o) => `
+          <div class="dist-row">
+            <div class="lbl"><span>${esc(o.l)}</span><b>${o.count} · ${fmtNum(o.pct)}%</b></div>
+            <div class="bar"><i style="width:${o.pct}%"></i></div>
+          </div>`).join('')
+        : '<p style="color: var(--faint); font-size: 12.5px;">Sem respostas.</p>';
+      return `<div class="dist-block"><h4>${esc(p.ref)} · ${esc(p.texto)} <span>(${d.base})</span></h4>${linhas}</div>`;
+    }).join('')}</div>`;
+  });
+  $('#npsDistribuicao').innerHTML = blocos.join('') || '<p style="color: var(--faint); font-size: 13px;">Sem respostas ainda.</p>';
+}
+
+function npsDetalheHtml(r) {
+  const itens = NPS_DEF.perguntas
+    .map((p) => [p, NPS_DEF.rotulo(p, r.respostas[p.id])])
+    .filter(([, v]) => v !== '');
+  return `<dl>${itens.map(([p, v]) => `<dt>${esc(p.ref)} · ${esc(p.texto)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+}
+
+function renderNpsRows(rows) {
+  const tbody = $('#npsBody');
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    const filtrado = state.nps.unidade || state.nps.cargo || state.nps.setor || state.nps.search;
+    emptyState('#npsEmpty', 'Nenhuma resposta encontrada', filtrado ? 'Tente ajustar a busca ou filtros.' : 'Divulgue o link /pesquisa-nps-ti.');
+    return;
+  }
+  $('#npsEmpty').hidden = true;
+  tbody.innerHTML = rows.map((r) => {
+    const pEquip = NPS_DEF.porId.equipamentos;
+    const equip = (r.respostas.equipamentos || []).filter((v) => v !== pEquip.exclusiva)
+      .map((v) => (pEquip.opcoes.find((o) => o.v === v) || {}).l || v);
+    return `
+    <tr class="nps-row" data-id="${r.id}" title="Clique para ver todas as respostas">
+      <td><span class="date-tag">${esc(fmtDateTime(r.created_at))}</span></td>
+      <td><strong>${esc(r.nome_completo)}</strong><br><span class="mono" style="font-size:12px;color:var(--faint)">${esc(fmtCpf(r.cpf))}</span></td>
+      <td class="hide-sm"><span class="chip font-medium">${esc(r.unidade || '—')}</span></td>
+      <td class="hide-sm">${esc(r.cargo || '—')}</td>
+      <td style="text-align: center;"><span class="nps-badge ${npsKind(r.nps)}">${r.nps}</span></td>
+      <td class="hide-sm">${equip.length ? equip.map((e) => `<span class="chip">${esc(e)}</span>`).join(' ') : '<span style="color:#94a3b8">Nenhum</span>'}</td>
+    </tr>
+    <tr class="nps-detail" data-for="${r.id}" hidden><td colspan="6">${npsDetalheHtml(r)}</td></tr>`;
+  }).join('');
+
+  $$('.nps-row', tbody).forEach((tr) => {
+    tr.onclick = () => {
+      const det = tbody.querySelector(`tr.nps-detail[data-for="${tr.dataset.id}"]`);
+      det.hidden = !det.hidden;
+    };
+  });
+}
+
+function bindNpsTi() {
+  if (!$('#view-nps-ti')) return;
+  const st = state.nps;
+  const reload = () => { st.page = 1; loadNpsTi(); };
+  $('#npsUnidade').onchange = (e) => { st.unidade = e.target.value; reload(); };
+  $('#npsCargo').onchange = (e) => { st.cargo = e.target.value; reload(); };
+  $('#npsSetor').onchange = (e) => { st.setor = e.target.value; reload(); };
+  $('#npsSearch').oninput = debounce((e) => { st.search = e.target.value.trim(); reload(); });
+}
+
+/* ════════════════════════════════════════════════════════════════
    Atualização Cadastral Dashboard
    ════════════════════════════════════════════════════════════════ */
 function setCadastroNavBadge(total) {
@@ -2200,6 +2367,7 @@ function bind() {
     if (state.view === 'solides') await loadSolides();
     if (state.view === 'treinamento-ia') await loadTreinamentoIa();
     if (TERMO_TABS[state.view]) await loadTermo(state.view);
+    if (state.view === 'nps-ti') await loadNpsTi();
     if (state.view === 'cadastro') await loadCadastro();
     if (state.view === 'cultura') await loadPesquisaCultura();
     if (state.view === 'usuarios') await loadUsuarios();
@@ -2330,6 +2498,7 @@ function bind() {
   }
 
   Object.keys(TERMO_TABS).forEach(bindTermoTab);
+  bindNpsTi();
   bindCadastro();
 
   // sub-tabs e filtros pesquisa cultura

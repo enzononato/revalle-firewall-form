@@ -239,6 +239,29 @@ async function initDb() {
 
     console.log('[db] tabelas de treinamento Planejamento de Ferias prontas');
 
+    // ── pesquisa_nps_ti (identificada; 1 resposta por CPF) ─────────────────
+    // Colunas fixas so para filtros/cortes; o restante fica em `respostas`,
+    // no formato de public/pesquisa-nps-ti-perguntas.js.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pesquisa_nps_ti_respostas (
+        id              SERIAL PRIMARY KEY,
+        cpf             VARCHAR(11) UNIQUE NOT NULL,
+        nome_completo   VARCHAR(200) NOT NULL DEFAULT '',
+        cargo           VARCHAR(150) NOT NULL DEFAULT '',
+        setor           VARCHAR(100) NOT NULL DEFAULT '',
+        unidade         VARCHAR(100) NOT NULL DEFAULT '',
+        nps             SMALLINT NOT NULL CHECK (nps BETWEEN 0 AND 10),
+        tem_computador  BOOLEAN NOT NULL DEFAULT FALSE,
+        tem_celular     BOOLEAN NOT NULL DEFAULT FALSE,
+        respostas       JSONB NOT NULL,
+        versao          SMALLINT NOT NULL DEFAULT 1,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_nps_ti_created_at ON pesquisa_nps_ti_respostas (created_at DESC)`);
+
+    console.log('[db] tabela pesquisa_nps_ti_respostas pronta');
+
     // ── pesquisa_cultura_participantes & pesquisa_cultura_respostas ─────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS pesquisa_cultura_participantes (
@@ -1787,6 +1810,72 @@ const planejamentoFerias = createTermoComHabilitados({
 });
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Pesquisa de NPS do TI (identificada, 1 resposta por CPF)
+ * ────────────────────────────────────────────────────────────────────────── */
+
+async function findNpsTiRespostaByCpf(cpf) {
+  const digits = String(cpf || '').replace(/\D+/g, '');
+  if (digits.length !== 11) return null;
+  const { rows } = await pool.query(
+    `SELECT id, created_at FROM pesquisa_nps_ti_respostas WHERE cpf = $1 LIMIT 1`,
+    [digits]
+  );
+  return rows[0] || null;
+}
+
+// Retorna null se o CPF ja respondeu (envio concorrente).
+async function insertNpsTiResposta(d) {
+  const { rows } = await pool.query(
+    `INSERT INTO pesquisa_nps_ti_respostas
+       (cpf, nome_completo, cargo, setor, unidade, nps, tem_computador, tem_celular, respostas, versao)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (cpf) DO NOTHING
+     RETURNING id, created_at`,
+    [d.cpf, d.nome_completo || '', d.cargo || '', d.setor || '', d.unidade || '',
+      d.nps, Boolean(d.tem_computador), Boolean(d.tem_celular), JSON.stringify(d.respostas), d.versao || 1]
+  );
+  return rows[0] || null;
+}
+
+async function listNpsTiRespostas(filters = {}) {
+  const where = [];
+  const params = [];
+  for (const key of ['unidade', 'cargo', 'setor']) {
+    if (filters[key]) {
+      params.push(String(filters[key]));
+      where.push(`${key} = $${params.length}`);
+    }
+  }
+  if (filters.search) {
+    params.push(`%${String(filters.search).trim()}%`);
+    where.push(`(nome_completo ILIKE $${params.length} OR cpf LIKE $${params.length})`);
+  }
+  const { rows } = await pool.query(
+    `SELECT id, cpf, nome_completo, cargo, setor, unidade, nps, tem_computador, tem_celular, respostas, versao, created_at
+       FROM pesquisa_nps_ti_respostas
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY created_at DESC`,
+    params
+  );
+  return rows;
+}
+
+async function getNpsTiFilterOptions() {
+  const { rows } = await pool.query(
+    `SELECT
+       ARRAY(SELECT DISTINCT unidade FROM pesquisa_nps_ti_respostas WHERE unidade <> '' ORDER BY 1) AS unidades,
+       ARRAY(SELECT DISTINCT cargo   FROM pesquisa_nps_ti_respostas WHERE cargo   <> '' ORDER BY 1) AS cargos,
+       ARRAY(SELECT DISTINCT setor   FROM pesquisa_nps_ti_respostas WHERE setor   <> '' ORDER BY 1) AS setores`
+  );
+  return rows[0] || { unidades: [], cargos: [], setores: [] };
+}
+
+async function countNpsTiRespostas() {
+  const { rows } = await pool.query(`SELECT COUNT(*)::int AS total FROM pesquisa_nps_ti_respostas`);
+  return rows[0].total;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Pesquisa de Cultura Revalle (Respostas 100% Anônimas)
  * ────────────────────────────────────────────────────────────────────────── */
 
@@ -2726,6 +2815,8 @@ module.exports = {
   toggleIaPermissao, bulkSetIaPermissoes,
   // termos com lista de habilitados (passivo trabalhista, planejamento de ferias)
   passivoTrabalhista, planejamentoFerias, EMPTY_TERMO_STATS,
+  // pesquisa nps do ti
+  findNpsTiRespostaByCpf, insertNpsTiResposta, listNpsTiRespostas, getNpsTiFilterOptions, countNpsTiRespostas,
   // utilitários de filtros
   getColaboradoresFilterOptions,
   // pesquisa cultura revalle

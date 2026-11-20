@@ -82,6 +82,7 @@ Dockerfile, .dockerignore
 | Treinamento Planejamento de Férias (só colaboradores habilitados) | `/planejamento-ferias` (`/ferias`) | `planejamento_ferias_assinaturas`, `planejamento_ferias_permissoes` (protocolo `#PFE`) |
 
 **Termos de ciência com lista de habilitados** (Passivo, Férias): novo termo = tabelas em `initDb()` + `createTermoComHabilitados` (`db.js`) + `registerTermoComHabilitados` (`server.js`, registra página e APIs) + `public/<slug>.html` usando `public/termo-assinatura.js` (configurado por `data-termo-api`/`data-termo-nome` no `<body>`) + entrada em `TERMO_TABS` (`public/dashboard.js`) e seção `view-<aba>` com ids de prefixo próprio em `views/dashboard.html` + chave no `/api/dashboard/summary`. CPFs são liberados no painel (toggle, seleção ou lista colada) — **nunca commitar CPFs, o repo é público**.
+| Pesquisa de NPS do TI (identificada, 1 resposta por CPF ativo) | `/pesquisa-nps-ti` (`/nps-ti`, `/pesquisa-ti`) | `pesquisa_nps_ti_respostas` (nome/cargo/setor/unidade vêm da base; respostas em JSONB). Perguntas, etapas e regras condicionais ficam **só** em `public/pesquisa-nps-ti-perguntas.js`, usado pela página, pelo servidor (validação) e pelo painel (rótulos/CSV). A pergunta `nps` não deve mudar entre edições |
 | Pesquisa de Cultura (anônima) | `/pesquisa-cultura` | `pesquisa_cultura_participantes` (adesão), `pesquisa_cultura_respostas` (sem vínculo com CPF) |
 | Ideias e Melhorias | `/ideias-melhorias` (`/ideias`, `/melhorias`) | `ideias_melhorias` |
 | Atualização Cadastral (e-mail profissional, celular corporativo opcional, superior direto) | `/atualizacao-cadastral` (`/dados-colaborador`) | `atualizacao_cadastral` (1 registro por CPF; reenviar atualiza. CPF precisa estar ativo em `"colaboradores-revalle"`) |
@@ -116,6 +117,7 @@ Nomes em `.env.example`. `.env` é ignorado pelo git — nunca commitar.
 | `DASHBOARD_SESSION_SECRET` | não | Assina cookie de sessão (default: derivado da senha) | ✅ |
 | `ANTI_BOT_SECRET` | não | Assina tokens anti-bot (default: aleatório a cada boot) | ✅ |
 | `PESQUISA_CULTURA_ENCERRADA` | não | **Default = encerrada** (`!== 'false'`). Use `false` para reabrir a pesquisa | ✅ |
+| `PESQUISA_NPS_TI_ENCERRADA` | não | **Default = aberta**. Use `true` para encerrar a Pesquisa de NPS do TI | ✅ |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | não | SMTP cPanel `mail.revalle.com.br:465`. Sem `SMTP_PASS` só loga | ⚠️ não usar credenciais reais na nuvem; deixe `SMTP_PASS` vazio |
 | `SMTP_TO`, `SMTP_TO_CONTRATOS` | não | Destinatários (firewall / contratos) | ✅ |
 

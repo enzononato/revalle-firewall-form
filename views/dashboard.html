@@ -73,6 +73,11 @@
           <span>Planejamento de Férias</span>
           <em class="nav-badge amber" id="navFeriasPending" hidden>0</em>
         </button>
+        <button class="nav-item" data-view="nps-ti" data-roles="admin">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          <span>NPS do TI</span>
+          <em class="nav-badge blue" id="navNpsTotal" hidden>0</em>
+        </button>
         <button class="nav-item" data-view="cultura" data-roles="admin,mkt_cultura">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Pesquisa de Cultura</span>
@@ -663,6 +668,95 @@
         <div class="pager" id="cadPager"></div>
       </section>
 
+      <!-- ─── VIEW: Pesquisa de NPS do TI ─── -->
+      <section class="view" id="view-nps-ti" hidden>
+        <div class="toolbar">
+          <select id="npsUnidade" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todas as unidades</option>
+          </select>
+          <select id="npsCargo" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os cargos</option>
+          </select>
+          <select id="npsSetor" class="filter-select" style="height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0 12px; font-size: 13px;">
+            <option value="">Todos os setores</option>
+          </select>
+          <div class="toolbar-spacer"></div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="npsSearch" placeholder="Buscar por nome ou CPF…" />
+          </div>
+          <a class="btn-export" id="npsExport" href="/api/dashboard/export/pesquisa-nps-ti.csv">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </a>
+        </div>
+
+        <div class="nps-closed" id="npsEncerrada" hidden>Pesquisa encerrada: a página pública não aceita novas respostas (PESQUISA_NPS_TI_ENCERRADA=true).</div>
+
+        <div class="kpi-grid">
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">NPS do TI</span><div class="kpi-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div></div>
+            <div class="kpi-value" id="npsKpiNps">—</div>
+            <div class="kpi-sub">% promotores − % detratores</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Respostas</span><div class="kpi-icon blue"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div>
+            <div class="kpi-value" id="npsKpiTotal">0</div>
+            <div class="kpi-sub" id="npsKpiEquip">—</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Promotores</span><div class="kpi-icon green"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+            <div class="kpi-value" id="npsKpiPro">0%</div>
+            <div class="kpi-sub">Notas 9 e 10</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Neutros</span><div class="kpi-icon amber"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+            <div class="kpi-value" id="npsKpiNeu">0%</div>
+            <div class="kpi-sub">Notas 7 e 8</div>
+          </article>
+          <article class="card kpi-card">
+            <div class="kpi-head"><span class="kpi-label">Detratores</span><div class="kpi-icon violet"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div></div>
+            <div class="kpi-value" id="npsKpiDet">0%</div>
+            <div class="kpi-sub">Notas 0 a 6</div>
+          </article>
+        </div>
+
+        <div class="chart-grid" style="margin-bottom: 16px;">
+          <article class="card span-6">
+            <div class="card-head"><div><h3>NPS por unidade</h3><p>Promotores, neutros e detratores</p></div></div>
+            <div id="npsPorUnidade"></div>
+          </article>
+          <article class="card span-6">
+            <div class="card-head"><div><h3>NPS por cargo</h3><p>Promotores, neutros e detratores</p></div></div>
+            <div id="npsPorCargo" class="nps-scroll"></div>
+          </article>
+          <article class="card span-12">
+            <div class="card-head"><div><h3>Notas por área</h3><p>Média de 1 a 5 (pergunta 3); "não uso" fica fora da média</p></div></div>
+            <div id="npsAreas"></div>
+          </article>
+          <article class="card span-12">
+            <div class="card-head"><div><h3>Respostas por pergunta</h3><p>Percentual sobre quem respondeu cada pergunta</p></div></div>
+            <div id="npsDistribuicao"></div>
+          </article>
+        </div>
+
+        <div class="table-wrap card">
+          <table class="data-table" id="npsTable">
+            <thead><tr>
+              <th>Data</th>
+              <th>Colaborador</th>
+              <th class="hide-sm">Unidade</th>
+              <th class="hide-sm">Cargo</th>
+              <th style="text-align: center;">NPS</th>
+              <th class="hide-sm">Equipamentos</th>
+            </tr></thead>
+            <tbody id="npsBody"></tbody>
+          </table>
+          <div class="table-empty" id="npsEmpty" hidden>Nenhuma resposta encontrada</div>
+        </div>
+        <div class="pager" id="npsPager"></div>
+      </section>
+
       <!-- ─── VIEW: Pesquisa de Cultura ─── -->
       <section class="view" id="view-cultura" hidden>
         <!-- Sub-navegação interna: Respostas vs Adesão -->
@@ -1047,6 +1141,7 @@
   <div class="page-loader" id="pageLoader"><div class="loader-ring"></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/pesquisa-nps-ti-perguntas.js"></script>
   <script src="/dashboard.js"></script>
 </body>
 </html>

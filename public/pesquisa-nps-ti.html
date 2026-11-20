@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A3296" />
+  <title>Revalle — Pesquisa de NPS do TI</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <meta name="description" content="Pesquisa de satisfação com o suporte e as ferramentas de TI da Revalle." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .badge-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; margin-bottom: 12px;
+      background: linear-gradient(135deg, rgba(10, 50, 150, 0.08) 0%, rgba(37, 99, 235, 0.12) 100%);
+      color: var(--brand-blue); border: 1px solid rgba(37, 99, 235, 0.2); border-radius: 20px;
+      font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .form-hero { text-align: center; margin-bottom: 28px; }
+    .form-hero h1 { font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; margin-bottom: 8px; line-height: 1.25; }
+    .form-hero .lead { font-size: 15.5px; color: var(--text-muted); max-width: 520px; margin: 0 auto; line-height: 1.5; }
+    .hero-icon {
+      width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 16px;
+      display: grid; place-items: center; color: #fff;
+      background: linear-gradient(135deg, #0a3296 0%, #2563eb 100%);
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);
+    }
+    .spinner {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Cabecalho da pesquisa */
+    .colab-box {
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md);
+      padding: 12px 16px; margin-bottom: 18px;
+    }
+    .colab-box strong { font-size: 15px; color: #0f172a; }
+    .colab-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .colab-chip { padding: 3px 10px; background: #fff; border: 1px solid #cbd5e1; border-radius: 14px; font-size: 12px; font-weight: 600; color: #334155; }
+    .step-head { margin-bottom: 18px; }
+    .step-count { font-size: 12.5px; font-weight: 700; color: var(--brand-blue); text-transform: uppercase; letter-spacing: 0.5px; }
+    .step-head h2 { font-size: 22px; font-weight: 800; color: #0f172a; margin: 4px 0 2px; }
+    .step-head p { font-size: 14px; color: #64748b; margin: 0; }
+    .progress-track { height: 6px; background: #e2e8f0; border-radius: 6px; overflow: hidden; margin-top: 12px; }
+    .progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, #0a3296, #2563eb); transition: width 0.3s ease; }
+
+    /* Perguntas */
+    .q-card { border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 14px; background: #fff; }
+    .q-card.has-error { border-color: #ef4444; }
+    .q-text { font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1.4; margin-bottom: 4px; }
+    .q-text .req { color: #ef4444; margin-left: 2px; }
+    .q-text .opt { color: #94a3b8; font-weight: 500; font-size: 12.5px; margin-left: 4px; }
+    .q-help { font-size: 13px; color: #64748b; margin-bottom: 8px; }
+    .q-error { font-size: 13px; color: #dc2626; font-weight: 600; margin-top: 8px; }
+    .chip-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 8px; }
+    .chip-btn {
+      display: flex; align-items: center; gap: 10px; padding: 11px 14px; text-align: left;
+      background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;
+      font: inherit; font-size: 14px; font-weight: 600; color: #334155; cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chip-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .chip-btn.selected { background: #eff6ff; border-color: var(--brand-blue); color: #1d4ed8; }
+    .chip-btn .mark {
+      width: 16px; height: 16px; border: 2px solid #cbd5e1; border-radius: 50%;
+      flex-shrink: 0; display: grid; place-items: center;
+    }
+    .chip-btn.multi .mark { border-radius: 4px; }
+    .chip-btn.selected .mark { border-color: var(--brand-blue); background: var(--brand-blue); }
+    .chip-btn.selected .mark::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+    .chip-btn.multi.selected .mark::after { width: 8px; height: 4px; border-radius: 0; background: none; border: 2px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+
+    /* Escala 0-10 */
+    .scale { display: grid; grid-template-columns: repeat(11, 1fr); gap: 6px; margin-top: 10px; }
+    .scale button {
+      height: 44px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #f8fafc;
+      font: inherit; font-size: 15px; font-weight: 700; color: #334155; cursor: pointer;
+    }
+    .scale button.det.selected { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+    .scale button.neu.selected { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
+    .scale button.pro.selected { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+    .scale-labels { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 6px; }
+    @media (max-width: 480px) {
+      .scale { grid-template-columns: repeat(6, 1fr); }
+    }
+
+    /* Matriz de notas */
+    .matrix-row { padding: 10px 0; border-top: 1px solid #f1f5f9; }
+    .matrix-row:first-of-type { border-top: 0; }
+    .matrix-label { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+    .matrix-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .matrix-opts button {
+      min-width: 42px; height: 40px; padding: 0 10px; border-radius: 9px;
+      border: 1.5px solid #e2e8f0; background: #f8fafc;
+      font: inherit; font-size: 14px; font-weight: 700; color: #334155; cursor: pointer;
+    }
+    .matrix-opts button.selected { background: #eff6ff; border-color: var(--brand-blue); color: #1d4ed8; }
+    .matrix-opts button.nao-uso { font-size: 12.5px; font-weight: 600; }
+    .matrix-row.missing .matrix-label { color: #dc2626; }
+
+    .q-card textarea {
+      width: 100%; min-height: 90px; margin-top: 8px; padding: 11px 13px; box-sizing: border-box;
+      font: inherit; font-size: 14.5px; line-height: 1.5; color: #0f172a;
+      border: 1.5px solid #cbd5e1; border-radius: 10px; resize: vertical; outline: none;
+    }
+    .q-card textarea:focus { border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(10, 50, 150, 0.1); }
+    .char-info { text-align: right; font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+    .nav-row { display: flex; gap: 10px; margin-top: 22px; }
+    .btn-back {
+      flex: 0 0 auto; padding: 14px 18px; border-radius: var(--radius-md);
+      border: 1.5px solid #e2e8f0; background: #fff; color: #334155;
+      font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .btn-back:hover { background: #f1f5f9; }
+    .nav-row .btn-submit { flex: 1; }
+
+    .done-card { text-align: center; padding: 40px 24px; }
+    .done-icon {
+      width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 20px;
+      display: grid; place-items: center; background: #dcfce7; color: #15803d;
+    }
+    .done-icon.info { background: #eff6ff; color: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="bg-elements" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner" style="justify-content: space-between;">
+      <div class="brand">
+        <img src="/logo.png" alt="Revalle" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="brand-text-fallback" style="display: none;">
+          <span class="brand-name">revalle</span>
+          <span class="brand-tag">GRUPO PEDRO BARROS</span>
+        </div>
+      </div>
+      <div class="badge-tag" style="margin: 0;">Pesquisa de TI</div>
+    </div>
+  </header>
+
+  <main class="container" style="max-width: 760px;">
+    <!-- ════ Identificacao por CPF ════ -->
+    <section class="card glass-panel" id="cpfCard">
+      <div class="form-hero">
+        <div class="hero-icon">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+        </div>
+        <div class="badge-tag">Pesquisa de NPS do TI</div>
+        <h1>Como está o TI para você?</h1>
+        <p class="lead" id="aberturaText">Queremos ouvir você para melhorar as ferramentas e o suporte de TI. Leva uns 3 minutos.</p>
+      </div>
+
+      <form id="formCpf" novalidate>
+        <div style="position: absolute; opacity: 0; pointer-events: none; left: -9999px; height: 0; width: 0; overflow: hidden;" aria-hidden="true" tabindex="-1">
+          <label for="website_url">Não preencher este campo</label>
+          <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <div class="field full">
+          <label for="cpfInput">Seu CPF <span class="req">*</span></label>
+          <div class="input-wrapper">
+            <input type="tel" id="cpfInput" name="cpf" placeholder="000.000.000-00" maxlength="14" required autocomplete="off" />
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+            </span>
+          </div>
+          <span class="error-msg" id="errCpf"></span>
+        </div>
+
+        <div id="cpfError" class="alert-box alert-error" style="margin-top: 18px;" hidden></div>
+
+        <div style="margin-top: 28px;">
+          <button type="submit" class="btn-submit" id="btnCpf">
+            <span id="btnCpfText">Começar</span>
+            <div id="btnCpfSpinner" class="spinner" hidden></div>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ════ Pesquisa, uma etapa por vez ════ -->
+    <section class="card glass-panel" id="surveyCard" hidden>
+      <div class="colab-box">
+        <strong id="colabNome">---</strong>
+        <div class="colab-chips" id="colabChips"></div>
+      </div>
+
+      <div class="step-head">
+        <span class="step-count" id="stepCount">Etapa 1 de 5</span>
+        <h2 id="stepTitle">---</h2>
+        <p id="stepDesc"></p>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+
+      <div id="questions"></div>
+
+      <div id="surveyError" class="alert-box alert-error" style="margin-top: 6px;" hidden></div>
+
+      <div class="nav-row">
+        <button type="button" class="btn-back" id="btnBack">Voltar</button>
+        <button type="button" class="btn-submit" id="btnNext">
+          <span id="btnNextText">Continuar</span>
+          <div id="btnNextSpinner" class="spinner" hidden></div>
+        </button>
+      </div>
+    </section>
+
+    <!-- ════ Fim ════ -->
+    <section class="card glass-panel done-card" id="doneCard" hidden>
+      <div class="done-icon" id="doneIcon">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;" id="doneTitle">Obrigado pela participação!</h2>
+      <p style="color: var(--text-muted); font-size: 15px; max-width: 480px; margin: 0 auto;" id="doneSub">
+        Suas respostas vão ajudar o TI a melhorar as ferramentas e o suporte da Revalle.
+      </p>
+    </section>
+  </main>
+
+  <footer class="footer" style="text-align: center; padding: 24px 0 40px; color: #64748b; font-size: 13px;">
+    <p>&copy; 2026 Revalle &bull; Grupo Pedro Barros. Tecnologia & Inovação.</p>
+  </footer>
+
+  <script src="/pesquisa-nps-ti-perguntas.js"></script>
+  <script src="/pesquisa-nps-ti.js"></script>
+</body>
+</html>
