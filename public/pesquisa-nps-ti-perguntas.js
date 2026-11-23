@@ -197,6 +197,7 @@
         { v: 'ti_revenda', l: 'Ao TI da revenda' },
         { v: 'atm', l: 'Direto à ATM' },
         { v: 'gestor', l: 'Ao meu gestor' },
+        { v: 'compras', l: 'Ao setor de compras' },
         { v: 'nao_sei', l: 'Não sei a quem recorrer' },
       ],
     },
